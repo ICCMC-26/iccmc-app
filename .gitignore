@@ -1,0 +1,7 @@
+# ICCMC app · GitHub Pages deploy — ONLY the app file is tracked.
+# Ignore everything, then explicitly allow just index.html (and this file).
+# So no backend, worker, SQL, key or secret can EVER be committed here by accident —
+# the OCR brain runs on Google Cloud Run and the data lives in Supabase, not here.
+*
+!index.html
+!.gitignore
