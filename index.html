@@ -681,7 +681,7 @@ const I18N={
     lg_st_taahud:'ختم الشركة — التعهد', lg_st_ist_co:'ختم الشركة — الاستمارة',
     lg_st_ist_mo:'ختم الوزارة — الاستمارة', lg_st_manh:'ختم الوزارة — المنح',
     lg_roster:'القائمة — كل سطر: التسلسل · الاسم · رقم الجواز',
-    lg_roster_ph:'1  DING JIA  EL1131151\n2  ZHANG GENRUI  ER1959233\n13  YANG HUANRAN  PE3007106',
+    lg_roster_ph:'1  SAMPLE NAME  AB1234567\n2  ANOTHER NAME  CD2345678\n13  THIRD NAME  EF3456789',
     lg_parsed:n=>`${n} اسم في القائمة`, lg_commit:'حفظ الدفعة', lg_saving:'…جارٍ الحفظ',
     lg_saved:'حُفظت الدفعة ✓ ', lg_need_id:'أدخل رقم المنح.', lg_need_rows:'أضِف صفًا واحدًا على الأقل.',
     lg_savefail:'تعذّر الحفظ: ',
@@ -735,7 +735,7 @@ const I18N={
     lg_st_taahud:'Company stamp — Undertaking', lg_st_ist_co:'Company stamp — Entry form',
     lg_st_ist_mo:'Ministry stamp — Entry form', lg_st_manh:'Ministry stamp — Grant',
     lg_roster:'Roster — one line each: serial · name · passport no.',
-    lg_roster_ph:'1  DING JIA  EL1131151\n2  ZHANG GENRUI  ER1959233\n13  YANG HUANRAN  PE3007106',
+    lg_roster_ph:'1  SAMPLE NAME  AB1234567\n2  ANOTHER NAME  CD2345678\n13  THIRD NAME  EF3456789',
     lg_parsed:n=>`${n} in roster`, lg_commit:'Save batch', lg_saving:'…saving',
     lg_saved:'Batch saved ✓ ', lg_need_id:'Enter the grant number.', lg_need_rows:'Add at least one row.',
     lg_savefail:'Could not save: ',
@@ -1891,14 +1891,14 @@ function legalCard(legal){
 
 /* ══ THE MATCHING BRAIN — assemble papers that arrive one-at-a-time, any order ══════════
    Each paper's identity is a CONTENT-SIGNATURE: {first person, last person, count}. The منح
-   prints exactly this ("starts at (1) DING JIA, ends at (35) LI CHUNTING"), so a document
+   prints exactly this ("starts at (1) SAMPLE NAME, ends at (35) ANOTHER NAME"), so a document
    hands us its own fingerprint. Two papers are the SAME batch only when BOTH endpoints agree
    (first AND last) — passport match (globally unique) counts double, name match counts single;
    count/serial-range are tiebreakers. Serials alone are never trusted (each batch restarts at 1).
    These are PURE functions (no DB / no DOM) → unit-tested below; the legal-review assembler (next)
    consumes them. A paper shape: {type:'manh'|'taahud'|'istimara', roster?:[{serial,name,passport}],
    manh_number?, interval_from?, interval_to?, first_name?, last_name?}. */
-function legalNameKey(s){                                   // order-independent token set: "DING JIA" == "JIA DING"
+function legalNameKey(s){                                   // order-independent token set: "SAMPLE NAME" == "NAME SAMPLE"
   return [...new Set(String(s||'').toUpperCase().split(/[^A-Z一-鿿]+/).filter(x=>x.length>1))].sort().join(' '); }
 function legalNameEq(a,b){ const A=legalNameKey(a),B=legalNameKey(b); return !!A&&A===B; }
 function legalSig(p){
