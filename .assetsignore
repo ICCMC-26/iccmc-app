@@ -1,0 +1,15 @@
+# What Cloudflare must NOT publish.
+#
+# Wrangler uploads everything in the assets directory, and the assets directory
+# here is the repo root. Without this file the 2026-07-26 deploy began uploading
+# /.git/ — which would make the entire commit history publicly downloadable,
+# including commits before 339ab3b that still contain real passport numbers.
+#
+# Only index.html should ever reach the internet from this repo.
+.git
+.git/**
+.gitignore
+.assetsignore
+wrangler.toml
+README*
+*.md

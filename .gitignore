@@ -9,3 +9,6 @@
 # connection details — only a project name, a date, and "serve this folder".
 # Keep this list an allowlist; never replace it with broad patterns.
 !wrangler.toml
+# Tells Cloudflare which files must NOT be published. Critically it excludes
+# .git — without it, Wrangler uploads the whole repo including history.
+!.assetsignore
