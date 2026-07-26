@@ -1302,6 +1302,13 @@ async function printBatch(b){
    live. Keeps the proven OCR brain — only the intake source moved off the local folder. */
 const IK_BUCKET='intake', IK_MAX=200*1024*1024, IK_OK=/^(image\/|application\/pdf)/;
 const IK_CONC=3;                 // upload at most 3 at once — drop UNLIMITED files, they queue behind
+const IK_PIPELINE=5;             // BACKPRESSURE: at most 5 files IN THE WORKER PIPELINE at once
+                                 // (uploaded but not yet landed). Uploads finish in ~1s but the
+                                 // Cloud Run worker needs ~20s each; without this cap a 35-file drop
+                                 // fires 35 webhooks in seconds and overflows Cloud Run → 429. Kept
+                                 // just under the worker's max-instances so it never queues past capacity.
+const IK_STUCK_MS=45000;         // a file 'processing' this long with NO job = its webhook was dropped
+const IK_TRIES=3;                // …(429/missed) → re-fire it, up to this many times (self-heal)
 const IK_RESUMABLE=6*1024*1024;  // ≥6MB → chunked resumable (TUS) upload; smaller → one-shot POST
 let IK=[], _ikSeq=0, _ikPending={}, _ikCh=null, _ikRecTimer=null, _ikPoll=null;
 // THE GATE LIVES HERE NOW. The Cloud-Run worker fills the mold and parks a CLEAN scan at
@@ -1358,7 +1365,17 @@ async function ikReconcile(){
       if(j.stage!==r.status){ j.stage=r.status; changed=true; }
     }
   }
+  // SELF-HEAL: a file that has sat 'processing' with NO job at all is one whose webhook was dropped
+  // (429/missed). After a grace period, re-queue it (a fresh upload re-fires the webhook), a few times.
+  const now=Date.now();
+  for(const h of Object.keys(_ikPending)){
+    const j=_ikPending[h];
+    if(j.state==='processing' && !latest[h] && j.sentAt && (now-j.sentAt)>IK_STUCK_MS && (j.tries||0)<IK_TRIES){
+      j.tries=(j.tries||0)+1; j.sentAt=0; delete _ikPending[h]; j.state='queued'; changed=true;
+    }
+  }
   if(changed)ikRender();
+  ikPump();                    // a landed / re-queued file freed a pipeline slot → feed the next
 }
 /* v2 IS the commit gate now. A clean scan the worker parked at 'staged' is committed here,
    automatically — the same faithful path (ikCommitJob) a reviewed one takes. */
@@ -1368,7 +1385,7 @@ async function ikAutoCommit(hash, r){
     const res=await ikCommitSerial(r, {...(r.fields||{})});
     const j=_ikPending[hash];
     if(res&&res.ok){
-      if(j){ j.state='landed'; delete _ikPending[hash]; ikRender(); }
+      if(j){ j.state='landed'; delete _ikPending[hash]; ikRender(); ikPump(); }   // freed a slot → next
       search($('#q')?$('#q').value:'');            // surface the new employee at once
     } else if(res&&res.defer){
       // a clean scan we still can't anchor (rare orphan/ambiguous) → surface for a human
@@ -1466,7 +1483,7 @@ async function ikUpload(job){
       xhr.onerror=()=>rej(new Error('network'));
       xhr.send(job.file);
     });
-    job.pct=100; job.state='processing';            // uploaded → now being scanned & committed
+    job.pct=100; job.state='processing'; job.sentAt=Date.now();   // uploaded → in the worker pipeline
     if(job.hash){ _ikPending[job.hash]=job; ikWatch(); ikEnsurePoll(); ikReconcile(); }
   }catch(e){ job.state='failed'; job.err=(e&&e.message)||'error'; }
   ikRender(); ikPump();                             // free a slot → start the next queued file
@@ -1498,7 +1515,11 @@ async function ikResumable(job,path,session){
 }
 /* the queue: drop as many files as you like — only IK_CONC upload at once, the rest wait. */
 function ikPump(){
-  if(IK.filter(j=>j.state==='uploading').length>=IK_CONC) return;
+  const uploading=IK.filter(j=>j.state==='uploading').length;
+  // in-flight = still moving THROUGH the worker (uploading or uploaded-awaiting-worker). A file
+  // parked for a human (review/legal) or finished (landed/refused/failed) has LEFT the pipeline.
+  const inflight=IK.filter(j=>j.state==='uploading'||j.state==='processing').length;
+  if(uploading>=IK_CONC || inflight>=IK_PIPELINE) return;   // backpressure → never overflow Cloud Run
   const next=IK.find(j=>j.state==='queued');
   if(next){ ikUpload(next); ikPump(); }
 }
