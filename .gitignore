@@ -5,3 +5,7 @@
 *
 !index.html
 !.gitignore
+# Cloudflare deploy config. Allowed deliberately: it holds no code, keys or
+# connection details — only a project name, a date, and "serve this folder".
+# Keep this list an allowlist; never replace it with broad patterns.
+!wrangler.toml

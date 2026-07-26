@@ -1,0 +1,19 @@
+# Cloudflare Workers config — serves this repo's static files.
+#
+# The app is a single index.html with no build step. Cloudflare's newer
+# "Import a repository" flow runs `npx wrangler deploy`, which needs this file
+# to exist; without it the deploy fails because there is no Worker to deploy.
+# The [assets] block tells Wrangler to serve the repo contents as a static site
+# instead — no server-side code involved.
+#
+# This file is inert for GitHub Pages, which ignores it.
+#
+# NOTE: deploying only publishes the file. It does NOT restrict who can read it.
+# Access control is configured separately in Cloudflare Zero Trust (Access), and
+# until that is in place this URL is public exactly like GitHub Pages is today.
+
+name = "iccmc-app"
+compatibility_date = "2026-07-26"
+
+[assets]
+directory = "."
