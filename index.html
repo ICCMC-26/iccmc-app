@@ -1535,7 +1535,12 @@ function ikAdd(files){
 function ikRemove(id){IK=IK.filter(j=>j.id!==id);ikRender()}
 function ikRetry(id){const j=IK.find(x=>x.id===id);if(j){j.state='queued';j.err='';ikUpload(j)}}
 function ikRender(){
-  $('#ik-list').innerHTML=IK.map(j=>`<div class="ik-row ${j.state}" data-id="${j.id}">
+  // A card that asks something of a human (review / legal) is pinned to the TOP so it
+  // is never buried among committed rows — stable sort keeps every other card in its
+  // natural upload order. Display-only: counts and the pipeline below are unchanged.
+  const rank=j=>(j.state==='review'||j.state==='legal')?0:1;
+  const view=IK.map((j,i)=>[j,i]).sort((a,b)=>rank(a[0])-rank(b[0])||a[1]-b[1]).map(p=>p[0]);
+  $('#ik-list').innerHTML=view.map(j=>`<div class="ik-row ${j.state}" data-id="${j.id}">
     <div class="ik-th">${ikThumb(j)}</div>
     <div class="ik-meta"><div class="ik-nm">${esc(j.file.name)}</div>
       <div class="ik-sz">${(j.file.size/1048576).toFixed(1)} MB</div>
