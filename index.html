@@ -243,6 +243,12 @@
   .lb-mem.gaprow{background:rgba(197,149,107,.07)}
   .lb-nm.soft{opacity:.6;font-style:italic}
   .law-flag{color:var(--copper);font-size:.9em;margin-inline-start:6px;cursor:help}
+  .lr-gap label{color:var(--copper)} .lr-gap input{border-color:var(--copper)}
+  .lr-allbtn{margin-top:10px;background:transparent;border:1px solid var(--line);color:var(--copper);border-radius:9px;padding:8px 12px;cursor:pointer;font:inherit;font-size:12.5px}
+  .lr-allbtn:hover{border-color:var(--copper)}
+  .lr-allroster{margin-top:8px;max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px}
+  .lr-arow{display:grid;grid-template-columns:34px 1fr auto;gap:8px;padding:6px 9px;border-top:1px solid var(--line);font-size:12px}
+  .lr-arow:first-child{border-top:none} .lr-arow .n.miss{color:var(--copper)} .lr-arow .p{opacity:.65;font-variant-numeric:tabular-nums}
   .lb-nm.gap{display:flex;gap:6px;align-items:center}
   .lb-fill{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--copper);color:inherit;border-radius:7px;padding:6px 9px;font:inherit;font-size:13px}
   .lb-fillbtn{flex:none;background:var(--copper);color:#1a1206;border:none;border-radius:7px;min-width:34px;min-height:34px;cursor:pointer;font-size:14px;font-weight:700}
@@ -713,6 +719,7 @@ const I18N={
     law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
     law_rot_saved:'حُفظ التدوير — سيظهر في الطباعة',
     lr_verify:'رقم المنح (العدد) — تحقّق منه واكتبه', law_main:'‹ الصفحة الرئيسية', lr_rotate:'تدوير الورقة 90°',
+    lr_endname:'اسم الموظف — لم يقرأه الماسح', lr_endname_need:'أكمِل اسم طرف الدفعة قبل الحفظ',
     pv_legal_note:(name,serial)=>`الموظف ${name} مُدرَج في هذه الاستمارة ضمن التسلسل رقم ${serial}.`},
   en:{dir:'ltr', other:'العربية',
     gtag:'Employee documents registry', signin:'Sign in ›', signing:'… signing in',
@@ -770,6 +777,7 @@ const I18N={
     law_cover:id=>`Legal papers — Grant no. ${id}`, law_emp:'Employee', law_kicker:'Legal file',
     law_rot_saved:'Rotation saved — shows in print',
     lr_verify:'Grant number (العدد) — verify & type it', law_main:'‹ Home', lr_rotate:'Rotate 90°',
+    lr_endname:'Employee name — the scanner missed it', lr_endname_need:'Fill the batch-endpoint name before saving',
     pv_legal_note:(name,serial)=>`${name} is listed in this entry form at serial no. ${serial}.`},
 };
 let LANG=(()=>{try{return localStorage.getItem('iccmc_lang')==='en'?'en':'ar'}catch(_){return'ar'}})();
@@ -2355,11 +2363,25 @@ async function openLegalReview(hash){
 function _lrRead(){ const b=_lrBatch; if(!b)return;
   const n=$('#lr-num'); if(n){ b._num=n.value; if(b.manh)b.manh.manh_number=n.value; }
   b._stamps=b._stamps||{};
-  document.querySelectorAll('#ikreview [data-st]').forEach(c=>{ b._stamps[c.dataset.st]=c.checked; }); } // merge — keep other papers' ticks
+  document.querySelectorAll('#ikreview [data-st]').forEach(c=>{ b._stamps[c.dataset.st]=c.checked; }); // merge — keep other papers' ticks
+  b._epFill=b._epFill||{};   // endpoint names the OCR missed, typed here this review
+  document.querySelectorAll('#ikreview .lr-epname').forEach(inp=>{ const v=inp.value.trim(); if(v)b._epFill[+inp.dataset.ser]=v; else delete b._epFill[+inp.dataset.ser]; }); }
 function renderLegalReview(){
   const b=_lrBatch; if(!b)return;
   const papers=b.papers, cur=papers[_lrIdx]||papers[0];
   const rows=proposalRows(b), st=b._stamps||{};
+  // endpoint-name GAPS: the OCR missed a first/last name and we fell back to the passport. Ask for THESE
+  // ONLY (required, like the منح number). Names read fine are NOT fielded here — the «عرض جميع الحقول»
+  // toggle reveals the full roster read-only for an optional eyeball (mirrors the passport/visa drawer).
+  b._epFill=b._epFill||{};
+  const _rowsF=rows.map(r=>{ const f=r.serial!=null&&b._epFill[+r.serial]; return f?{...r,name:f}:r; });
+  const _epRaw=legalEndpoints(rows), _epGaps=[];
+  if(!_epRaw.fName && _epRaw.fSerial!=null) _epGaps.push({serial:_epRaw.fSerial, pass:_epRaw.fPass});
+  if(!_epRaw.lName && _epRaw.lSerial!=null && _epRaw.lSerial!==_epRaw.fSerial) _epGaps.push({serial:_epRaw.lSerial, pass:_epRaw.lPass});
+  const _loneManh=b.papers.length===1 && b.papers[0].type==='manh';
+  const gapFields=(_epGaps.length&&!_loneManh)?`<div class="lr-gaps">${_epGaps.map(g=>`<div class="rfield lr-gap"><label>⚑ ${t('lr_endname')} · ${t('lg_serial')} ${g.serial}</label><input class="lr-epname" data-ser="${g.serial}" value="${esc(b._epFill[g.serial]||'')}" placeholder="${esc(g.pass||t('law_addname'))}"></div>`).join('')}</div>`:'';
+  const allBtn=`<button class="lr-allbtn" id="lr-all">${b._showAll?t('rv_less'):t('rv_all')}</button>`;
+  const allList=b._showAll?`<div class="lr-allroster">${_rowsF.map(r=>`<div class="lr-arow"><span class="s">${esc(r.serial??'—')}</span><span class="n${r.name?'':' miss'}">${esc(r.name||('⚑ '+(r.passport||'—')))}</span><span class="p">${esc(r.passport||'—')}</span></div>`).join('')}</div>`:'';
   const num=b._num!=null?b._num:(b.manh?b.manh.manh_number:''), hasManh=b.papers.some(p=>p.type==='manh');
   const tl={taahud:t('lg_taahud'),istimara:t('lg_istimara'),manh:t('lg_manh')};
   // the paper switch = a clear SEGMENTED CONTROL at the top of the confirm panel; it drives BOTH the
@@ -2382,13 +2404,16 @@ function renderLegalReview(){
         ${isManh?`<div class="rfield"><label>${t('lg_id')}</label>
           <input id="lr-num" inputmode="numeric" value="${esc(num)}" placeholder="${esc(t('lg_manh_need'))}"></div>`
           :`<div class="lr-hint">${num?`${esc(t('lg_id'))}: <b>${esc(num)}</b>`:esc(hasManh?t('lg_manh_need'):t('lg_manh_opt'))}</div>`}
+        ${gapFields}
         <div class="rvw-check-h">${t('lg_stamps')} — ${tl[cur.type]||cur.type}</div>
         <div class="lr-stamps">${stampChk}</div>
+        ${allBtn}${allList}
       </div>
     </div>
     <div class="rvw-foot"><button class="rvw-add" id="lr-save">${(hasManh||num)?t('lg_confirm_commit'):t('lg_anchor')}</button></div>`;
   $('#lr-close').onclick=closeIkReview;
   $('#lr-save').onclick=lrCommit;
+  { const ab=$('#lr-all'); if(ab)ab.onclick=()=>{ _lrRead(); _lrBatch._showAll=!_lrBatch._showAll; renderLegalReview(); }; }
   $('#ikreview').querySelectorAll('[data-lr]').forEach(btn=>btn.onclick=()=>{ _lrRead(); _lrIdx=+btn.dataset.lr; renderLegalReview(); });
   lrPaintScan(cur);
 }
@@ -2411,7 +2436,13 @@ async function lrPaintScan(paper){
 }
 async function lrCommit(){
   const b=_lrBatch; if(!b)return; _lrRead();
-  const rows=proposalRows(b), ep=legalEndpoints(rows), hasManh=b.papers.some(p=>p.type==='manh');
+  let rows=proposalRows(b);
+  if(b._epFill) rows=rows.map(r=>{ const f=r.serial!=null&&b._epFill[+r.serial]; return f?{...r,name:f}:r; });   // apply the filled endpoint names
+  const ep=legalEndpoints(rows), hasManh=b.papers.some(p=>p.type==='manh');
+  const _loneManh=b.papers.length===1 && b.papers[0].type==='manh';
+  const _stillGap=(!ep.fName && ep.fSerial!=null) || (!ep.lName && ep.lSerial!=null && ep.lSerial!==ep.fSerial);
+  if(!_loneManh && _stillGap){ toast(t('lr_endname_need'));   // required, like the منح number
+    const inp=[...document.querySelectorAll('#ikreview .lr-epname')].find(x=>!x.value.trim()); if(inp)inp.focus(); return; }
   let id=(b._num||'').trim();
   const s=b._stamps||{};
   const stamps={ taahud:!!s.taahud, istco:!!s.istco, istmo:!!s.istmo, manh:!!s.manh };
