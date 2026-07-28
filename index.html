@@ -2052,14 +2052,20 @@ function stampPre(prop){
    names → OCR spacing/order never splits a batch); a later منح matches by those same endpoints and
    RE-KEYS the batch to its grant number (members+papers cascade via the ON UPDATE CASCADE migration). */
 function legalEndpoints(rows){
-  // endpoints = the NAMED people with the smallest & largest serial. A roster often has trailing rows
-  // the OCR left serial-less — they must never become an endpoint (that produced «~…|?|?»).
-  let r=(rows||[]).filter(x=>x&&x.name&&x.serial!=null).map(x=>({...x,serial:+x.serial}))
-                  .filter(x=>isFinite(x.serial)).sort((a,b)=>a.serial-b.serial);
-  if(!r.length) r=(rows||[]).filter(x=>x&&(x.name||x.passport));
-  const f=r[0]||{}, l=r[r.length-1]||{};
-  return {fSerial:f.serial??null,fName:f.name||'',fPass:f.passport||null,
-          lSerial:l.serial??null,lName:l.name||'',lPass:l.passport||null}; }
+  // A legal batch numbers its people 1..N. FIRST endpoint = the person at the smallest serial; LAST =
+  // the person at the largest. But the OCR often drops the TRAILING serials, so when the roster has
+  // MORE named people than the biggest serial it read, the true end is the COUNT (and the last NAMED
+  // row is that person) — keeping «1 → 34» instead of «1 → 31». Serial-less middle rows are ignored
+  // for the endpoints but still counted.
+  const named=(rows||[]).filter(x=>x&&x.name);
+  if(!named.length) return {fSerial:null,fName:'',fPass:null,lSerial:null,lName:'',lPass:null};
+  const S=x=>(x.serial!=null&&isFinite(+x.serial))?+x.serial:null;
+  const serials=named.map(S).filter(v=>v!=null);
+  const minS=serials.length?Math.min(...serials):1, maxS=serials.length?Math.max(...serials):named.length, count=named.length;
+  const first=named.find(x=>S(x)===minS)||named[0];
+  const last =(count>maxS)?named[named.length-1]:(named.find(x=>S(x)===maxS)||named[named.length-1]);
+  return {fSerial:minS, fName:first.name||'', fPass:first.passport||null,
+          lSerial:Math.max(maxS,count), lName:last.name||'', lPass:last.passport||null}; }
 function provKey(ep){ return '~'+[legalNameKey(ep.fName)||'?',ep.fSerial??'?',legalNameKey(ep.lName)||'?',ep.lSerial??'?'].join('|'); }
 function _lgTitle(s){ return String(s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
 function _lgLabel(fS,fN,lS,lN){ return `\u2066${fS??'?'} (${_lgTitle(fN)||'؟'}) — ${lS??'?'} (${_lgTitle(lN)||'؟'})\u2069`; }
@@ -2070,9 +2076,18 @@ function batchSig(b){ return {from:b.interval_from,to:b.interval_to,count:b.memb
   hasPass:!!(b.first_passport||b.last_passport)}; }
 async function loadProvisionalBatches(){
   try{ const {data}=await sb.from('legal_batches').select('*').is('manh_scan',null); return data||[]; }catch(_){ return []; } }
-function manhCandidates(manhPaper, provBatches){    // which provisional batches this منح completes (both ends agree)
+function _nameOverlap(a,b){                          // % of endpoint-name tokens shared (typo-tolerant)
+  const A=[...new Set(legalNameKey(a).split(' ').filter(Boolean))], B=new Set(legalNameKey(b).split(' ').filter(Boolean));
+  if(!A.length||!B.size) return 0; let s=0; for(const t of A) if(B.has(t)) s++; return s/Math.max(A.length,B.size); }
+function manhCandidates(manhPaper, provBatches){    // which provisional batches this منح completes
+  // منح carries NO passports → match on the INTERVAL + a PERCENTAGE overlap of the two endpoint NAMES
+  // (mirrors the passport-% used for تعهد/استمارة), so a typo in a name still lands. Same interval +
+  // both endpoints ≥50% token-overlap ⇒ confident; an exact both-endpoint match also qualifies.
   const sig=legalSig(manhPaper);
-  return (provBatches||[]).filter(b=>legalMatch(batchSig(b),sig).ends>=LEGAL_CONFIDENT); }
+  return (provBatches||[]).filter(b=>{ const bs=batchSig(b);
+    const iv = sig.from!=null && bs.from!=null && +sig.from===+bs.from && +sig.to===+bs.to;
+    const fo=_nameOverlap(sig.firstName,bs.firstName), lo=_nameOverlap(sig.lastName,bs.lastName);
+    return (iv && fo>=0.5 && lo>=0.5) || legalMatch(bs,sig).ends>=LEGAL_CONFIDENT; }); }
 let _legalManhs=[], _provBatches=[];
 async function findMergeTarget(rows){        // does this paper belong to an existing committed provisional batch?
   const newPass=new Set((rows||[]).map(r=>r&&r.passport).filter(Boolean));
@@ -2189,6 +2204,13 @@ async function commitProposal(i){
       return; }
     id=provKey(ep);                                                      // else anchor a new provisional batch
   }
+  if(hasManh && prop.papers.length===1 && id){          // a lone منح → complete a matching provisional batch
+    const cands=manhCandidates(prop.papers[0], await loadProvisionalBatches());
+    if(cands.length===1){ const b0=card.querySelector('.lg-commit-prop'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
+      try{ prop.papers[0].manh_number=id; await adoptManh(prop.papers[0], cands[0].batch_id);
+        if(_legalMock)_legalMock=_legalMock.filter(p=>!prop.papers.includes(p)); }
+      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
+      return; } }
   const manh=prop.papers.find(p=>p.type==='manh')||{};
   const scans={ taahud:(prop.papers.find(p=>p.type==='taahud')||{}).scan_path,
     istimara:(prop.papers.find(p=>p.type==='istimara')||{}).scan_path, manh:manh.scan_path };
@@ -2303,6 +2325,14 @@ async function lrCommit(){
       catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
       return; }
     id=provKey(ep); }
+  if(hasManh && b.papers.length===1 && id){             // a lone منح → complete a matching provisional batch
+    const cands=manhCandidates(b.papers[0], await loadProvisionalBatches());
+    if(cands.length===1){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
+      try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id);
+        b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
+        closeIkReview(); ikRender(); search($('#q')?$('#q').value:''); }
+      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
+      return; } }
   const manh=b.papers.find(p=>p.type==='manh')||{};
   const scans={taahud:(b.papers.find(p=>p.type==='taahud')||{}).scan_path,
     istimara:(b.papers.find(p=>p.type==='istimara')||{}).scan_path, manh:manh.scan_path};
