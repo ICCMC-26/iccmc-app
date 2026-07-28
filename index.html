@@ -2194,7 +2194,7 @@ function renderLegalReview(){
   const b=_lrBatch; if(!b)return;
   const papers=b.papers, cur=papers[_lrIdx]||papers[0];
   const rows=proposalRows(b), st=b._stamps||{};
-  const num=b._num!=null?b._num:(b.manh?b.manh.manh_number:'');
+  const num=b._num!=null?b._num:(b.manh?b.manh.manh_number:''), hasManh=b.papers.some(p=>p.type==='manh');
   const tl={taahud:t('lg_taahud'),istimara:t('lg_istimara'),manh:t('lg_manh')};
   // the paper switch = a clear SEGMENTED CONTROL at the top of the confirm panel; it drives BOTH the
   // scan shown AND which stamps you confirm.
@@ -2215,12 +2215,12 @@ function renderLegalReview(){
         <div class="lr-seg-wrap">${seg}</div>
         ${isManh?`<div class="rfield"><label>${t('lg_id')}</label>
           <input id="lr-num" inputmode="numeric" value="${esc(num)}" placeholder="${esc(t('lg_manh_need'))}"></div>`
-          :`<div class="lr-hint">${num?`${esc(t('lg_id'))}: <b>${esc(num)}</b>`:esc(t('lg_manh_need'))}</div>`}
+          :`<div class="lr-hint">${num?`${esc(t('lg_id'))}: <b>${esc(num)}</b>`:esc(hasManh?t('lg_manh_need'):t('lg_manh_opt'))}</div>`}
         <div class="rvw-check-h">${t('lg_stamps')} — ${tl[cur.type]||cur.type}</div>
         <div class="lr-stamps">${stampChk}</div>
       </div>
     </div>
-    <div class="rvw-foot"><button class="rvw-add" id="lr-save">${t('lg_confirm_commit')}</button></div>`;
+    <div class="rvw-foot"><button class="rvw-add" id="lr-save">${(hasManh||num)?t('lg_confirm_commit'):t('lg_anchor')}</button></div>`;
   $('#lr-close').onclick=closeIkReview;
   $('#lr-save').onclick=lrCommit;
   $('#ikreview').querySelectorAll('[data-lr]').forEach(btn=>btn.onclick=()=>{ _lrRead(); _lrIdx=+btn.dataset.lr; renderLegalReview(); });
@@ -2245,10 +2245,12 @@ async function lrPaintScan(paper){
 }
 async function lrCommit(){
   const b=_lrBatch; if(!b)return; _lrRead();
-  const id=(b._num||'').trim();
-  if(!id){ toast(t('lg_need_id'));                     // the number lives on the منح → jump there to type it
-    const mi=b.papers.findIndex(p=>p.type==='manh'); if(mi>=0){_lrIdx=mi; renderLegalReview();} return; }
-  const rows=proposalRows(b), s=b._stamps||{};
+  const rows=proposalRows(b), ep=legalEndpoints(rows), hasManh=b.papers.some(p=>p.type==='manh');
+  let id=(b._num||'').trim();
+  if(!id){ if(hasManh){ toast(t('lg_need_id'));        // a منح is here → jump to it to type the number
+      const mi=b.papers.findIndex(p=>p.type==='manh'); if(mi>=0){_lrIdx=mi; renderLegalReview();} return; }
+    id=provKey(ep); }                                  // no منح yet → anchor provisionally under the endpoint key
+  const s=b._stamps||{};
   // a stamp counts present ONLY if the human verified it and ticked it (default off — nothing auto-trusted)
   const stamps={ taahud:!!s.taahud, istco:!!s.istco, istmo:!!s.istmo, manh:!!s.manh };
   const manh=b.papers.find(p=>p.type==='manh')||{};
@@ -2258,11 +2260,12 @@ async function lrCommit(){
   try{
     const anyRot=(_lrRot.taahud||_lrRot.istimara||_lrRot.manh);
     const res=await commitLegalBatch({batch_id:id, manh_date:manh.manh_date||null,
-      interval_from:manh.interval_from, interval_to:manh.interval_to, rows, scans, stamps,
+      interval_from:manh.interval_from??ep.fSerial, interval_to:manh.interval_to??ep.lSerial, rows, scans, stamps,
+      first_name:ep.fName, last_name:ep.lName, first_passport:ep.fPass, last_passport:ep.lPass, provisional:!hasManh,
       rot: anyRot?{taahud:_lrRot.taahud||0,istimara:_lrRot.istimara||0,manh:_lrRot.manh||0}:null,
       paperIds:b.papers.map(p=>p.paper_id).filter(Boolean)});
     b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-    toast(t('lg_saved')+id+`  ·  ${res.linked}/${res.total}`);
+    toast((hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`);
     closeIkReview(); ikRender(); search($('#q')?$('#q').value:'');
   }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(btn){btn.disabled=false;btn.textContent=t('lg_confirm_commit');} }
 }
