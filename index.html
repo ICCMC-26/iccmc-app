@@ -1889,10 +1889,20 @@ async function commitLegalBatch(d){
   const members=rows.map(r=>({ batch_id:id, serial:r.serial??null, passport_no:r.passport||null,
     name_as_written:r.name||null, person_id:r.passport?(byPp[r.passport]||null):null,
     istimara_expiry:r.expiry||null, profession:r.profession||null, boxes:r.boxes||null }));
-  if(members.length){ const {error:me}=await sb.from('legal_batch_members').upsert(members,{onConflict:'batch_id,serial'}); if(me)throw me; }
+  // Authoritative rewrite: the rows we just assembled ARE the batch. Wipe the old member set first so a
+  // commit can SHRINK to the truth (old null-serial duplicates, dropped serials) — an upsert alone only
+  // ever grows it, because serial=NULL never conflicts on (batch_id,serial). Delete+insert is idempotent.
+  if(members.length){
+    try{ await sb.from('legal_batch_members').delete().eq('batch_id',id); }catch(_){}
+    const {error:me}=await sb.from('legal_batch_members').upsert(members,{onConflict:'batch_id,serial'}); if(me)throw me; }
   // close out the source papers → committed, pointing at this batch (reachable in the pool)
   if(d.paperIds&&d.paperIds.length){
     try{ await sb.from('legal_papers').update({batch_id:id,match_status:'committed'}).in('paper_id',d.paperIds); }catch(_){}
+    // …and advance the OCR-line BOARD: the scan_jobs tracking rows for these papers move to 'done' so a
+    // committed legal paper flows to the مُودَع column, instead of sitting forever in § legal-review.
+    try{ const {data:pp}=await sb.from('legal_papers').select('scan_hash').in('paper_id',d.paperIds);
+      const hs=(pp||[]).map(x=>x&&x.scan_hash).filter(Boolean);
+      if(hs.length) await sb.from('scan_jobs').update({status:'done'}).in('image_hash',hs); }catch(_){}
   }
   return {ok:1, linked:members.filter(m=>m.person_id).length, total:members.length};
 }
@@ -2067,8 +2077,8 @@ function legalEndpoints(rows){
   return {fSerial:minS, fName:first.name||'', fPass:first.passport||null,
           lSerial:Math.max(maxS,count), lName:last.name||'', lPass:last.passport||null}; }
 function provKey(ep){ return '~'+[legalNameKey(ep.fName)||'?',ep.fSerial??'?',legalNameKey(ep.lName)||'?',ep.lSerial??'?'].join('|'); }
-function _lgTitle(s){ return String(s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
-function _lgLabel(fS,fN,lS,lN){ return `\u2066${fS??'?'} (${_lgTitle(fN)||'؟'}) — ${lS??'?'} (${_lgTitle(lN)||'؟'})\u2069`; }
+function _lgName(s){ return String(s||'').trim(); }   // verbatim — exactly as on the passport (UPPERCASE), never re-cased
+function _lgLabel(fS,fN,lS,lN){ return `\u2066${fS??'?'} (${_lgName(fN)||'؟'}) — ${lS??'?'} (${_lgName(lN)||'؟'})\u2069`; }
 function provLabel(ep){ return _lgLabel(ep.fSerial,ep.fName,ep.lSerial,ep.lName); }
 function batchLabel(b){ return _lgLabel(b.interval_from,b.first_name,b.interval_to,b.last_name); }
 function batchSig(b){ return {from:b.interval_from,to:b.interval_to,count:b.member_count,
@@ -2085,7 +2095,9 @@ function manhCandidates(manhPaper, provBatches){    // which provisional batches
   // both endpoints ≥50% token-overlap ⇒ confident; an exact both-endpoint match also qualifies.
   const sig=legalSig(manhPaper);
   return (provBatches||[]).filter(b=>{ const bs=batchSig(b);
-    const iv = sig.from!=null && bs.from!=null && +sig.from===+bs.from && +sig.to===+bs.to;
+    const iv = sig.from!=null && bs.from!=null && Math.abs(+sig.from-+bs.from)<=1 && Math.abs(+sig.to-+bs.to)<=1;
+    const hasNames = !!(sig.firstName||sig.lastName);
+    if(!hasNames) return iv;                        // منح that prints ONLY an interval → interval alone
     const fo=_nameOverlap(sig.firstName,bs.firstName), lo=_nameOverlap(sig.lastName,bs.lastName);
     return (iv && fo>=0.5 && lo>=0.5) || legalMatch(bs,sig).ends>=LEGAL_CONFIDENT; }); }
 let _legalManhs=[], _provBatches=[];
@@ -2104,18 +2116,31 @@ async function findMergeTarget(rows){        // does this paper belong to an exi
 async function commitMerged(papers, rows, tgt, stamps){   // union this paper into tgt; keep its scans; recompute endpoints
   let mem=[]; try{ const {data}=await sb.from('legal_batch_members')
     .select('serial,name_as_written,passport_no,istimara_expiry,profession,boxes').eq('batch_id',tgt.batch_id); mem=data||[]; }catch(_){}
-  // De-dup by serial OR passport: the SAME person is on both papers with the same serial (1..N) AND
-  // passport — but the OCR can read the passport slightly differently (EL1131151 vs EL||3||51), so the
-  // SERIAL links them too. Merging on either key collapses the person to one row → true member count.
-  const idx={}, mergeRow=r=>{
-    const sk=(r.serial!=null&&isFinite(+r.serial))?'s'+(+r.serial):null,
-          pk=r.passport?'p'+String(r.passport).toUpperCase().replace(/[^A-Z0-9]/g,''):null;
-    let e=(sk&&idx[sk])||(pk&&idx[pk]); if(!e)e={};
-    for(const k in r){ if(r[k]!=null&&r[k]!=='') e[k]=r[k]; }   // fill/overwrite with REAL values only
-    if(sk)idx[sk]=e; if(pk)idx[pk]=e; };
-  mem.forEach(m=>mergeRow({serial:m.serial,name:m.name_as_written,passport:m.passport_no,expiry:m.istimara_expiry,profession:m.profession,boxes:m.boxes}));
-  (rows||[]).forEach(mergeRow);
-  const union=[...new Set(Object.values(idx))], ep=legalEndpoints(union);
+  // SERIAL-SPINE de-dup. The استمارة roster numbers its people 1..N and that serial IS the identity within the
+  // batch — exactly ONE member per serial, and two DIFFERENT serials are NEVER merged even when the OCR
+  // read the same passport for both (two roster rows can share one mis-read passport number — they
+  // stay two people, kept apart by serial). A passport-only row (from التعهد, no serial) FOLDS INTO the
+  // serial row that already carries its passport, filling gaps; a passport-only row that matches no serial
+  // survives as an extra (someone on التعهد but not الاستمارة), itself de-duped by passport. So the
+  // count is the true roster and serial 1 is never lost → the interval stays 1..N.
+  const _npp=p=>p?String(p).toUpperCase().replace(/[^A-Z0-9]/g,''):'';
+  const bySerial={}, noSerial=[];
+  const add=r=>{ const sn=(r.serial!=null&&isFinite(+r.serial))?+r.serial:null;
+    if(sn==null){ noSerial.push(r); return; }
+    const e=bySerial[sn]||(bySerial[sn]={}); for(const k in r){ if(r[k]!=null&&r[k]!=='') e[k]=r[k]; } };
+  mem.forEach(m=>add({serial:m.serial,name:m.name_as_written,passport:m.passport_no,expiry:m.istimara_expiry,profession:m.profession,boxes:m.boxes}));
+  (rows||[]).forEach(add);
+  const serialByPass={}; for(const sn in bySerial){ const p=_npp(bySerial[sn].passport); if(p&&!(p in serialByPass)) serialByPass[p]=bySerial[sn]; }
+  const extra={}; let _ex=0;
+  noSerial.forEach(r=>{ const p=_npp(r.passport), hit=p&&serialByPass[p];
+    if(hit){ for(const k in r){ if(r[k]!=null&&r[k]!=='' && (hit[k]==null||hit[k]==='')) hit[k]=r[k]; } }   // fill the gap
+    else { const ek=p||('_'+(_ex++)); const e=extra[ek]||(extra[ek]={}); for(const k in r){ if(r[k]!=null&&r[k]!=='') e[k]=r[k]; } } });
+  // When a serial spine exists (an استمارة is in the batch) it IS the roster — passport-only rows only
+  // FILL gaps; any that matched no serial are OCR-variant duplicates of roster people and are dropped
+  // (keeping them would re-inflate the count). With NO spine yet (التعهد committed first) the passport-only
+  // rows ARE the provisional roster, so they stand.
+  const union = Object.keys(bySerial).length ? Object.values(bySerial) : Object.values(extra);
+  const ep=legalEndpoints(union);
   const scans={ taahud:tgt.taahud_scan, istimara:tgt.istimara_scan, manh:tgt.manh_scan };
   (papers||[]).forEach(p=>{ if(p&&p.scan_path) scans[p.type]=p.scan_path; });   // add THIS paper's scan, keep the others
   const st={ taahud:tgt.taahud_stamp||!!(stamps&&stamps.taahud), istco:tgt.istimara_company_stamp||!!(stamps&&stamps.istco),
@@ -2138,6 +2163,8 @@ async function adoptManh(manhPaper, oldId){         // attach a منح to a prov
   const {error}=await sb.from('legal_batches').update(patch).eq('batch_id',oldId);   // members+papers cascade
   if(error){ toast(t('lg_savefail')+((error&&error.message)||error)); return; }
   try{ await sb.from('legal_papers').update({batch_id:newId,match_status:'committed'}).eq('paper_id',manhPaper.paper_id); }catch(_){}
+  // advance the OCR-line board: the منح's own scan row → 'done' (flows to مُودَع, out of § legal-review)
+  try{ if(manhPaper.scan_hash) await sb.from('scan_jobs').update({status:'done'}).eq('image_hash',manhPaper.scan_hash); }catch(_){}
   toast(t('lg_adopted')+newId);
   await legalReload(); search($('#q')?$('#q').value:'');
 }
