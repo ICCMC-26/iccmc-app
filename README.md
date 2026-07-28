@@ -36,6 +36,30 @@ So: **the app's source of truth for behaviour is `assets/app.js`** (styles in `a
 3. Commit and push. GitHub Pages and Cloudflare redeploy automatically (~1 minute). Hard-refresh
    (Ctrl+Shift+R) to see it.
 
+## Performance — read before adding a list or a heavy render
+
+The app is built to stay smooth as the registry grows (target: **5,000+ employees**). Any new feature that
+renders a list or rebuilds a lot of DOM must follow these rules — they're already in place for the employee
+list; copy the pattern:
+
+1. **Virtualize long lists.** Never build a DOM node per row for an unbounded list. `render()` paints a
+   first window (`_VCHUNK` rows) and streams the rest on scroll (`_vChunk` + an `IntersectionObserver`
+   sentinel). DOM stays ~constant; scroll and memory don't grow with the data.
+2. **Cache derived per-row data.** Expensive per-row work (e.g. `rowStatus` date‑math) is computed ONCE per
+   dataset and reused on filter changes (`_rItems`/`_rRef`, keyed by array reference). Don't recompute on
+   every render.
+3. **Delegate events; don't bind per row.** Row clicks are ONE delegated listener on `#results`
+   (`e.target.closest('.row')`). Per‑row `onclick` breaks virtualization and is slow.
+4. **Paint after the FIRST query; defer the rest.** `search()` renders after the main query and loads
+   secondary data (the legal‑gap chip) in the background, then re‑renders. Never `await` a secondary query
+   before showing results.
+5. **Measure at TARGET scale, not today's.** Bottlenecks only appear at scale. Profile with a synthetic
+   harness in the console — `render(mkRows(5000))` with `performance.now()` around it — no login or real
+   data needed for the render path. DevTools → Performance is the human‑side flame chart.
+
+**Touchstone (5,000 rows, measured):** virtualized render ≈ 20 ms, ≈ 60 DOM nodes (not 5,000). If a new
+render pushes those up, it needs the same treatment. Bump `assets/app.js?v=N` on every change.
+
 ## What is NOT in this repo (on purpose)
 
 The OCR "brain" runs on **Google Cloud Run** (service `iccmc-ocr`) and the data lives in **Supabase** —
