@@ -15,3 +15,11 @@
 # Tells Cloudflare which files must NOT be published. Critically it excludes
 # .git — without it, Wrangler uploads the whole repo including history.
 !.assetsignore
+# The split front-end assets that index.html loads (CSS + vendored supabase + app logic).
+# EXPLICIT entries only — never a broad assets/** — so nothing else can slip into the repo.
+!assets/
+!assets/app.css
+!assets/vendor.js
+!assets/app.js
+# GitHub Pages: serve every file verbatim (skip Jekyll processing).
+!.nojekyll
