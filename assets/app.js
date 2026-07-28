@@ -26,6 +26,7 @@ const I18N={
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
     t_passport:'جواز السفر', t_visa:'التأشيرة', t_print:'طباعة', t_close:'إغلاق',
+    hx_title:'سِجل الوثائق', hx_retired:'سابقة',
     t_est:'تقديري', t_novisa:'لا تأشيرة مسجّلة', t_tap:'اضغط الصورة لعرض المستند كاملاً',
     dz_t:'اسحب ملفات الموظف هنا',
     dz_s:'أو انقر للاختيار · صورة أو PDF · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
@@ -84,6 +85,7 @@ const I18N={
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     out:'Sign out?', soon_v2:'Add employee — coming next.',
     t_passport:'Passport', t_visa:'Visa', t_print:'Print', t_close:'Close',
+    hx_title:'Document history', hx_retired:'past',
     t_est:'estimated', t_novisa:'No visa on record', t_tap:'Tap the photo to view the full document',
     dz_t:"Drop the employee's files here",
     dz_s:'or click to browse · image or PDF · large files OK · many files & employees at once',
@@ -470,15 +472,18 @@ function cell(k,val){ if(val==null||String(val).trim()==='')return '';
 function badge(dateStr,estimated){
   return statusChip(statusFromDays(daysTo(dateStr)))+(estimated?`<span class="est">${t('t_est')}</span>`:''); }
 async function openEmployee(pid){
-  const [pr,vr,lr]=await Promise.all([
+  const [pr,vr,lr,dr]=await Promise.all([
     sb.from('persons').select('*').eq('person_id',pid).maybeSingle(),
     sb.from('visas').select('*').eq('person_id',pid),
-    sb.from('legal_batch_members').select('*, batch:legal_batches(*)').eq('person_id',pid)]);
+    sb.from('legal_batch_members').select('*, batch:legal_batches(*)').eq('person_id',pid),
+    // retired (superseded) documents = the renewal history; current ones already show as cards
+    sb.from('person_documents').select('doc_type,doc_no,issue_date,expiry_date,valid_to')
+      .eq('person_id',pid).not('valid_to','is',null).order('valid_to',{ascending:false})]);
   const p=pr.data; if(!p){toast('—');return}
   const vs=(vr.data||[]).slice().sort((a,b)=>String(a.visa_expiry||'~').localeCompare(String(b.visa_expiry||'~')));
   const legal=lr.data||[];
   CURRENT_P=p; CURRENT_VS=vs; CURRENT_LEGAL=legal;   // subject of the print dossier
-  renderDetail(p,vs,legal); $('#detail').classList.add('on'); document.body.style.overflow='hidden';
+  renderDetail(p,vs,legal,(dr&&dr.data)||[]); $('#detail').classList.add('on'); document.body.style.overflow='hidden';
   const av=$('#detail .d-face');
   // the big avatar loads the 480px crop (sharp at 152px), thumb as a fallback, initials if both
   // fail — never a broken icon. clickable+dataset.url is set only once an image truly loads, so a
@@ -489,7 +494,16 @@ function closeEmployee(){$('#detail').classList.remove('on');document.body.style
 function openLightbox(url){if(!url)return;
   $('#lightbox').innerHTML=`<img src="${url}" alt="" onerror="this.closest('#lightbox').classList.remove('on')">`;
   $('#lightbox').classList.add('on')}
-function renderDetail(p,vs,legal){
+function histCard(hist){
+  // retired passports/visas from renewals — muted, current stays the hero. Nothing shown if none.
+  if(!hist||!hist.length)return '';
+  const rows=hist.map(h=>`<div class="hx-row"><span class="hx-tp">${h.doc_type==='visa'?t('t_visa'):t('t_passport')}</span>
+    <span class="hx-no">${esc(h.doc_no||'—')}</span>
+    <span class="hx-dt">${esc(h.issue_date||'—')}${h.expiry_date?' → '+esc(h.expiry_date):''}</span>
+    <span class="hx-tag">${t('hx_retired')}</span></div>`).join('');
+  return `<div class="doc hx-card"><div class="doc-h"><span class="doc-t">${t('hx_title')}</span><span class="hx-count">${hist.length}</span></div>${rows}</div>`;
+}
+function renderDetail(p,vs,legal,hist){
   const name=p.name_latin||p.name_native||'—';
   // the CORE signal: overall validity = the WORST status across passport + every visa,
   // so a missing/unknown document surfaces (gray "Incomplete") instead of a false "Valid".
@@ -517,7 +531,7 @@ function renderDetail(p,vs,legal){
           <button class="b-exit d-close">✕ ${t('t_close')}</button>
         </div>
       </div>
-      ${passportCard}${visaCards}${legalCard(legal)}
+      ${passportCard}${visaCards}${legalCard(legal)}${histCard(hist)}
     </div></div>`;
 }
 
@@ -1079,6 +1093,19 @@ async function _resolveAnchor(f){
     if(data&&data.length===1)return {person_id:data[0].person_id,how:'passport_no'};
     if(data&&data.length>1)return {ambiguous:1};            // two people, one number → human
   }
+  // COMPOSITE identity anchor: national ID (priority 1) → else name+DOB+place+nationality+sex weighed
+  // together. 'auto' = confident → link (the caller files the old doc into history). 'flag' = uncertain
+  // → the board confirms. ANY error falls through to the exact name+dob check below — never a regression.
+  if(f.name_latin||f.name_native||f.national_id_no){
+    try{
+      const {data:mm}=await sb.rpc('match_person',{p_name:f.name_latin||f.name_native||'',
+        p_dob:f.dob||null, p_place:f.place_of_birth||null, p_national_id:f.national_id_no||null,
+        p_nationality:f.nationality||null, p_sex:f.sex||null});
+      const top=(mm&&mm[0])||null;
+      if(top&&top.verdict==='auto') return {person_id:top.person_id, how:top.id_hit?'national_id':'match'};
+      if(top&&top.verdict==='flag') return {person_id:top.person_id, how:'match', confirm:1};
+    }catch(_){/* fall through to the exact name+dob check below */}
+  }
   if(f.name_latin&&f.dob){ const {data}=await sb.from('persons').select('person_id,name_latin,dob').eq('dob',f.dob).limit(25);
     const hits=(data||[]).filter(p=>_sameName(p.name_latin,f.name_latin));
     if(hits.length===1)return {person_id:hits[0].person_id,how:'name+dob',confirm:1};
@@ -1117,6 +1144,10 @@ async function ikCommitJob(j,f){
     if(j.image_path){ if(type==='national_id')row.id_scan=j.image_path; else row.passport_scan=j.image_path; }
     if(!row.name_latin&&!row.name_native)return {defer:1};
     const {error}=await sb.from('persons').upsert(row,{onConflict:'person_id'}); if(error)throw error;
+    // file this passport into the person's document history (SCD-2): a NEW number supersedes the old.
+    if(type!=='national_id'&&row.passport_no){ try{ await sb.rpc('record_person_document',{p_person_id:pid,
+      p_doc_type:'passport', p_doc_no:row.passport_no, p_issue:row.passport_issue||null,
+      p_expiry:row.passport_expiry||null, p_scan:row.passport_scan||null}); }catch(_){} }
   }
   // ORPHAN LEGAL BACKFILL — if this passport was waiting in any legal batch, connect it now.
   if(f.passport_no){ try{ await sb.rpc('legal_link_person',{p_person_id:pid,p_passport_no:String(f.passport_no).trim()}); }catch(_){} }

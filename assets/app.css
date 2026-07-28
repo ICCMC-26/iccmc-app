@@ -208,6 +208,16 @@
   .doc-h{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
   .doc-t{font-weight:700;font-size:16px;color:var(--teal)}
   .doc .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 26px}
+  /* renewal history — muted so the current document stays the visual hero */
+  .hx-card{opacity:.72}
+  .hx-card .doc-t{color:var(--ink2)}
+  .hx-count{margin-inline-start:auto;background:var(--line);color:var(--ink2);border-radius:9px;padding:1px 9px;font-size:12px;font-weight:700}
+  .hx-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 0;border-bottom:1px dashed var(--line);color:var(--ink2);font-size:13px}
+  .hx-row:last-child{border-bottom:0}
+  .hx-tp{font-weight:600}
+  .hx-no{font-variant-numeric:tabular-nums}
+  .hx-dt{margin-inline-start:auto;font-variant-numeric:tabular-nums}
+  .hx-tag{background:var(--line);border-radius:7px;padding:1px 8px;font-size:11px}
   @media(max-width:520px){.doc .grid{grid-template-columns:1fr}}
   /* label vs value = a clear pro hierarchy: the field name is quiet & tracked,
      the data is big, bold and bright — no mistaking one for the other */
