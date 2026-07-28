@@ -26,7 +26,7 @@ const I18N={
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
     t_passport:'جواز السفر', t_visa:'التأشيرة', t_print:'طباعة', t_close:'إغلاق',
-    hx_title:'سِجل الوثائق', hx_retired:'سابقة',
+    hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند',
     t_est:'تقديري', t_novisa:'لا تأشيرة مسجّلة', t_tap:'اضغط الصورة لعرض المستند كاملاً',
     dz_t:'اسحب ملفات الموظف هنا',
     dz_s:'أو انقر للاختيار · صورة أو PDF · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
@@ -86,7 +86,7 @@ const I18N={
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     out:'Sign out?', soon_v2:'Add employee — coming next.',
     t_passport:'Passport', t_visa:'Visa', t_print:'Print', t_close:'Close',
-    hx_title:'Document history', hx_retired:'past',
+    hx_title:'Document history', hx_retired:'past', hx_open:'Open document',
     t_est:'estimated', t_novisa:'No visa on record', t_tap:'Tap the photo to view the full document',
     dz_t:"Drop the employee's files here",
     dz_s:'or click to browse · image or PDF · large files OK · many files & employees at once',
@@ -479,7 +479,7 @@ async function openEmployee(pid){
     sb.from('visas').select('*').eq('person_id',pid),
     sb.from('legal_batch_members').select('*, batch:legal_batches(*)').eq('person_id',pid),
     // retired (superseded) documents = the renewal history; current ones already show as cards
-    sb.from('person_documents').select('doc_type,doc_no,issue_date,expiry_date,valid_to')
+    sb.from('person_documents').select('doc_type,doc_no,issue_date,expiry_date,valid_to,scan_path')
       .eq('person_id',pid).not('valid_to','is',null).order('valid_to',{ascending:false})]);
   const p=pr.data; if(!p){toast('—');return}
   const vs=(vr.data||[]).slice().sort((a,b)=>String(a.visa_expiry||'~').localeCompare(String(b.visa_expiry||'~')));
@@ -499,9 +499,10 @@ function openLightbox(url){if(!url)return;
 function histCard(hist){
   // retired passports/visas from renewals — muted, current stays the hero. Nothing shown if none.
   if(!hist||!hist.length)return '';
-  const rows=hist.map(h=>`<div class="hx-row"><span class="hx-tp">${h.doc_type==='visa'?t('t_visa'):t('t_passport')}</span>
+  const rows=hist.map(h=>`<div class="hx-row${h.scan_path?' hx-open':''}"${h.scan_path?` data-scan="${esc(h.scan_path)}" role="button" tabindex="0" title="${t('hx_open')}"`:''}>
+    <span class="hx-tp">${h.doc_type==='visa'?t('t_visa'):t('t_passport')}</span>
     <span class="hx-no">${esc(h.doc_no||'—')}</span>
-    <span class="hx-dt">${esc(h.issue_date||'—')}${h.expiry_date?' → '+esc(h.expiry_date):''}</span>
+    <span class="hx-dt" dir="ltr">${esc(h.issue_date||'—')}${h.expiry_date?' → '+esc(h.expiry_date):''}</span>
     <span class="hx-tag">${t('hx_retired')}</span></div>`).join('');
   return `<div class="doc hx-card"><div class="doc-h"><span class="doc-t">${t('hx_title')}</span><span class="hx-count">${hist.length}</span></div>${rows}</div>`;
 }
@@ -535,7 +536,10 @@ function renderDetail(p,vs,legal,hist){
       </div>
       ${passportCard}${visaCards}${legalCard(legal)}${histCard(hist)}
     </div></div>`;
+  // a retired document is tappable → opens its stored scan in a new tab
+  $('#detail').querySelectorAll('.hx-row[data-scan]').forEach(el=>el.onclick=()=>openDocScan(el.getAttribute('data-scan')));
 }
+async function openDocScan(path){ try{ if(!path)return; const u=await docUrl(path); if(u)window.open(u,'_blank','noopener'); }catch(_){} }
 
 /* ── print dossier: cover → contents → details report (w/ photo) → raw passport → raw visa ──
    The raw scans live in the private `documents` bucket and are often PDFs, so a PDF is

@@ -214,6 +214,8 @@
   .hx-count{margin-inline-start:auto;background:var(--line);color:var(--ink2);border-radius:9px;padding:1px 9px;font-size:12px;font-weight:700}
   .hx-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 0;border-bottom:1px dashed var(--line);color:var(--ink2);font-size:13px}
   .hx-row:last-child{border-bottom:0}
+  .hx-open{cursor:pointer;border-radius:8px;margin:0 -8px;padding-inline:8px;transition:background .12s}
+  .hx-open:hover{background:var(--line)}
   .hx-tp{font-weight:600}
   .hx-no{font-variant-numeric:tabular-nums}
   .hx-dt{margin-inline-start:auto;font-variant-numeric:tabular-nums}
