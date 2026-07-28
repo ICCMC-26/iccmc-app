@@ -2061,8 +2061,10 @@ function legalEndpoints(rows){
   return {fSerial:f.serial??null,fName:f.name||'',fPass:f.passport||null,
           lSerial:l.serial??null,lName:l.name||'',lPass:l.passport||null}; }
 function provKey(ep){ return '~'+[legalNameKey(ep.fName)||'?',ep.fSerial??'?',legalNameKey(ep.lName)||'?',ep.lSerial??'?'].join('|'); }
-function provLabel(ep){ return `${ep.fSerial??'?'} (${ep.fName||'؟'}) – ${ep.lSerial??'?'} (${ep.lName||'؟'})`; }
-function batchLabel(b){ return `${b.interval_from??'?'} (${b.first_name||'؟'}) – ${b.interval_to??'?'} (${b.last_name||'؟'})`; }
+function _lgTitle(s){ return String(s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
+function _lgLabel(fS,fN,lS,lN){ return `\u2066${fS??'?'} (${_lgTitle(fN)||'؟'}) — ${lS??'?'} (${_lgTitle(lN)||'؟'})\u2069`; }
+function provLabel(ep){ return _lgLabel(ep.fSerial,ep.fName,ep.lSerial,ep.lName); }
+function batchLabel(b){ return _lgLabel(b.interval_from,b.first_name,b.interval_to,b.last_name); }
 function batchSig(b){ return {from:b.interval_from,to:b.interval_to,count:b.member_count,
   firstName:b.first_name,firstPass:b.first_passport,lastName:b.last_name,lastPass:b.last_passport,
   hasPass:!!(b.first_passport||b.last_passport)}; }
