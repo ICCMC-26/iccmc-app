@@ -194,9 +194,10 @@ async function search(q){
   if(seq!==_seq)return;                            // a newer keystroke won
   if(error){toast(error.message);return}
   LAST=data||[];
-  await refreshLegalFlags(LAST.map(r=>r.person_id));   // per-row legal-gap flags for the filter chip
-  if(seq!==_seq)return;                                // guard again — the flag query is async too
-  render(LAST);
+  render(LAST);                                        // PAINT after one round-trip — don't wait on the 2nd query
+  // the per-row legal-gap counts (a filter-chip only) load in the BACKGROUND, then re-render — they never
+  // block the results from appearing. A newer keystroke (seq bumped) discards a stale background result.
+  refreshLegalFlags(LAST.map(r=>r.person_id)).then(()=>{ if(seq===_seq) render(LAST); });
 }
 
 /* ══ THE LAW SECTION — a dedicated SEARCH/READ surface for legal batches (owner's ask) ══════════
@@ -386,9 +387,14 @@ async function refreshLegalFlags(ids){
     if(!complete) LEGAL_INCOMPLETE.add(m.person_id); });                          // any incomplete batch → gap
 }
 function rowStatus(r){ return worstStatus([r.passport_expiry,r.soonest_visa_expiry]); }
+let _rItems=null, _rRef=null;
 function render(rows){
   const box=$('#results');
-  const items=rows.map(r=>({r, s:rowStatus(r)}));            // status once per row
+  // status is computed ONCE per dataset — a filter-chip click re-renders the SAME rows, so reuse it
+  // instead of re-parsing every row's dates again (a new search replaces LAST → recompute).
+  let items;
+  if(rows===_rRef && _rItems){ items=_rItems; }
+  else { items=rows.map(r=>({r, s:rowStatus(r)})); _rItems=items; _rRef=rows; }
   // chips: hide an empty group (except All) so the bar stays minimal
   const bar=$('#filters');
   if(bar) bar.innerHTML=FILTERS.map(f=>{
