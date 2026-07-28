@@ -1542,6 +1542,21 @@ async function findMergeTarget(rows){        // does this paper belong to an exi
     const ov=s/Math.min(newPass.size,set.size);
     if(ov>=LEGAL_OVERLAP && ov>bestOv){ best=b; bestOv=ov; } }
   return best; }
+async function findWaitingManh(ep, rows){   // a منح committed BEFORE its roster → an (near-)empty batch WITH
+  // a منح scan, matching this roster's interval + endpoints. The roster merges INTO it so the batch becomes
+  // whole. Fixes: منح committed first spawns a lone batch and the later roster never looked back for it.
+  if(!ep || ep.fSerial==null || ep.lSerial==null) return null;
+  let data; try{ ({data}=await sb.from('legal_batches').select('*').not('manh_scan','is',null)); }catch(_){ return null; }
+  const need=(rows||[]).length;
+  for(const b of (data||[])){
+    if((b.member_count||0) >= need) continue;                 // already carries its roster
+    const iv = b.interval_from!=null && Math.abs(+b.interval_from-+ep.fSerial)<=1 && Math.abs(+b.interval_to-+ep.lSerial)<=1;
+    if(!iv) continue;
+    const fo = b.first_name ? _nameOverlap(b.first_name, ep.fName||'') : 1;   // منح w/o endpoint names → interval alone
+    const lo = b.last_name  ? _nameOverlap(b.last_name,  ep.lName||'') : 1;
+    if(fo>=0.5 && lo>=0.5) return b;
+  }
+  return null; }
 async function commitMerged(papers, rows, tgt, stamps){   // union this paper into tgt; keep its scans; recompute endpoints
   let mem=[]; try{ const {data}=await sb.from('legal_batch_members')
     .select('serial,name_as_written,passport_no,istimara_expiry,profession,boxes').eq('batch_id',tgt.batch_id); mem=data||[]; }catch(_){}
@@ -1576,7 +1591,7 @@ async function commitMerged(papers, rows, tgt, stamps){   // union this paper in
              istmo:tgt.istimara_ministry_stamp||!!(stamps&&stamps.istmo), manh:tgt.manh_stamp||!!(stamps&&stamps.manh) };
   return commitLegalBatch({ batch_id:tgt.batch_id, interval_from:ep.fSerial, interval_to:ep.lSerial,
     rows:union, scans, stamps:st, first_name:ep.fName, last_name:ep.lName, first_passport:ep.fPass, last_passport:ep.lPass,
-    provisional:true, paperIds:(papers||[]).map(p=>p.paper_id).filter(Boolean) }); }
+    manh_date:tgt.manh_date||null, provisional:!tgt.manh_scan, paperIds:(papers||[]).map(p=>p.paper_id).filter(Boolean) }); }
 async function adoptManh(manhPaper, oldId){         // attach a منح to a provisional batch + RE-KEY to its number
   if(!manhPaper){ return; }
   const newId=String(manhPaper.manh_number||'').trim();
@@ -1665,7 +1680,8 @@ async function commitProposal(i){
   const st={}; card.querySelectorAll('[data-st]').forEach(c=>st[c.dataset.st]=c.checked);
   if(!id){
     if(hasManh){ toast(t('lg_need_id')); return; }
-    const tgt=await findMergeTarget(rows);                               // shares passports with a committed provisional batch?
+    let tgt=await findMergeTarget(rows);                                 // shares passports with a committed provisional batch?
+    if(!tgt) tgt=await findWaitingManh(ep, rows);                        // OR a منح that committed BEFORE its roster (waiting)
     if(tgt){ const b0=card.querySelector('.lg-commit-prop'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
       try{ const res=await commitMerged(prop.papers, rows, tgt, st);
         toast(t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`);
@@ -1811,7 +1827,8 @@ async function lrCommit(){
   if(!id){
     if(hasManh){ toast(t('lg_need_id'));               // a منح is here → jump to it to type the number
       const mi=b.papers.findIndex(p=>p.type==='manh'); if(mi>=0){_lrIdx=mi; renderLegalReview();} return; }
-    const tgt=await findMergeTarget(rows);             // shares passports with a committed provisional batch?
+    let tgt=await findMergeTarget(rows);               // shares passports with a committed provisional batch?
+    if(!tgt) tgt=await findWaitingManh(ep, rows);       // OR a منح that committed BEFORE its roster (waiting)
     if(tgt){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
       try{ const res=await commitMerged(b.papers, rows, tgt, stamps);
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
