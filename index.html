@@ -885,7 +885,7 @@ function renderLaw(rows){
     // endpoint-name gap → surface the ⚑ on the CARD too (not only inside the batch), so a batch that
     // needs a name is visible in the list at a glance
     const _epSer=new Set([b.interval_from,b.interval_to].filter(v=>v!=null).map(Number));
-    const _epGap=(b.members||[]).some(m=>m&&m.serial!=null&&_epSer.has(+m.serial)&&!(m.name_as_written&&String(m.name_as_written).trim()));
+    const _epGap=(!b.first_name||!b.last_name)||(b.members||[]).some(m=>m&&m.serial!=null&&_epSer.has(+m.serial)&&!(m.name_as_written&&String(m.name_as_written).trim()));
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
       <div class="ava law-ava">⚖</div>
       <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
@@ -932,7 +932,7 @@ function renderLawBatch(b){
       ${nameCell}
       <span class="lb-pp">${esc(m.passport_no||'—')}</span>
       <span class="lb-emp">${m.person_id?esc(m.person_id):t('law_orphan')}</span></div>`; }).join('');
-  const gapNote=_epGaps?`<div class="lb-gapnote">${t('law_gaps',_epGaps)}</div>`:'';
+  const gapNote=(_epGaps||!b.first_name||!b.last_name)?`<div class="lb-gapnote">${t('law_gaps',_epGaps||1)}</div>`:'';
   box.innerHTML=`<div class="lb">
     <div class="lb-bar"><span style="display:flex;gap:8px">
       <button class="lb-back" id="lb-back">${t('law_back')}</button>
@@ -2132,16 +2132,22 @@ function legalEndpoints(rows){
   if(!all.length) return {fSerial:null,fName:'',fPass:null,lSerial:null,lName:'',lPass:null};
   const S=x=>(x.serial!=null&&isFinite(+x.serial))?+x.serial:null;
   const serialed=all.filter(x=>S(x)!=null), named=all.filter(x=>x.name);
-  const count=named.length||all.length;
+  const count=all.length;                              // TRUE roster size — EVERY member counts (a badly-read
+                                                       // tail must not shrink 1→34 to 1→31)
   const minS=serialed.length?Math.min(...serialed.map(S)):null;
   const maxS=serialed.length?Math.max(...serialed.map(S)):null;
+  const lSerial=Math.max(maxS!=null?maxS:count,count); // last position = bigger of (max read serial, member count)
   const first=(minS!=null&&all.find(x=>S(x)===minS))||named[0]||all[0];
-  const last =(maxS!=null&&count<=maxS&&all.find(x=>S(x)===maxS))||named[named.length-1]||all[all.length-1];
+  // LAST endpoint is KNOWN only if a NAMED row sits at the final position (serial===lSerial) OR the roster is
+  // named end-to-end (only trailing SERIALS dropped, names intact → last doc-order row IS the last person).
+  // Otherwise the OCR dropped the tail (serial AND name) → the last person is UNIDENTIFIED: report the true
+  // end NUMBER with no name (→ passport/؟ + flag), not the last KNOWN person mislabelled as the endpoint.
+  const last=all.find(x=>S(x)===lSerial && x.name) || (named.length>=count ? named[named.length-1] : null);
   // Names stored HONESTLY: the real name, or '' when the OCR didn't read it — NEVER the passport in the
   // name's place (the منح matcher has no passports; a passport-as-name would silently fail). DISPLAY falls
   // back to the passport (in _lgLabel); the ANCHOR stays truthful.
   return {fSerial:minS!=null?minS:1, fName:first.name||'', fPass:first.passport||null,
-          lSerial:Math.max(maxS!=null?maxS:count,count), lName:last.name||'', lPass:last.passport||null}; }
+          lSerial, lName:last?(last.name||''):'', lPass:last?(last.passport||null):null}; }
 function provKey(ep){ return '~'+[legalNameKey(ep.fName)||ep.fPass||'?',ep.fSerial??'?',legalNameKey(ep.lName)||ep.lPass||'?',ep.lSerial??'?'].join('|'); }
 function _lgName(s){ return String(s||'').trim(); }   // verbatim — exactly as on the passport (UPPERCASE), never re-cased
 function _lgLabel(fS,fN,fP,lS,lN,lP){ return `\u2066${fS??'?'} (${_lgName(fN)||_lgName(fP)||'؟'}) — ${lS??'?'} (${_lgName(lN)||_lgName(lP)||'؟'})\u2069`; }
