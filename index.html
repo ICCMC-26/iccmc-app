@@ -242,6 +242,7 @@
   .lb-gapnote{margin:6px 0 2px;padding:8px 12px;border-radius:9px;background:rgba(197,149,107,.12);border:1px solid var(--copper);color:var(--copper);font-size:12.5px;font-weight:600}
   .lb-mem.gaprow{background:rgba(197,149,107,.07)}
   .lb-nm.soft{opacity:.6;font-style:italic}
+  .law-flag{color:var(--copper);font-size:.9em;margin-inline-start:6px;cursor:help}
   .lb-nm.gap{display:flex;gap:6px;align-items:center}
   .lb-fill{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--copper);color:inherit;border-radius:7px;padding:6px 9px;font:inherit;font-size:13px}
   .lb-fillbtn{flex:none;background:var(--copper);color:#1a1206;border:none;border-radius:7px;min-width:34px;min-height:34px;cursor:pointer;font-size:14px;font-weight:700}
@@ -873,9 +874,13 @@ function renderLaw(rows){
     <button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></div>`;
   const body = !rows.length ? `<div class="empty">${t('law_none')}</div>`
     : rows.map(b=>{ const s=lawPaperStatus(b);
+    // endpoint-name gap → surface the ⚑ on the CARD too (not only inside the batch), so a batch that
+    // needs a name is visible in the list at a glance
+    const _epSer=new Set([b.interval_from,b.interval_to].filter(v=>v!=null).map(Number));
+    const _epGap=(b.members||[]).some(m=>m&&m.serial!=null&&_epSer.has(+m.serial)&&!(m.name_as_written&&String(m.name_as_written).trim()));
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
       <div class="ava law-ava">⚖</div>
-      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}</div>
+      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
         <div class="sub">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}</div></div>
       <div class="val law-pp"><span class="lp-ok">${t('lg_taahud')} ${s.taahud}</span><span class="lp-ok">${t('lg_istimara')} ${s.istimara}</span><span class="lp-ok">${t('lg_manh')} ${s.manh}</span></div>
       <button class="law-cardprint" data-lawprint="${esc(b.batch_id)}" title="${t('t_print')}"><span style="font-size:15px">⎙</span></button>
