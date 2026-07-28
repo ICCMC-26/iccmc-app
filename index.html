@@ -241,6 +241,7 @@
   .lb-scanview img{width:min(92vw,640px);height:auto;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
   .lb-gapnote{margin:6px 0 2px;padding:8px 12px;border-radius:9px;background:rgba(197,149,107,.12);border:1px solid var(--copper);color:var(--copper);font-size:12.5px;font-weight:600}
   .lb-mem.gaprow{background:rgba(197,149,107,.07)}
+  .lb-nm.soft{opacity:.6;font-style:italic}
   .lb-nm.gap{display:flex;gap:6px;align-items:center}
   .lb-fill{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--copper);color:inherit;border-radius:7px;padding:6px 9px;font:inherit;font-size:13px}
   .lb-fillbtn{flex:none;background:var(--copper);color:#1a1206;border:none;border-radius:7px;min-width:34px;min-height:34px;cursor:pointer;font-size:14px;font-weight:700}
@@ -707,7 +708,7 @@ const I18N={
     law_h:'القانون', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
-    law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ ${n} اسم لم يقرأه الماسح — أكمِلها ليكتمل السجل`,
+    law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ اسم طرف الدفعة غير مقروء — أكمِله ليتطابق «المنح» لاحقًا`,
     law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
     law_rot_saved:'حُفظ التدوير — سيظهر في الطباعة',
     lr_verify:'رقم المنح (العدد) — تحقّق منه واكتبه', law_main:'‹ الصفحة الرئيسية', lr_rotate:'تدوير الورقة 90°',
@@ -764,7 +765,7 @@ const I18N={
     law_h:'Law', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
-    law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ ${n} name${n===1?'':'s'} the scanner didn't read — fill in to complete the record`,
+    law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ A batch-endpoint name wasn't read — fill it so the منح matches later`,
     law_cover:id=>`Legal papers — Grant no. ${id}`, law_emp:'Employee', law_kicker:'Legal file',
     law_rot_saved:'Rotation saved — shows in print',
     lr_verify:'Grant number (العدد) — verify & type it', law_main:'‹ Home', lr_rotate:'Rotate 90°',
@@ -903,17 +904,22 @@ function renderLawBatch(b){
   const brot=b.rot||{};
   const paper=(lab,status,scan,rd)=>`<div class="lb-paper"><span>${lab} <b>${status}</b></span>${scan?`<button class="lb-view" data-lawscan="${esc(scan)}" data-rot="${(+rd||0)}">${t('lg_view')} ›</button>`:''}</div>`;
   const _hasName=m=>!!(m.name_as_written&&String(m.name_as_written).trim());
-  const _gaps=b.members.filter(m=>!_hasName(m)).length;
-  const mem=b.members.map((m,i)=>{ const noName=!_hasName(m);
-    const nameCell=noName
-      ? `<span class="lb-nm gap"><input class="lb-fill" data-idx="${i}" placeholder="${esc(t('law_addname'))}" autocomplete="off"><button class="lb-fillbtn" data-idx="${i}" title="${esc(t('law_name_saved'))}">✓</button></span>`
-      : `<span class="lb-nm">${esc(m.name_as_written)}</span>`;
-    return `<div class="lb-mem${m.person_id?'':' orphan'}${noName?' gaprow':''}"${(m.person_id&&!noName)?` data-emp="${esc(m.person_id)}"`:''}>
-      <span class="lb-ser">${noName?'⚑ ':''}${esc(m.serial??'—')}</span>
+  const _epSer=new Set([b.interval_from,b.interval_to].filter(v=>v!=null).map(Number));   // the two endpoints
+  const _isEp=m=>m.serial!=null&&_epSer.has(+m.serial);
+  // Only an ENDPOINT missing its name is a REAL issue: the منح matches by endpoint name (no passports),
+  // so an unread endpoint would break its later match. A MIDDLE unread name doesn't affect matching —
+  // show the passport quietly, no flag. → far fewer flags, same accuracy.
+  const _epGaps=b.members.filter(m=>!_hasName(m)&&_isEp(m)).length;
+  const mem=b.members.map((m,i)=>{ const noName=!_hasName(m), epGap=noName&&_isEp(m);
+    const nameCell = !noName ? `<span class="lb-nm">${esc(m.name_as_written)}</span>`
+      : epGap ? `<span class="lb-nm gap"><input class="lb-fill" data-idx="${i}" placeholder="${esc(t('law_addname'))}" autocomplete="off"><button class="lb-fillbtn" data-idx="${i}" title="${esc(t('law_name_saved'))}">✓</button></span>`
+              : `<span class="lb-nm soft" title="${esc(t('law_addname'))}">${esc(m.passport_no||'—')}</span>`;
+    return `<div class="lb-mem${m.person_id?'':' orphan'}${epGap?' gaprow':''}"${(m.person_id&&!epGap)?` data-emp="${esc(m.person_id)}"`:''}>
+      <span class="lb-ser">${epGap?'⚑ ':''}${esc(m.serial??'—')}</span>
       ${nameCell}
       <span class="lb-pp">${esc(m.passport_no||'—')}</span>
       <span class="lb-emp">${m.person_id?esc(m.person_id):t('law_orphan')}</span></div>`; }).join('');
-  const gapNote=_gaps?`<div class="lb-gapnote">${t('law_gaps',_gaps)}</div>`:'';
+  const gapNote=_epGaps?`<div class="lb-gapnote">${t('law_gaps',_epGaps)}</div>`:'';
   box.innerHTML=`<div class="lb">
     <div class="lb-bar"><span style="display:flex;gap:8px">
       <button class="lb-back" id="lb-back">${t('law_back')}</button>
@@ -2115,14 +2121,16 @@ function legalEndpoints(rows){
   const maxS=serialed.length?Math.max(...serialed.map(S)):null;
   const first=(minS!=null&&all.find(x=>S(x)===minS))||named[0]||all[0];
   const last =(maxS!=null&&count<=maxS&&all.find(x=>S(x)===maxS))||named[named.length-1]||all[all.length-1];
-  const idn=r=>r.name||r.passport||'';
-  return {fSerial:minS!=null?minS:1, fName:idn(first), fPass:first.passport||null,
-          lSerial:Math.max(maxS!=null?maxS:count,count), lName:idn(last), lPass:last.passport||null}; }
-function provKey(ep){ return '~'+[legalNameKey(ep.fName)||'?',ep.fSerial??'?',legalNameKey(ep.lName)||'?',ep.lSerial??'?'].join('|'); }
+  // Names stored HONESTLY: the real name, or '' when the OCR didn't read it — NEVER the passport in the
+  // name's place (the منح matcher has no passports; a passport-as-name would silently fail). DISPLAY falls
+  // back to the passport (in _lgLabel); the ANCHOR stays truthful.
+  return {fSerial:minS!=null?minS:1, fName:first.name||'', fPass:first.passport||null,
+          lSerial:Math.max(maxS!=null?maxS:count,count), lName:last.name||'', lPass:last.passport||null}; }
+function provKey(ep){ return '~'+[legalNameKey(ep.fName)||ep.fPass||'?',ep.fSerial??'?',legalNameKey(ep.lName)||ep.lPass||'?',ep.lSerial??'?'].join('|'); }
 function _lgName(s){ return String(s||'').trim(); }   // verbatim — exactly as on the passport (UPPERCASE), never re-cased
-function _lgLabel(fS,fN,lS,lN){ return `\u2066${fS??'?'} (${_lgName(fN)||'؟'}) — ${lS??'?'} (${_lgName(lN)||'؟'})\u2069`; }
-function provLabel(ep){ return _lgLabel(ep.fSerial,ep.fName,ep.lSerial,ep.lName); }
-function batchLabel(b){ return _lgLabel(b.interval_from,b.first_name,b.interval_to,b.last_name); }
+function _lgLabel(fS,fN,fP,lS,lN,lP){ return `\u2066${fS??'?'} (${_lgName(fN)||_lgName(fP)||'؟'}) — ${lS??'?'} (${_lgName(lN)||_lgName(lP)||'؟'})\u2069`; }
+function provLabel(ep){ return _lgLabel(ep.fSerial,ep.fName,ep.fPass,ep.lSerial,ep.lName,ep.lPass); }
+function batchLabel(b){ return _lgLabel(b.interval_from,b.first_name,b.first_passport,b.interval_to,b.last_name,b.last_passport); }
 function batchSig(b){ return {from:b.interval_from,to:b.interval_to,count:b.member_count,
   firstName:b.first_name,firstPass:b.first_passport,lastName:b.last_name,lastPass:b.last_passport,
   hasPass:!!(b.first_passport||b.last_passport)}; }
@@ -2140,7 +2148,9 @@ function manhCandidates(manhPaper, provBatches){    // which provisional batches
     const iv = sig.from!=null && bs.from!=null && Math.abs(+sig.from-+bs.from)<=1 && Math.abs(+sig.to-+bs.to)<=1;
     const hasNames = !!(sig.firstName||sig.lastName);
     if(!hasNames) return iv;                        // منح that prints ONLY an interval → interval alone
-    const fo=_nameOverlap(sig.firstName,bs.firstName), lo=_nameOverlap(sig.lastName,bs.lastName);
+    // an endpoint whose name the batch doesn't KNOW yet (OCR missed it, awaiting a human fill) can't
+    // block the match — treat it as neutral so the interval + the KNOWN endpoint still connect the منح.
+    const fo=bs.firstName?_nameOverlap(sig.firstName,bs.firstName):0.5, lo=bs.lastName?_nameOverlap(sig.lastName,bs.lastName):0.5;
     return (iv && fo>=0.5 && lo>=0.5) || legalMatch(bs,sig).ends>=LEGAL_CONFIDENT; }); }
 let _legalManhs=[], _provBatches=[];
 async function findMergeTarget(rows){        // does this paper belong to an existing committed provisional batch?
