@@ -40,6 +40,7 @@ const I18N={
     rv_h:'مراجعة سريعة', rv_scan:'المستند الأصلي', rv_noscan:'لا صورة متاحة', rv_loading:'…جارٍ التحميل',
     rv_check:'تأكّد مما يلي', rv_clean:'راجِع البيانات قبل الإضافة', rv_all:'عرض كل الحقول', rv_less:'إخفاء البقية',
     rv_missing:'مفقود', rv_face:'صورة الوجه', rv_add:'تأكيد وإضافة الموظف', rv_adding:'…جارٍ الإضافة',
+    rv_renewal:'تجديد محتمل لـ', rv_renew_do:'تأكيد التجديد',
     rv_need:'أكمل الحقول المطلوبة: ', rv_added:'أُضيف الموظف ✓ ', rv_addfail:'تعذّر الإضافة: ',
     rv_defer:'لا هوية لهذا المستند — افتح «عرض كل الحقول» وأدخل اسم الموظف أو رقم جوازه، ثم أكّد.',
     dv_order:(a,b)=>`«${a}» بعد «${b}» — راجِع التواريخ.`, dv_future:a=>`«${a}» في المستقبل — تحقّق منه.`,
@@ -99,6 +100,7 @@ const I18N={
     rv_h:'Quick review', rv_scan:'Original document', rv_noscan:'No scan available', rv_loading:'…loading',
     rv_check:'Please check', rv_clean:'Review before adding', rv_all:'Show all fields', rv_less:'Show less',
     rv_missing:'missing', rv_face:'face photo', rv_add:'Confirm & add employee', rv_adding:'…adding',
+    rv_renewal:'Likely a renewal of', rv_renew_do:'Confirm renewal',
     rv_need:'Fill the required fields: ', rv_added:'Employee added ✓ ', rv_addfail:'Could not add: ',
     rv_defer:"No identity on this document — open “Show all fields” and enter the employee's name or passport number, then confirm.",
     dv_order:(a,b)=>`“${a}” is after “${b}” — check the dates.`, dv_future:a=>`“${a}” is in the future — check it.`,
@@ -1117,14 +1119,15 @@ async function _resolveAnchor(f){
    and each create a person → a duplicate. Chaining makes job B's anchor lookup run AFTER job A's
    insert, so B finds A and updates instead. All three commit paths (auto, sweep, review) use this. */
 let _commitChain=Promise.resolve();
-function ikCommitSerial(j,f){
-  const run=_commitChain.then(()=>ikCommitJob(j,f));
+function ikCommitSerial(j,f,forcePid){
+  const run=_commitChain.then(()=>ikCommitJob(j,f,forcePid));
   _commitChain=run.catch(()=>{});          // a failed commit must not break the chain
   return run;
 }
-async function ikCommitJob(j,f){
+async function ikCommitJob(j,f,forcePid){
   const type=j.doc_type||'unknown';
-  const anchor=await _resolveAnchor(f);
+  // forcePid = a human confirmed "this is EMP-xxxx" on the board → link straight to that person.
+  const anchor=forcePid?{person_id:forcePid,how:'confirmed'}:await _resolveAnchor(f);
   if(anchor&&anchor.ambiguous)return {defer:1};             // duplicate passport # → board
   if(anchor&&anchor.confirm)return {defer:1};               // probable name+dob → let the board confirm
   let pid=anchor?anchor.person_id:null, created=false;
@@ -1219,11 +1222,30 @@ function ikBuildReview(){
         <div id="rvw-fields">${rows}</div>${more}
       </div>
     </div>
-    <div class="rvw-foot">${foot}</div>`;
+    <div class="rvw-foot"><div id="rvw-renewal"></div>${foot}</div>`;
   $('#rvw-close').onclick=closeIkReview;
   const mb=$('#rvw-more'); if(mb)mb.onclick=()=>{_rvShowAll=!_rvShowAll;ikBuildReview();};
-  const add=$('#rvw-add'); if(add)add.onclick=ikDoAdd;
+  const add=$('#rvw-add'); if(add)add.onclick=()=>ikDoAdd();
   ikPaintScan(j);
+  ikRenewalHint();          // async: if this scan matches an existing person, offer a one-tap confirm
+}
+// If the doc under review likely belongs to an existing employee (composite anchor), show a gentle
+// "confirm renewal → EMP-xxxx" banner. One tap links it to that person (old doc → history). Best-effort.
+async function ikRenewalHint(){
+  try{
+    const jk=_rvJob, j=jk&&jk.job; if(!j||j.doc_type==='visa')return;   // passports for now
+    const f=j.fields||{}; if(!(f.name_latin||f.name_native||f.national_id_no))return;
+    const {data:mm}=await sb.rpc('match_person',{p_name:f.name_latin||f.name_native||'',
+      p_dob:f.dob||null,p_place:f.place_of_birth||null,p_national_id:f.national_id_no||null,
+      p_nationality:f.nationality||null,p_sex:f.sex||null});
+    const top=(mm&&mm[0])||null;
+    if(!top||(top.verdict!=='auto'&&top.verdict!=='flag'))return;
+    const box=$('#rvw-renewal'); if(!box||!_rvJob||_rvJob.job!==j)return;   // overlay still on same job
+    box.innerHTML=`<div class="rvw-renewal-card"><span class="rr-txt">${t('rv_renewal')}
+      <b>${esc(top.name_latin||top.person_id)}</b> · ${esc(top.person_id)}</span>
+      <button class="rvw-add rr-yes" id="rvw-renew-yes">${t('rv_renew_do')}</button></div>`;
+    const y=$('#rvw-renew-yes'); if(y)y.onclick=()=>ikDoAdd(top.person_id);
+  }catch(_){/* no banner on any hiccup — the normal Add button is unaffected */}
 }
 async function ikPaintScan(j){
   const box=$('#rvw-scan'); if(!box)return;
@@ -1246,7 +1268,8 @@ function openIkReview(id){
 }
 function closeIkReview(){ $('#ikreview').classList.remove('on'); document.body.style.overflow='';
   if(_rvJob)_rvJob._scanUrl=null; _rvJob=null; }
-async function ikDoAdd(){
+async function ikDoAdd(forcePid){
+  const fpid=(typeof forcePid==='string')?forcePid:undefined;   // guard: onclick may pass an event
   const jk=_rvJob, j=jk.job, f={...(j.fields||{})};
   document.querySelectorAll('#rvw-fields input').forEach(inp=>{ f[inp.dataset.k]=inp.value.trim(); });
   // logical date check — refuse an impossible ordering with a clear reason, before any write
@@ -1256,7 +1279,7 @@ async function ikDoAdd(){
   // commits when it can, and DEFERS with a clear reason only when it truly can't anchor.
   const btn=$('#rvw-add'); if(btn){btn.disabled=true;btn.textContent=t('rv_adding');}
   try{
-    const r=await ikCommitSerial(j,f);
+    const r=await ikCommitSerial(j,f,fpid);
     if(r.defer){ toast(t('rv_defer')); const b=$('#rvw-add'); if(b){b.disabled=false;b.textContent=t('rv_add');} return; }
     jk.state='landed'; jk.job=null; if(jk.hash)delete _ikPending[jk.hash];
     toast(t('rv_added')+(r.pid||'')); closeIkReview(); ikRender();

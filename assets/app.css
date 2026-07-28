@@ -340,6 +340,12 @@
   .rvw-add{background:var(--copper);color:#1a1206;border:none;border-radius:11px;padding:11px 22px;
     font-size:14px;font-weight:700;cursor:pointer}
   .rvw-add:disabled{opacity:.6;cursor:default}
+  /* renewal-confirm banner in the review overlay — a gentle "this is EMP-xxxx?" with one-tap link */
+  #rvw-renewal{margin-inline-end:auto}
+  .rvw-renewal-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--card);
+    border:1px solid var(--copper);border-radius:11px;padding:8px 12px}
+  .rvw-renewal-card .rr-txt{font-size:13px;color:var(--ink)}
+  .rvw-renewal-card .rr-yes{padding:8px 15px;font-size:13px}
   .rvw-openboard{background:transparent;border:1px solid var(--line);color:var(--copper);border-radius:11px;
     padding:10px 16px;font-weight:600;cursor:pointer} .rvw-openboard:hover{border-color:var(--copper)}
   @media(max-width:720px){.rvw-body{flex-direction:column}.rvw-scan{max-height:52vh;width:100%;flex:none}
