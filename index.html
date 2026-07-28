@@ -888,7 +888,7 @@ function renderLawBatch(b){
       <button class="lb-back" id="lb-back">${t('law_back')}</button>
       <button class="lb-back" id="lb-home2">${t('law_main')}</button></span>
       <button class="lb-printbtn" id="lb-print"><span style="font-size:14px">⎙</span> ${t('t_print')}</button></div>
-    <div class="lb-h">⚖ ${esc(b.batch_id)}</div>
+    <div class="lb-h">⚖ ${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}</div>
     <div class="lb-meta">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${b.manh_date?` · ${esc(b.manh_date)}`:''}</div>
     <div class="lb-block"><div class="lb-sub">${t('law_papersLbl')}</div>
       ${paper(t('lg_taahud'),s.taahud,b.taahud_scan)}${paper(t('lg_istimara'),s.istimara,b.istimara_scan)}${paper(t('lg_manh'),s.manh,b.manh_scan)}</div>
@@ -2104,10 +2104,18 @@ async function findMergeTarget(rows){        // does this paper belong to an exi
 async function commitMerged(papers, rows, tgt, stamps){   // union this paper into tgt; keep its scans; recompute endpoints
   let mem=[]; try{ const {data}=await sb.from('legal_batch_members')
     .select('serial,name_as_written,passport_no,istimara_expiry,profession,boxes').eq('batch_id',tgt.batch_id); mem=data||[]; }catch(_){}
-  const by={};
-  mem.forEach(m=>{ by['k:'+(m.passport_no||('s'+m.serial))]={serial:m.serial,name:m.name_as_written,passport:m.passport_no,expiry:m.istimara_expiry,profession:m.profession,boxes:m.boxes}; });
-  (rows||[]).forEach(r=>{ const k='k:'+(r.passport||('s'+r.serial)); by[k]={...(by[k]||{}),...r}; });   // the new read wins field-by-field
-  const union=Object.values(by), ep=legalEndpoints(union);
+  // De-dup by serial OR passport: the SAME person is on both papers with the same serial (1..N) AND
+  // passport — but the OCR can read the passport slightly differently (EL1131151 vs EL||3||51), so the
+  // SERIAL links them too. Merging on either key collapses the person to one row → true member count.
+  const idx={}, mergeRow=r=>{
+    const sk=(r.serial!=null&&isFinite(+r.serial))?'s'+(+r.serial):null,
+          pk=r.passport?'p'+String(r.passport).toUpperCase().replace(/[^A-Z0-9]/g,''):null;
+    let e=(sk&&idx[sk])||(pk&&idx[pk]); if(!e)e={};
+    for(const k in r){ if(r[k]!=null&&r[k]!=='') e[k]=r[k]; }   // fill/overwrite with REAL values only
+    if(sk)idx[sk]=e; if(pk)idx[pk]=e; };
+  mem.forEach(m=>mergeRow({serial:m.serial,name:m.name_as_written,passport:m.passport_no,expiry:m.istimara_expiry,profession:m.profession,boxes:m.boxes}));
+  (rows||[]).forEach(mergeRow);
+  const union=[...new Set(Object.values(idx))], ep=legalEndpoints(union);
   const scans={ taahud:tgt.taahud_scan, istimara:tgt.istimara_scan, manh:tgt.manh_scan };
   (papers||[]).forEach(p=>{ if(p&&p.scan_path) scans[p.type]=p.scan_path; });   // add THIS paper's scan, keep the others
   const st={ taahud:tgt.taahud_stamp||!!(stamps&&stamps.taahud), istco:tgt.istimara_company_stamp||!!(stamps&&stamps.istco),
