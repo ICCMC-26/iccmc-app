@@ -387,6 +387,30 @@ async function refreshLegalFlags(ids){
     if(!complete) LEGAL_INCOMPLETE.add(m.person_id); });                          // any incomplete batch → gap
 }
 function rowStatus(r){ return worstStatus([r.passport_expiry,r.soonest_visa_expiry]); }
+const _VCHUNK=60;                                   // rows in the first window; the rest stream in on scroll
+let _vShown=[], _vCursor=0, _vObs=null;
+function _rowHtml({r,s}){ return `<div class="row" data-id="${esc(r.person_id)}">
+      <div class="ava" data-face="${esc(r.photo||'')}">${initials(r.name)}</div>
+      <div class="who">
+        <div class="nm">${esc(r.name)}${r.name_native?`<span class="native">${esc(r.name_native)}</span>`:''}</div>
+        <div class="sub"><span class="id">${esc(r.person_id)}</span> · ${esc(r.passport_no||'—')} · ${esc(r.nationality?tv(r.nationality):'—')}</div>
+      </div>
+      <div class="val">${statusChip(s)}</div>
+    </div>`; }
+function _vChunk(box){
+  const end=Math.min(_vCursor+_VCHUNK, _vShown.length);
+  const sen=box.querySelector('.v-sentinel'); if(sen)sen.remove();
+  const tmp=document.createElement('div'); tmp.innerHTML=_vShown.slice(_vCursor,end).map(_rowHtml).join('');
+  tmp.querySelectorAll('.ava[data-face]').forEach(el=>{ const p=el.getAttribute('data-face'); if(p) loadFace(el, p); });  // only this chunk's faces, once
+  while(tmp.firstChild) box.appendChild(tmp.firstChild);
+  _vCursor=end;
+  if(_vCursor<_vShown.length){
+    box.insertAdjacentHTML('beforeend','<div class="v-sentinel" aria-hidden="true" style="height:1px"></div>');
+    const s2=box.querySelector('.v-sentinel'); if(_vObs)_vObs.disconnect();
+    _vObs=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)) _vChunk(box); }, {rootMargin:'800px'});
+    _vObs.observe(s2);
+  } else if(_vObs){ _vObs.disconnect(); _vObs=null; }
+}
 let _rItems=null, _rRef=null;
 function render(rows){
   const box=$('#results');
@@ -407,18 +431,11 @@ function render(rows){
   $('#count').textContent = rows.length ? t('n_res',shown.length) : '';
   if(!rows.length){box.innerHTML=`<div class="empty">${$('#q')&&$('#q').value?t('none'):t('all')}</div>`;return}
   if(!shown.length){box.innerHTML=`<div class="empty">${t('f_none')}</div>`;return}
-  box.innerHTML = shown.map(({r,s})=>
-    `<div class="row" data-id="${esc(r.person_id)}">
-      <div class="ava" data-face="${esc(r.photo||'')}">${initials(r.name)}</div>
-      <div class="who">
-        <div class="nm">${esc(r.name)}${r.name_native?`<span class="native">${esc(r.name_native)}</span>`:''}</div>
-        <div class="sub"><span class="id">${esc(r.person_id)}</span> · ${esc(r.passport_no||'—')} · ${esc(r.nationality?tv(r.nationality):'—')}</div>
-      </div>
-      <div class="val">${statusChip(s)}</div>
-    </div>`).join('');
-  box.querySelectorAll('.ava[data-face]').forEach(el=>{
-    const p=el.getAttribute('data-face'); if(p) loadFace(el, p);   // keeps initials if the crop is missing
-  });
+  // VIRTUALISED: a first window of rows, then the next chunk streams in as the user scrolls near the bottom.
+  // A small, ~constant number of nodes is built per search instead of thousands. Same visible output.
+  if(_vObs){ _vObs.disconnect(); _vObs=null; }
+  _vShown=shown; _vCursor=0; box.innerHTML='';
+  _vChunk(box);
 }
 
 /* ── employee detail = the digital template (passport + visa + photo) ──────── */
