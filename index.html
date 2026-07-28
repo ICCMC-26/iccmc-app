@@ -715,7 +715,7 @@ const I18N={
     law_h:'القانون', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
-    law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ اسم طرف الدفعة غير مقروء — أكمِله ليتطابق «المنح» لاحقًا`,
+    law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
     law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
     law_rot_saved:'حُفظ التدوير — سيظهر في الطباعة',
     lr_verify:'رقم المنح (العدد) — تحقّق منه واكتبه', law_main:'‹ الصفحة الرئيسية', lr_rotate:'تدوير الورقة 90°',
@@ -773,7 +773,7 @@ const I18N={
     law_h:'Law', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
-    law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ A batch-endpoint name wasn't read — fill it so the منح matches later`,
+    law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
     law_cover:id=>`Legal papers — Grant no. ${id}`, law_emp:'Employee', law_kicker:'Legal file',
     law_rot_saved:'Rotation saved — shows in print',
     lr_verify:'Grant number (العدد) — verify & type it', law_main:'‹ Home', lr_rotate:'Rotate 90°',
@@ -882,10 +882,11 @@ function renderLaw(rows){
     <button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></div>`;
   const body = !rows.length ? `<div class="empty">${t('law_none')}</div>`
     : rows.map(b=>{ const s=lawPaperStatus(b);
-    // endpoint-name gap → surface the ⚑ on the CARD too (not only inside the batch), so a batch that
-    // needs a name is visible in the list at a glance
-    const _epSer=new Set([b.interval_from,b.interval_to].filter(v=>v!=null).map(Number));
-    const _epGap=(!b.first_name||!b.last_name)||(b.members||[]).some(m=>m&&m.serial!=null&&_epSer.has(+m.serial)&&!(m.name_as_written&&String(m.name_as_written).trim()));
+    // Flag ONLY when the batch can't CONNECT to a منح. The منح is narrow — just the two endpoints
+    // (first & last: name + serial). Connectable = has the serial INTERVAL + at least ONE endpoint name
+    // (the منح matches on serials + a % name symmetry, tolerant of one weak end). A single blank/imperfect
+    // endpoint name is therefore NOT flagged; only a genuinely-unmatchable batch is.
+    const _epGap=(b.interval_from==null||b.interval_to==null)||(!b.first_name&&!b.last_name);
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
       <div class="ava law-ava">⚖</div>
       <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
@@ -919,11 +920,12 @@ function renderLawBatch(b){
   const _hasName=m=>!!(m.name_as_written&&String(m.name_as_written).trim());
   const _epSer=new Set([b.interval_from,b.interval_to].filter(v=>v!=null).map(Number));   // the two endpoints
   const _isEp=m=>m.serial!=null&&_epSer.has(+m.serial);
+  const _canConnect=(b.interval_from!=null&&b.interval_to!=null)&&!!(b.first_name||b.last_name);   // منح-matchable: interval + ≥1 endpoint name
   // Only an ENDPOINT missing its name is a REAL issue: the منح matches by endpoint name (no passports),
   // so an unread endpoint would break its later match. A MIDDLE unread name doesn't affect matching —
   // show the passport quietly, no flag. → far fewer flags, same accuracy.
   const _epGaps=b.members.filter(m=>!_hasName(m)&&_isEp(m)).length;
-  const mem=b.members.map((m,i)=>{ const noName=!_hasName(m), epGap=noName&&_isEp(m);
+  const mem=b.members.map((m,i)=>{ const noName=!_hasName(m), epGap=noName&&_isEp(m)&&!_canConnect;
     const nameCell = !noName ? `<span class="lb-nm">${esc(m.name_as_written)}</span>`
       : epGap ? `<span class="lb-nm gap"><input class="lb-fill" data-idx="${i}" placeholder="${esc(t('law_addname'))}" autocomplete="off"><button class="lb-fillbtn" data-idx="${i}" title="${esc(t('law_name_saved'))}">✓</button></span>`
               : `<span class="lb-nm soft" title="${esc(t('law_addname'))}">${esc(m.passport_no||'—')}</span>`;
@@ -932,7 +934,7 @@ function renderLawBatch(b){
       ${nameCell}
       <span class="lb-pp">${esc(m.passport_no||'—')}</span>
       <span class="lb-emp">${m.person_id?esc(m.person_id):t('law_orphan')}</span></div>`; }).join('');
-  const gapNote=(_epGaps||!b.first_name||!b.last_name)?`<div class="lb-gapnote">${t('law_gaps',_epGaps||1)}</div>`:'';
+  const gapNote=(!_canConnect)?`<div class="lb-gapnote">${t('law_gaps',_epGaps||1)}</div>`:'';
   box.innerHTML=`<div class="lb">
     <div class="lb-bar"><span style="display:flex;gap:8px">
       <button class="lb-back" id="lb-back">${t('law_back')}</button>
@@ -2385,7 +2387,8 @@ function renderLegalReview(){
   if(!_epRaw.fName && _epRaw.fSerial!=null) _epGaps.push({serial:_epRaw.fSerial, pass:_epRaw.fPass});
   if(!_epRaw.lName && _epRaw.lSerial!=null && _epRaw.lSerial!==_epRaw.fSerial) _epGaps.push({serial:_epRaw.lSerial, pass:_epRaw.lPass});
   const _loneManh=b.papers.length===1 && b.papers[0].type==='manh';
-  const gapFields=(_epGaps.length&&!_loneManh)?`<div class="lr-gaps">${_epGaps.map(g=>`<div class="rfield lr-gap"><label>⚑ ${t('lr_endname')} · ${t('lg_serial')} ${g.serial}</label><input class="lr-epname" data-ser="${g.serial}" value="${esc(b._epFill[g.serial]||'')}" placeholder="${esc(g.pass||t('law_addname'))}"></div>`).join('')}</div>`:'';
+  const _canConn=(_epRaw.fSerial!=null&&_epRaw.lSerial!=null)&&!!(_epRaw.fName||_epRaw.lName);   // منح-matchable
+  const gapFields=(_epGaps.length&&!_loneManh&&!_canConn)?`<div class="lr-gaps">${_epGaps.map(g=>`<div class="rfield lr-gap"><label>⚑ ${t('lr_endname')} · ${t('lg_serial')} ${g.serial}</label><input class="lr-epname" data-ser="${g.serial}" value="${esc(b._epFill[g.serial]||'')}" placeholder="${esc(g.pass||t('law_addname'))}"></div>`).join('')}</div>`:'';
   const allBtn=`<button class="lr-allbtn" id="lr-all">${b._showAll?t('rv_less'):t('rv_all')}</button>`;
   const allList=b._showAll?`<div class="lr-allroster">${_rowsF.map(r=>`<div class="lr-arow"><span class="s">${esc(r.serial??'—')}</span><span class="n${r.name?'':' miss'}">${esc(r.name||('⚑ '+(r.passport||'—')))}</span><span class="p">${esc(r.passport||'—')}</span></div>`).join('')}</div>`:'';
   const num=b._num!=null?b._num:(b.manh?b.manh.manh_number:''), hasManh=b.papers.some(p=>p.type==='manh');
@@ -2446,8 +2449,8 @@ async function lrCommit(){
   if(b._epFill) rows=rows.map(r=>{ const f=r.serial!=null&&b._epFill[+r.serial]; return f?{...r,name:f}:r; });   // apply the filled endpoint names
   const ep=legalEndpoints(rows), hasManh=b.papers.some(p=>p.type==='manh');
   const _loneManh=b.papers.length===1 && b.papers[0].type==='manh';
-  const _stillGap=(!ep.fName && ep.fSerial!=null) || (!ep.lName && ep.lSerial!=null && ep.lSerial!==ep.fSerial);
-  if(!_loneManh && _stillGap){ toast(t('lr_endname_need'));   // required, like the منح number
+  const _canConn=(ep.fSerial!=null&&ep.lSerial!=null)&&!!(ep.fName||ep.lName);   // منح-matchable: interval + ≥1 endpoint name
+  if(!_loneManh && !_canConn){ toast(t('lr_endname_need'));   // block only when NOTHING can connect (no interval / both ends blank)
     const inp=[...document.querySelectorAll('#ikreview .lr-epname')].find(x=>!x.value.trim()); if(inp)inp.focus(); return; }
   let id=(b._num||'').trim();
   const s=b._stamps||{};
