@@ -23,3 +23,6 @@
 !assets/app.js
 # GitHub Pages: serve every file verbatim (skip Jekyll processing).
 !.nojekyll
+# The repo map — explains which file is the app's source of truth (for contributors + a fresh Claude).
+# Documentation only; .assetsignore keeps it out of the public Cloudflare deploy.
+!README.md
