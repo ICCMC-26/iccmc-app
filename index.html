@@ -239,6 +239,12 @@
   #lightbox img{width:min(92vw,86vh,640px);height:auto;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.65)}
   .lb-scanview{max-height:92vh;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:8px}
   .lb-scanview img{width:min(92vw,640px);height:auto;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .lb-gapnote{margin:6px 0 2px;padding:8px 12px;border-radius:9px;background:rgba(197,149,107,.12);border:1px solid var(--copper);color:var(--copper);font-size:12.5px;font-weight:600}
+  .lb-mem.gaprow{background:rgba(197,149,107,.07)}
+  .lb-nm.gap{display:flex;gap:6px;align-items:center}
+  .lb-fill{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--copper);color:inherit;border-radius:7px;padding:6px 9px;font:inherit;font-size:13px}
+  .lb-fillbtn{flex:none;background:var(--copper);color:#1a1206;border:none;border-radius:7px;min-width:34px;min-height:34px;cursor:pointer;font-size:14px;font-weight:700}
+  .lb-fillbtn:hover{filter:brightness(1.08)}
   /* ── add-employee intake ─────────────────────────────────────────────────── */
   #intake{position:fixed;inset:0;z-index:45;background:var(--app-grad);display:none;flex-direction:column}
   #intake.on{display:flex}
@@ -701,6 +707,7 @@ const I18N={
     law_h:'القانون', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
+    law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ ${n} اسم لم يقرأه الماسح — أكمِلها ليكتمل السجل`,
     law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
     law_rot_saved:'حُفظ التدوير — سيظهر في الطباعة',
     lr_verify:'رقم المنح (العدد) — تحقّق منه واكتبه', law_main:'‹ الصفحة الرئيسية', lr_rotate:'تدوير الورقة 90°',
@@ -757,6 +764,7 @@ const I18N={
     law_h:'Law', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
+    law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ ${n} name${n===1?'':'s'} the scanner didn't read — fill in to complete the record`,
     law_cover:id=>`Legal papers — Grant no. ${id}`, law_emp:'Employee', law_kicker:'Legal file',
     law_rot_saved:'Rotation saved — shows in print',
     lr_verify:'Grant number (العدد) — verify & type it', law_main:'‹ Home', lr_rotate:'Rotate 90°',
@@ -876,16 +884,36 @@ function renderLaw(rows){
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
+async function lawFillName(b,i,name){   // fill a name the OCR missed → completes the record (review-flag action)
+  name=String(name||'').trim(); if(!name)return; const m=b.members[i]; if(!m)return;
+  try{
+    let q=sb.from('legal_batch_members').update({name_as_written:name}).eq('batch_id',b.batch_id);
+    q=(m.serial!=null)?q.eq('serial',+m.serial):q.eq('passport_no',m.passport_no||'');
+    const {error}=await q; if(error)throw error;
+    const patch={};   // an ENDPOINT name filled → refresh the stored label (which had fallen back to the passport)
+    if(m.serial!=null){ if(+m.serial===+b.interval_from)patch.first_name=name; if(+m.serial===+b.interval_to)patch.last_name=name; }
+    if(Object.keys(patch).length){ try{ await sb.from('legal_batches').update(patch).eq('batch_id',b.batch_id); }catch(_){}
+      if(patch.first_name)b.first_name=name; if(patch.last_name)b.last_name=name; }
+    m.name_as_written=name; toast(t('law_name_saved')); renderLawBatch(b);
+  }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); }
+}
 function renderLawBatch(b){
   const box=$('#results'); $('#count').textContent='';
   const s=lawPaperStatus(b);
   const brot=b.rot||{};
   const paper=(lab,status,scan,rd)=>`<div class="lb-paper"><span>${lab} <b>${status}</b></span>${scan?`<button class="lb-view" data-lawscan="${esc(scan)}" data-rot="${(+rd||0)}">${t('lg_view')} ›</button>`:''}</div>`;
-  const mem=b.members.map(m=>`<div class="lb-mem${m.person_id?'':' orphan'}"${m.person_id?` data-emp="${esc(m.person_id)}"`:''}>
-      <span class="lb-ser">${esc(m.serial??'—')}</span>
-      <span class="lb-nm">${esc(m.name_as_written||'—')}</span>
+  const _hasName=m=>!!(m.name_as_written&&String(m.name_as_written).trim());
+  const _gaps=b.members.filter(m=>!_hasName(m)).length;
+  const mem=b.members.map((m,i)=>{ const noName=!_hasName(m);
+    const nameCell=noName
+      ? `<span class="lb-nm gap"><input class="lb-fill" data-idx="${i}" placeholder="${esc(t('law_addname'))}" autocomplete="off"><button class="lb-fillbtn" data-idx="${i}" title="${esc(t('law_name_saved'))}">✓</button></span>`
+      : `<span class="lb-nm">${esc(m.name_as_written)}</span>`;
+    return `<div class="lb-mem${m.person_id?'':' orphan'}${noName?' gaprow':''}"${(m.person_id&&!noName)?` data-emp="${esc(m.person_id)}"`:''}>
+      <span class="lb-ser">${noName?'⚑ ':''}${esc(m.serial??'—')}</span>
+      ${nameCell}
       <span class="lb-pp">${esc(m.passport_no||'—')}</span>
-      <span class="lb-emp">${m.person_id?esc(m.person_id):t('law_orphan')}</span></div>`).join('');
+      <span class="lb-emp">${m.person_id?esc(m.person_id):t('law_orphan')}</span></div>`; }).join('');
+  const gapNote=_gaps?`<div class="lb-gapnote">${t('law_gaps',_gaps)}</div>`:'';
   box.innerHTML=`<div class="lb">
     <div class="lb-bar"><span style="display:flex;gap:8px">
       <button class="lb-back" id="lb-back">${t('law_back')}</button>
@@ -895,13 +923,16 @@ function renderLawBatch(b){
     <div class="lb-meta">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${b.manh_date?` · ${esc(b.manh_date)}`:''}</div>
     <div class="lb-block"><div class="lb-sub">${t('law_papersLbl')}</div>
       ${paper(t('lg_taahud'),s.taahud,b.taahud_scan,brot.taahud)}${paper(t('lg_istimara'),s.istimara,b.istimara_scan,brot.istimara)}${paper(t('lg_manh'),s.manh,b.manh_scan,brot.manh)}</div>
-    <div class="lb-sub">${t('law_roster')}</div>
+    <div class="lb-sub">${t('law_roster')}</div>${gapNote}
     <div class="lb-roster">${mem}</div></div>`;
   $('#lb-back').onclick=()=>{ _lawBatch=null; renderLaw(LAWLAST); };
   { const h=$('#lb-home2'); if(h)h.onclick=()=>setLaw(false); }
   $('#lb-print').onclick=()=>printBatch(b);
   box.querySelectorAll('[data-lawscan]').forEach(el=>el.onclick=()=>legalViewScan(el.getAttribute('data-lawscan'), el.getAttribute('data-rot')));
   box.querySelectorAll('[data-emp]').forEach(el=>el.onclick=()=>openEmployee(el.getAttribute('data-emp')));
+  box.querySelectorAll('.lb-fillbtn[data-idx]').forEach(btn=>btn.onclick=()=>{ const i=+btn.getAttribute('data-idx');
+    const inp=box.querySelector(`.lb-fill[data-idx="${i}"]`); const v=inp&&inp.value.trim(); if(!v){ if(inp)inp.focus(); return; } lawFillName(b,i,v); });
+  box.querySelectorAll('.lb-fill[data-idx]').forEach(inp=>inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); const i=+inp.getAttribute('data-idx'); const v=inp.value.trim(); if(v)lawFillName(b,i,v); } });
 }
 
 /* ── validity → ONE status engine: colour + icon + TEXT (WCAG 1.4.1), Carbon map,
