@@ -40,7 +40,7 @@ const I18N={
     rv_h:'مراجعة سريعة', rv_scan:'المستند الأصلي', rv_noscan:'لا صورة متاحة', rv_loading:'…جارٍ التحميل',
     rv_check:'تأكّد مما يلي', rv_clean:'راجِع البيانات قبل الإضافة', rv_all:'عرض كل الحقول', rv_less:'إخفاء البقية',
     rv_missing:'مفقود', rv_face:'صورة الوجه', rv_add:'تأكيد وإضافة الموظف', rv_adding:'…جارٍ الإضافة',
-    rv_renewal:'تجديد محتمل لـ', rv_renew_do:'تأكيد التجديد',
+    rv_renewal:'تجديد محتمل لـ', rv_renew_do:'تأكيد التجديد', rv_need:'أكمل الحقول المطلوبة:',
     rv_need:'أكمل الحقول المطلوبة: ', rv_added:'أُضيف الموظف ✓ ', rv_addfail:'تعذّر الإضافة: ',
     rv_defer:'لا هوية لهذا المستند — افتح «عرض كل الحقول» وأدخل اسم الموظف أو رقم جوازه، ثم أكّد.',
     dv_order:(a,b)=>`«${a}» بعد «${b}» — راجِع التواريخ.`, dv_future:a=>`«${a}» في المستقبل — تحقّق منه.`,
@@ -100,7 +100,7 @@ const I18N={
     rv_h:'Quick review', rv_scan:'Original document', rv_noscan:'No scan available', rv_loading:'…loading',
     rv_check:'Please check', rv_clean:'Review before adding', rv_all:'Show all fields', rv_less:'Show less',
     rv_missing:'missing', rv_face:'face photo', rv_add:'Confirm & add employee', rv_adding:'…adding',
-    rv_renewal:'Likely a renewal of', rv_renew_do:'Confirm renewal',
+    rv_renewal:'Likely a renewal of', rv_renew_do:'Confirm renewal', rv_need:'Please fill the required fields:',
     rv_need:'Fill the required fields: ', rv_added:'Employee added ✓ ', rv_addfail:'Could not add: ',
     rv_defer:"No identity on this document — open “Show all fields” and enter the employee's name or passport number, then confirm.",
     dv_order:(a,b)=>`“${a}” is after “${b}” — check the dates.`, dv_future:a=>`“${a}” is in the future — check it.`,
@@ -1063,7 +1063,7 @@ $('#dz-input').addEventListener('change',e=>{ikAdd(e.target.files);e.target.valu
    arbitrate — a duplicate passport number, a probable name+dob match, an orphan with
    nothing to anchor on — are NOT guessed here; they defer to the scan board. Keep in
    step with ocr.js if that commit path ever changes. */
-const REQ_BY_TYPE={passport:['passport_no','passport_expiry','name_latin','dob'],
+const REQ_BY_TYPE={passport:['passport_no','passport_expiry','name_latin','dob','place_of_birth','nationality','sex'],
   visa:['visa_no','visa_expiry'], national_id:['national_id_no','name_latin'], unknown:[]};
 const RV_ORDER=['passport_no','name_latin','name_native','dob','sex','nationality','place_of_birth',
   'passport_type','passport_issue','passport_expiry','issuing_country','issuing_authority','national_id_no',
@@ -1276,6 +1276,10 @@ async function ikDoAdd(forcePid){
   const fpid=(typeof forcePid==='string')?forcePid:undefined;   // guard: onclick may pass an event
   const jk=_rvJob, j=jk.job, f={...(j.fields||{})};
   document.querySelectorAll('#rvw-fields input').forEach(inp=>{ f[inp.dataset.k]=inp.value.trim(); });
+  // MANDATORY: a field this document REQUIRES cannot be committed empty — the reviewer opened
+  // this because it was missing/unsure, so a hand-typed value is required before continuing.
+  const _need=(REQ_BY_TYPE[j.doc_type]||[]).filter(k=>!String(f[k]||'').trim());
+  if(_need.length){ toast(t('rv_need')+' '+_need.map(fieldLabel).join('، ')); return; }
   // logical date check — refuse an impossible ordering with a clear reason, before any write
   const derr=validateDates(f); if(derr){ toast(derr); return; }
   // The reviewer's eye is the gate — never hard-block on an empty flagged field (a visa grant
