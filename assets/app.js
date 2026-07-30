@@ -26,7 +26,7 @@ const I18N={
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
     t_passport:'جواز السفر', t_visa:'التأشيرة', t_print:'طباعة', t_close:'إغلاق',
-    hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند',
+    hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند', vhx_title:'سِجل التأشيرات',
     t_est:'تقديري', t_novisa:'لا تأشيرة مسجّلة', t_tap:'اضغط الصورة لعرض المستند كاملاً',
     dz_t:'اسحب ملفات الموظف هنا',
     dz_s:'أو انقر للاختيار · صورة أو PDF · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
@@ -86,7 +86,7 @@ const I18N={
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     out:'Sign out?', soon_v2:'Add employee — coming next.',
     t_passport:'Passport', t_visa:'Visa', t_print:'Print', t_close:'Close',
-    hx_title:'Document history', hx_retired:'past', hx_open:'Open document',
+    hx_title:'Document history', hx_retired:'past', hx_open:'Open document', vhx_title:'Visa history',
     t_est:'estimated', t_novisa:'No visa on record', t_tap:'Tap the photo to view the full document',
     dz_t:"Drop the employee's files here",
     dz_s:'or click to browse · image or PDF · large files OK · many files & employees at once',
@@ -506,6 +506,16 @@ function histCard(hist){
     <span class="hx-tag">${t('hx_retired')}</span></div>`).join('');
   return `<div class="doc hx-card"><div class="doc-h"><span class="doc-t">${t('hx_title')}</span><span class="hx-count">${hist.length}</span></div>${rows}</div>`;
 }
+function visaHistCard(hist){
+  // superseded visas (an older visa for a country that now has a newer one) — muted history.
+  if(!hist||!hist.length)return '';
+  const rows=hist.map(v=>`<div class="hx-row${v.visa_scan?' hx-open':''}"${v.visa_scan?` data-scan="${esc(v.visa_scan)}" role="button" tabindex="0" title="${t('hx_open')}"`:''}>
+    <span class="hx-tp">${esc(v.visa_country?tv(v.visa_country):t('t_visa'))}</span>
+    <span class="hx-no">${esc(v.visa_no||'—')}</span>
+    <span class="hx-dt" dir="ltr">${esc(v.visa_issue||'—')}${v.visa_expiry?' → '+esc(v.visa_expiry):''}</span>
+    <span class="hx-tag">${t('hx_retired')}</span></div>`).join('');
+  return `<div class="doc hx-card"><div class="doc-h"><span class="doc-t">${t('vhx_title')}</span><span class="hx-count">${hist.length}</span></div>${rows}</div>`;
+}
 function renderDetail(p,vs,legal,hist){
   const name=p.name_latin||p.name_native||'—';
   // the CORE signal: overall validity = the WORST status across passport + every visa,
@@ -518,7 +528,13 @@ function renderDetail(p,vs,legal,hist){
   const passportCard = P.some(k=>p[k]) ? `<div class="doc">
       <div class="doc-h"><span class="doc-t">${t('t_passport')}</span>${badge(p.passport_expiry)}</div>
       <div class="grid">${P.map(k=>cell(k,p[k])).join('')}</div></div>` : '';
-  const visaCards = vs.length ? vs.map(v=>`<div class="doc">
+  // visas: CURRENT = the newest per country (latest expiry). Older same-country visas are HISTORY —
+  // a superseded/expired visa neither competes with the valid one up front nor drags the status.
+  const _vByC={}; vs.forEach(v=>{ const c=v.visa_country||'—';
+    if(!_vByC[c] || String(v.visa_expiry||'')>String(_vByC[c].visa_expiry||'')) _vByC[c]=v; });
+  const _vCur=new Set(Object.values(_vByC));
+  const curVisas=vs.filter(v=>_vCur.has(v)), histVisas=vs.filter(v=>!_vCur.has(v));
+  const visaCards = curVisas.length ? curVisas.map(v=>`<div class="doc">
       <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${badge(v.visa_expiry,v.visa_expiry_basis==='estimated')}</div>
       <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div></div>`).join('')
     : `<div class="doc empty2">${t('t_novisa')}</div>`;
@@ -534,7 +550,7 @@ function renderDetail(p,vs,legal,hist){
           <button class="b-exit d-close">✕ ${t('t_close')}</button>
         </div>
       </div>
-      ${passportCard}${visaCards}${legalCard(legal)}${histCard(hist)}
+      ${passportCard}${visaCards}${visaHistCard(histVisas)}${legalCard(legal)}${histCard(hist)}
     </div></div>`;
   // a retired document is tappable → opens its stored scan in a new tab
   $('#detail').querySelectorAll('.hx-row[data-scan]').forEach(el=>el.onclick=()=>openDocScan(el.getAttribute('data-scan')));
