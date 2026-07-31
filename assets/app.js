@@ -478,9 +478,11 @@ async function openEmployee(pid){
     sb.from('persons').select('*').eq('person_id',pid).maybeSingle(),
     sb.from('visas').select('*').eq('person_id',pid),
     sb.from('legal_batch_members').select('*, batch:legal_batches(*)').eq('person_id',pid),
-    // retired (superseded) documents = the renewal history; current ones already show as cards
+    // retired (superseded) PASSPORTS = the renewal history. person_documents is the PASSPORT SCD-2
+    // ledger only; visas keep their own history in the `visas` table (a person can hold several valid
+    // visas at once, which the single-current ledger can't model) — shown by visaHistCard below.
     sb.from('person_documents').select('doc_type,doc_no,issue_date,expiry_date,valid_to,scan_path')
-      .eq('person_id',pid).not('valid_to','is',null).order('valid_to',{ascending:false})]);
+      .eq('person_id',pid).eq('doc_type','passport').not('valid_to','is',null).order('valid_to',{ascending:false})]);
   const p=pr.data; if(!p){toast('—');return}
   const vs=(vr.data||[]).slice().sort((a,b)=>String(a.visa_expiry||'~').localeCompare(String(b.visa_expiry||'~')));
   const legal=lr.data||[];
@@ -496,16 +498,23 @@ function closeEmployee(){$('#detail').classList.remove('on');document.body.style
 function openLightbox(url){if(!url)return;
   $('#lightbox').innerHTML=`<img src="${url}" alt="" onerror="this.closest('#lightbox').classList.remove('on')">`;
   $('#lightbox').classList.add('on')}
-// visas: CURRENT = the newest per country (latest expiry); older same-country visas are HISTORY.
-// Shared by the detail card AND the print dossier so both show the same current-vs-superseded split.
+// visas: CURRENT vs HISTORY. The status is now a RECORDED fact — `visas.is_current`, maintained by
+// the DB trigger trg_visas_maintain_current (one current per person+country; a renewal supersedes the
+// old row with a superseded_by link + retired_at). We READ that flag instead of re-guessing from expiry.
+// Shared by the detail card AND the print dossier so both show the same split.
 function splitVisas(vs){
-  const byC={}; (vs||[]).forEach(v=>{ const c=v.visa_country||'—';
+  const arr = vs||[];
+  if(arr.some(v=>typeof v.is_current==='boolean'))                 // recorded status (every row, post-backfill)
+    return { cur:arr.filter(v=>v.is_current!==false), hist:arr.filter(v=>v.is_current===false) };
+  // defensive fallback for a row that somehow predates the flag: newest expiry per country = current.
+  const byC={}; arr.forEach(v=>{ const c=v.visa_country||'—';
     if(!byC[c] || String(v.visa_expiry||'')>String(byC[c].visa_expiry||'')) byC[c]=v; });
   const cur=new Set(Object.values(byC));
-  return { cur:(vs||[]).filter(v=>cur.has(v)), hist:(vs||[]).filter(v=>!cur.has(v)) };
+  return { cur:arr.filter(v=>cur.has(v)), hist:arr.filter(v=>!cur.has(v)) };
 }
 function histCard(hist){
-  // retired passports/visas from renewals — muted, current stays the hero. Nothing shown if none.
+  // retired PASSPORTS from renewals (person_documents = passport ledger) — muted, current stays the
+  // hero. Visa history is a separate card (visaHistCard) sourced from the visas table. None → hidden.
   if(!hist||!hist.length)return '';
   const rows=hist.map(h=>`<div class="hx-row${h.scan_path?' hx-open':''}"${h.scan_path?` data-scan="${esc(h.scan_path)}" role="button" tabindex="0" title="${t('hx_open')}"`:''}>
     <span class="hx-tp">${h.doc_type==='visa'?t('t_visa'):t('t_passport')}</span>
