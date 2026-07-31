@@ -1222,6 +1222,21 @@ async function resolveAnchor(fields){
     if(data&&data.length===1) return { person_id:data[0].person_id, how:'passport_no' };
     if(data&&data.length>1)   return { ambiguous:true, how:'passport_no' };  // 2 people, same number → human
   }
+  // COMPOSITE identity ladder — the SAME match_person the main app uses: national ID (priority 1) → else
+  // name+DOB+place+nationality+sex weighed together. 'auto' = confident → link (so a CLEAN RENEWAL, whose
+  // passport number is new and thus never matched above, auto-commits and files the old doc into history);
+  // 'flag' = uncertain → the human confirms. Any error falls through to the exact name+dob check below, so
+  // this can never regress the previous behaviour (which only auto-linked a known passport number).
+  if(fields.name_latin||fields.name_native||fields.national_id_no){
+    try{
+      const { data:mm }=await sb.rpc('match_person',{ p_name:fields.name_latin||fields.name_native||'',
+        p_dob:fields.dob||null, p_place:fields.place_of_birth||null, p_national_id:fields.national_id_no||null,
+        p_nationality:fields.nationality||null, p_sex:fields.sex||null });
+      const top=(mm&&mm[0])||null;
+      if(top&&top.verdict==='auto') return { person_id:top.person_id, how:top.id_hit?'national_id':'match' };
+      if(top&&top.verdict==='flag') return { person_id:top.person_id, how:'match', confirm:true };
+    }catch(_){ /* fall through to the exact name+dob check below — never a regression */ }
+  }
   if(fields.name_latin&&fields.dob){
     const { data }=await sb.from('persons').select('person_id,name_latin,dob')
       .eq('dob',fields.dob).limit(25);
@@ -1325,6 +1340,13 @@ async function commitJob(j,{linkTo=null,createPerson=false}={}){
     }
     const { error }=await sb.from('persons').upsert(row,{onConflict:'person_id'});
     if(error) throw error;
+    // File this passport into the person's document history (SCD-2): a NEW number supersedes the old one,
+    // so a RENEWAL auto-committed on this line records history exactly like the main app's commit path.
+    // Best-effort (never blocks the commit); same call app.js makes. Not for national_id (not a passport).
+    if(type!=='national_id' && row.passport_no){ try{ await sb.rpc('record_person_document',{
+      p_person_id:pid, p_doc_type:'passport', p_doc_no:row.passport_no,
+      p_issue:row.passport_issue||null, p_expiry:row.passport_expiry||null,
+      p_scan:row.passport_scan||null }); }catch(_){} }
   }
 
   await sb.from('scan_jobs').update({status:'done',person_id:pid,error_msg:null}).eq('job_id',j.job_id);
