@@ -973,8 +973,11 @@ async function ikUpload(job){
     if(job.hash===undefined) job.hash=await sha256(job.file);   // = the worker's image_hash
     const {data:{session}}=await sb.auth.getSession();
     if(!session)throw new Error(t('ik_auth'));
-    const safe=job.file.name.replace(/[^\w.\-]+/g,'_');
-    const path=`${Date.now().toString(36)}-${job.id}-${safe}`;
+    const safe=job.file.name.replace(/[^\w.\-]+/g,'_');   // \w is ASCII → Arabic is stripped to '_'
+    // …so a legal roster's TYPE (تعهد/استمارة) would be lost. Carry it as an ASCII marker the worker
+    // reads back (its filename check looks for taahud/istimara). Empty for passports/visas → no effect.
+    const _lt=/استمارة|istimara/i.test(job.file.name)?'istimara-':(/تعهد|taahud/i.test(job.file.name)?'taahud-':'');
+    const path=`${Date.now().toString(36)}-${job.id}-${_lt}${safe}`;
     if(job.file.size>=IK_RESUMABLE) await ikResumable(job,path,session);   // big → chunked
     else await new Promise((res,rej)=>{                                    // small → one-shot POST
       const xhr=new XMLHttpRequest();
