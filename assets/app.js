@@ -496,6 +496,14 @@ function closeEmployee(){$('#detail').classList.remove('on');document.body.style
 function openLightbox(url){if(!url)return;
   $('#lightbox').innerHTML=`<img src="${url}" alt="" onerror="this.closest('#lightbox').classList.remove('on')">`;
   $('#lightbox').classList.add('on')}
+// visas: CURRENT = the newest per country (latest expiry); older same-country visas are HISTORY.
+// Shared by the detail card AND the print dossier so both show the same current-vs-superseded split.
+function splitVisas(vs){
+  const byC={}; (vs||[]).forEach(v=>{ const c=v.visa_country||'—';
+    if(!byC[c] || String(v.visa_expiry||'')>String(byC[c].visa_expiry||'')) byC[c]=v; });
+  const cur=new Set(Object.values(byC));
+  return { cur:(vs||[]).filter(v=>cur.has(v)), hist:(vs||[]).filter(v=>!cur.has(v)) };
+}
 function histCard(hist){
   // retired passports/visas from renewals — muted, current stays the hero. Nothing shown if none.
   if(!hist||!hist.length)return '';
@@ -528,12 +536,7 @@ function renderDetail(p,vs,legal,hist){
   const passportCard = P.some(k=>p[k]) ? `<div class="doc">
       <div class="doc-h"><span class="doc-t">${t('t_passport')}</span>${badge(p.passport_expiry)}</div>
       <div class="grid">${P.map(k=>cell(k,p[k])).join('')}</div></div>` : '';
-  // visas: CURRENT = the newest per country (latest expiry). Older same-country visas are HISTORY —
-  // a superseded/expired visa neither competes with the valid one up front nor drags the status.
-  const _vByC={}; vs.forEach(v=>{ const c=v.visa_country||'—';
-    if(!_vByC[c] || String(v.visa_expiry||'')>String(_vByC[c].visa_expiry||'')) _vByC[c]=v; });
-  const _vCur=new Set(Object.values(_vByC));
-  const curVisas=vs.filter(v=>_vCur.has(v)), histVisas=vs.filter(v=>!_vCur.has(v));
+  const {cur:curVisas, hist:histVisas}=splitVisas(vs);   // current up front, superseded → history
   const visaCards = curVisas.length ? curVisas.map(v=>`<div class="doc">
       <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${badge(v.visa_expiry,v.visa_expiry_basis==='estimated')}</div>
       <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div></div>`).join('')
@@ -550,7 +553,7 @@ function renderDetail(p,vs,legal,hist){
           <button class="b-exit d-close">✕ ${t('t_close')}</button>
         </div>
       </div>
-      ${passportCard}${visaCards}${visaHistCard(histVisas)}${legalCard(legal)}${histCard(hist)}
+      ${passportCard}${visaCards}${legalCard(legal)}${histCard(hist)}${visaHistCard(histVisas)}
     </div></div>`;
   // a retired document is tappable → opens its stored scan in a new tab
   $('#detail').querySelectorAll('.hx-row[data-scan]').forEach(el=>el.onclick=()=>openDocScan(el.getAttribute('data-scan')));
@@ -624,14 +627,15 @@ const PRINT_DOCS=[
     fields:['passport_no','passport_type','passport_issue','passport_expiry','dob','sex','nationality','place_of_birth','issuing_country','issuing_authority','national_id_no'],
     expiry:r=>r.passport_expiry, scan:r=>r.passport_scan||r.id_scan },
   { title:'t_visa', scanTitle:'pv_visa', empty:'t_novisa',
-    records:(p,vs)=>vs, has:()=>true,
+    records:(p,vs)=>splitVisas(vs).cur, has:()=>true,   // CURRENT visas only — superseded ones are history, not printed
     fields:['visa_no','visa_type','visa_country','visa_issue','visa_expiry','visa_entry_days','visa_stay_days'],
     expiry:r=>r.visa_expiry, estimated:r=>r.visa_expiry_basis==='estimated', scan:r=>r.visa_scan },
 ];
 async function buildDossier(){
   const p=CURRENT_P, vs=CURRENT_VS||[]; if(!p)return '';
   const name=p.name_latin||p.name_native||'—';
-  const st=worstStatus([p.passport_expiry,...(vs.length?vs.map(v=>v.visa_expiry):[null])]);
+  const curVs=splitVisas(vs).cur;   // the dossier's overall status reflects CURRENT visas, not superseded ones
+  const st=worstStatus([p.passport_expiry,...(curVs.length?curVs.map(v=>v.visa_expiry):[null])]);
   const face=await faceUrl(fullFace(p.photo)).then(u=>u||faceUrl(p.photo)).catch(()=>null);
   // the PRINT moment, in LOCAL time — date and time must agree (toISOString is UTC and drifts a day at night)
   let today='—', time=''; try{ const d=new Date(), p=n=>String(n).padStart(2,'0');
