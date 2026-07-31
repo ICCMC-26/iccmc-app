@@ -1349,6 +1349,11 @@ async function commitJob(j,{linkTo=null,createPerson=false}={}){
       p_scan:row.passport_scan||null }); }catch(_){} }
   }
 
+  // ORPHAN LEGAL BACKFILL — if this passport (or a person whose OLD number it is) is waiting in a legal
+  // roster, connect it now. The RPC matches the number against the person's full passport history, so a
+  // renewed passport reconnects members that still carry the old number. Mirror of app.js ikCommitJob.
+  if(f.passport_no){ try{ await sb.rpc('legal_link_person',{p_person_id:pid,p_passport_no:String(f.passport_no).trim()}); }catch(_){} }
+
   await sb.from('scan_jobs').update({status:'done',person_id:pid,error_msg:null}).eq('job_id',j.job_id);
   return {job:j,ok:true,pid,created:madeNew,msg:(madeNew?t('g_created'):t('g_linked'))+pid};
 }
