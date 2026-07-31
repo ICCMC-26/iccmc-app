@@ -29,9 +29,9 @@ const I18N={
     hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند', vhx_title:'سِجل التأشيرات',
     t_est:'تقديري', t_novisa:'لا تأشيرة مسجّلة', t_tap:'اضغط الصورة لعرض المستند كاملاً',
     dz_t:'اسحب ملفات الموظف هنا',
-    dz_s:'أو انقر للاختيار · صورة أو PDF أو Excel · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
+    dz_s:'أو انقر للاختيار · صورة أو PDF أو Excel أو Word · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
     ik_queued:'بالانتظار', ik_done:'رُفع', ik_failed:'فشل', ik_retry:'إعادة',
-    ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
+    ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
     ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض',
@@ -74,7 +74,7 @@ const I18N={
     law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
     law_rot_saved:'حُفظ التدوير — سيظهر في الطباعة',
     lr_verify:'رقم المنح (العدد) — تحقّق منه واكتبه', law_main:'‹ الصفحة الرئيسية', lr_rotate:'تدوير الورقة 90°',
-    lr_xlsx:'ملف Excel · لا صورة للعرض', lr_xlsx_dl:'تنزيل ملف Excel',
+    lr_xlsx:'ملف {k} · لا صورة للعرض', lr_xlsx_dl:'تنزيل ملف {k}',
     lr_endname:'اسم الموظف — لم يقرأه الماسح', lr_endname_need:'أكمِل اسم طرف الدفعة قبل الحفظ',
     pv_legal_note:(name,serial)=>`الموظف ${name} مُدرَج في هذه الاستمارة ضمن التسلسل رقم ${serial}.`},
   en:{dir:'ltr', other:'العربية',
@@ -90,9 +90,9 @@ const I18N={
     hx_title:'Document history', hx_retired:'past', hx_open:'Open document', vhx_title:'Visa history',
     t_est:'estimated', t_novisa:'No visa on record', t_tap:'Tap the photo to view the full document',
     dz_t:"Drop the employee's files here",
-    dz_s:'or click to browse · image, PDF or Excel · large files OK · many files & employees at once',
+    dz_s:'or click to browse · image, PDF, Excel or Word · large files OK · many files & employees at once',
     ik_queued:'Queued', ik_done:'Uploaded', ik_failed:'Failed', ik_retry:'Retry',
-    ik_bad:'Unsupported — image, PDF, or Excel only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
+    ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
     ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused',
@@ -135,7 +135,7 @@ const I18N={
     law_cover:id=>`Legal papers — Grant no. ${id}`, law_emp:'Employee', law_kicker:'Legal file',
     law_rot_saved:'Rotation saved — shows in print',
     lr_verify:'Grant number (العدد) — verify & type it', law_main:'‹ Home', lr_rotate:'Rotate 90°',
-    lr_xlsx:'Excel file · no image to show', lr_xlsx_dl:'Download Excel file',
+    lr_xlsx:'{k} file · no image to show', lr_xlsx_dl:'Download {k} file',
     lr_endname:'Employee name — the scanner missed it', lr_endname_need:'Fill the batch-endpoint name before saving',
     pv_legal_note:(name,serial)=>`${name} is listed in this entry form at serial no. ${serial}.`},
 };
@@ -1034,7 +1034,7 @@ function ikPump(){
 function ikAdd(files){
   for(const f of Array.from(files)){
     const job={id:++_ikSeq, file:f, state:'queued', pct:0, err:''};
-    if(!IK_OK.test(f.type) && !/\.xlsx$/i.test(f.name)) {job.state='failed'; job.err=t('ik_bad')}  // .xlsx by name: some OSes give it an empty MIME
+    if(!IK_OK.test(f.type) && !/\.(xlsx|docx)$/i.test(f.name)) {job.state='failed'; job.err=t('ik_bad')}  // .xlsx/.docx by name: some OSes give them an empty MIME
     else if(f.size>IK_MAX) {job.state='failed'; job.err=t('ik_big')}
     IK.push(job);
   }
@@ -1921,12 +1921,13 @@ async function lrPaintScan(paper){
   // EXCEL roster: there is no scanned image to rasterize — instead of a blank pane, show a gentle
   // panel with a download link to the source .xlsx. Scoped to .xlsx ONLY; scanned PDFs/images fall
   // straight through to the unchanged viewer below (no byproduct to them).
-  if(/\.xlsx$/i.test(paper.scan_path)){
+  if(/\.(xlsx|docx)$/i.test(paper.scan_path)){
+    const _doc=/\.docx$/i.test(paper.scan_path), _k=_doc?'Word':'Excel', _ic=_doc?'📄':'📊';
     const u=await docUrl(paper.scan_path);
     box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;gap:16px;text-align:center;padding:34px 24px">
-      <div style="font-size:46px;line-height:1">📊</div>
-      <div style="line-height:1.6;color:var(--ink2);font-size:15px">${t('lr_xlsx')}</div>
-      ${u?`<a href="${esc(u)}" download target="_blank" rel="noopener" style="padding:10px 18px;background:var(--copper);color:#15201d;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">⬇ ${t('lr_xlsx_dl')}</a>`:''}
+      <div style="font-size:46px;line-height:1">${_ic}</div>
+      <div style="line-height:1.6;color:var(--ink2);font-size:15px">${t('lr_xlsx').replace('{k}',_k)}</div>
+      ${u?`<a href="${esc(u)}" download target="_blank" rel="noopener" style="padding:10px 18px;background:var(--copper);color:#15201d;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">⬇ ${t('lr_xlsx_dl').replace('{k}',_k)}</a>`:''}
     </div>`;
     return;
   }
