@@ -526,17 +526,18 @@ function visaHistCard(hist){
 }
 function renderDetail(p,vs,legal,hist){
   const name=p.name_latin||p.name_native||'—';
-  // the CORE signal: overall validity = the WORST status across passport + every visa,
-  // so a missing/unknown document surfaces (gray "Incomplete") instead of a false "Valid".
-  // count a MISSING visa as an unknown slot too — so "no visa on record" surfaces as
-  // Incomplete here exactly as it does in the listing (consistent, honest).
-  const verdict = `<div class="d-verdict">${statusChip(worstStatus([p.passport_expiry,...(vs.length?vs.map(v=>v.visa_expiry):[null])]))}</div>`;
+  const {cur:curVisas, hist:histVisas}=splitVisas(vs);   // current up front, superseded → history
+  // the CORE signal: overall validity = the WORST status across passport + every CURRENT visa.
+  // Use the current visas only (splitVisas) — a superseded/expired visa lives in history and must
+  // NOT drag this badge to expired, so the detail top badge agrees with the roster (which already
+  // ranks by the current visa per country). A missing visa still counts as an unknown slot, so
+  // "no visa on record" surfaces as gray "Incomplete" here exactly as in the listing.
+  const verdict = `<div class="d-verdict">${statusChip(worstStatus([p.passport_expiry,...(curVisas.length?curVisas.map(v=>v.visa_expiry):[null])]))}</div>`;
   const P=['passport_no','passport_type','passport_issue','passport_expiry','dob','sex','nationality','place_of_birth','issuing_country','issuing_authority','national_id_no'];
   const V=['visa_no','visa_type','visa_country','visa_issue','visa_expiry','visa_entry_days','visa_stay_days'];
   const passportCard = P.some(k=>p[k]) ? `<div class="doc">
       <div class="doc-h"><span class="doc-t">${t('t_passport')}</span>${badge(p.passport_expiry)}</div>
       <div class="grid">${P.map(k=>cell(k,p[k])).join('')}</div></div>` : '';
-  const {cur:curVisas, hist:histVisas}=splitVisas(vs);   // current up front, superseded → history
   const visaCards = curVisas.length ? curVisas.map(v=>`<div class="doc">
       <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${badge(v.visa_expiry,v.visa_expiry_basis==='estimated')}</div>
       <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div></div>`).join('')
