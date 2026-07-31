@@ -29,9 +29,9 @@ const I18N={
     hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند', vhx_title:'سِجل التأشيرات',
     t_est:'تقديري', t_novisa:'لا تأشيرة مسجّلة', t_tap:'اضغط الصورة لعرض المستند كاملاً',
     dz_t:'اسحب ملفات الموظف هنا',
-    dz_s:'أو انقر للاختيار · صورة أو PDF · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
+    dz_s:'أو انقر للاختيار · صورة أو PDF أو Excel · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
     ik_queued:'بالانتظار', ik_done:'رُفع', ik_failed:'فشل', ik_retry:'إعادة',
-    ik_bad:'نوع غير مدعوم — صورة أو PDF فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
+    ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
     ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض',
@@ -89,9 +89,9 @@ const I18N={
     hx_title:'Document history', hx_retired:'past', hx_open:'Open document', vhx_title:'Visa history',
     t_est:'estimated', t_novisa:'No visa on record', t_tap:'Tap the photo to view the full document',
     dz_t:"Drop the employee's files here",
-    dz_s:'or click to browse · image or PDF · large files OK · many files & employees at once',
+    dz_s:'or click to browse · image, PDF or Excel · large files OK · many files & employees at once',
     ik_queued:'Queued', ik_done:'Uploaded', ik_failed:'Failed', ik_retry:'Retry',
-    ik_bad:'Unsupported — image or PDF only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
+    ik_bad:'Unsupported — image, PDF, or Excel only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
     ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused',
@@ -1029,7 +1029,7 @@ function ikPump(){
 function ikAdd(files){
   for(const f of Array.from(files)){
     const job={id:++_ikSeq, file:f, state:'queued', pct:0, err:''};
-    if(!IK_OK.test(f.type)) {job.state='failed'; job.err=t('ik_bad')}
+    if(!IK_OK.test(f.type) && !/\.xlsx$/i.test(f.name)) {job.state='failed'; job.err=t('ik_bad')}  // .xlsx by name: some OSes give it an empty MIME
     else if(f.size>IK_MAX) {job.state='failed'; job.err=t('ik_big')}
     IK.push(job);
   }
