@@ -74,7 +74,7 @@ const I18N={
     law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
     law_rot_saved:'حُفظ التدوير — سيظهر في الطباعة',
     lr_verify:'رقم المنح (العدد) — تحقّق منه واكتبه', law_main:'‹ الصفحة الرئيسية', lr_rotate:'تدوير الورقة 90°',
-    lr_xlsx:'قُرئت البيانات مباشرة من ملف Excel — لا توجد صورة ممسوحة للعرض', lr_xlsx_dl:'تنزيل ملف Excel',
+    lr_xlsx:'ملف Excel · لا صورة للعرض', lr_xlsx_dl:'تنزيل ملف Excel',
     lr_endname:'اسم الموظف — لم يقرأه الماسح', lr_endname_need:'أكمِل اسم طرف الدفعة قبل الحفظ',
     pv_legal_note:(name,serial)=>`الموظف ${name} مُدرَج في هذه الاستمارة ضمن التسلسل رقم ${serial}.`},
   en:{dir:'ltr', other:'العربية',
@@ -135,7 +135,7 @@ const I18N={
     law_cover:id=>`Legal papers — Grant no. ${id}`, law_emp:'Employee', law_kicker:'Legal file',
     law_rot_saved:'Rotation saved — shows in print',
     lr_verify:'Grant number (العدد) — verify & type it', law_main:'‹ Home', lr_rotate:'Rotate 90°',
-    lr_xlsx:'Read directly from an Excel file — no scanned image to show', lr_xlsx_dl:'Download Excel file',
+    lr_xlsx:'Excel file · no image to show', lr_xlsx_dl:'Download Excel file',
     lr_endname:'Employee name — the scanner missed it', lr_endname_need:'Fill the batch-endpoint name before saving',
     pv_legal_note:(name,serial)=>`${name} is listed in this entry form at serial no. ${serial}.`},
 };
@@ -1922,7 +1922,7 @@ async function lrPaintScan(paper){
     const u=await docUrl(paper.scan_path);
     box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;gap:16px;text-align:center;padding:34px 24px">
       <div style="font-size:46px;line-height:1">📊</div>
-      <div style="max-width:300px;line-height:1.7;color:#3b4a44;font-size:14px">${t('lr_xlsx')}</div>
+      <div style="line-height:1.6;color:var(--ink2);font-size:15px">${t('lr_xlsx')}</div>
       ${u?`<a href="${esc(u)}" download target="_blank" rel="noopener" style="padding:10px 18px;background:var(--copper);color:#15201d;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">⬇ ${t('lr_xlsx_dl')}</a>`:''}
     </div>`;
     return;
