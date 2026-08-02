@@ -1274,6 +1274,19 @@ async function _resolveAnchor(f){
   }
   return null;
 }
+/* Does an EXISTING person's stored identity CONTRADICT this scan? Two people must never merge, so a
+   different national ID (digits-compared, so 12345-6789012-3 == 1234567890123) or a different birthday
+   is a hard STOP → the caller defers to a human. A lookup hiccup never blocks a legitimate commit. */
+async function _identityConflict(pid,f){
+  try{
+    const {data}=await sb.from('persons').select('national_id_no,dob').eq('person_id',pid).limit(1);
+    const p=data&&data[0]; if(!p)return false;
+    if(p.national_id_no&&f.national_id_no&&
+       String(p.national_id_no).replace(/\D/g,'')!==String(f.national_id_no).replace(/\D/g,''))return true;
+    if(p.dob&&f.dob&&String(p.dob).slice(0,10)!==String(f.dob).slice(0,10))return true;
+    return false;
+  }catch(_){ return false; }
+}
 /* SERIALIZE every commit — the gate must write ONE job at a time. Two staged scans of the SAME
    passport, committed concurrently, would each resolveAnchor to "none" (neither has inserted yet)
    and each create a person → a duplicate. Chaining makes job B's anchor lookup run AFTER job A's
@@ -1290,6 +1303,12 @@ async function ikCommitJob(j,f,forcePid){
   const anchor=forcePid?{person_id:forcePid,how:'confirmed'}:await _resolveAnchor(f);
   if(anchor&&anchor.ambiguous)return {defer:1};             // duplicate passport # → board
   if(anchor&&anchor.confirm)return {defer:1};               // probable name+dob → let the board confirm
+  // IDENTITY GUARD — never write a document onto an EXISTING person whose identity CONTRADICTS this scan.
+  // The hard stop against a wrong link (a mis-confirmed renewal, a bad anchor, a race resolving to the
+  // wrong person): a passport joins EMP-x only if EMP-x's national ID and birthday do not conflict with
+  // it. On a conflict we DEFER to a human — we NEVER merge two different people. (A brand-new person has
+  // nothing to conflict with, so this only gates links to an existing one.)
+  if(anchor&&anchor.person_id&&await _identityConflict(anchor.person_id,f))return {defer:1};
   let pid=anchor?anchor.person_id:null, created=false;
   if(type==='visa'){
     if(!pid){                                               // human confirmed → create the person from this visa
