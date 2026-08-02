@@ -1099,7 +1099,8 @@ async function ikRefreshFamilies(){
         .select('job_id,split_class,status,doc_type,fields,field_conf,flagged,error_msg,person_id,image_path')
         .eq('parent_packet',j.hash).order('created_at');
       j.kids=data||[];
-      for(const k of j.kids){ _ikKids[k.job_id]={id:'k'+k.job_id,job:k,hash:null,state:'review',_kid:true}; }
+      for(const k of j.kids){ _ikKids[k.job_id]={id:'k'+k.job_id,job:k,hash:null,state:'review',_kid:true,
+        file:{name:kidName(k)}}; }   // the review drawer reads jk.file.name — a child has no upload, so use its person name
       if(j.kids.some(k=>k.status==='staged'))staged=true;
       const active=j.kids.some(k=>IK_KID_ACTIVE.has(k.status))||(j.splitN&&j.kids.length<j.splitN);
       if(active)pending=true; else j.kidsSettled=true;

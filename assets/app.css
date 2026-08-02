@@ -316,21 +316,23 @@
   .ik-fam{margin:-2px 0 4px 0;padding-inline-start:14px;margin-inline-start:21px;
     border-inline-start:2px solid var(--line);display:flex;flex-direction:column;gap:5px}
   .ik-fam.closed{display:none}
-  .ik-kid{display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--bg2);
-    border:1px solid var(--line);border-radius:10px}
-  .ik-kid-cls{flex:none;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
-    color:var(--muted);background:var(--panel2);border-radius:6px;padding:2px 7px;min-width:54px;text-align:center}
+  .ik-kid{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--bg2);
+    border:1px solid var(--line);border-radius:11px;min-height:52px}
+  .ik-kid-cls{flex:none;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+    color:var(--muted);background:var(--panel2);border-radius:7px;padding:4px 10px;min-width:62px;text-align:center}
   .ik-kid.passport .ik-kid-cls{color:#7ab8ff}
   .ik-kid.visa .ik-kid-cls{color:#4bd6a0}
   .ik-kid.legal .ik-kid-cls{color:var(--copper)}
   .ik-kid-nm{flex:1;min-width:0;color:var(--ink);white-space:nowrap;overflow:hidden;
-    text-overflow:ellipsis;font-weight:600;font-size:13px}
-  .ik-kid-st{flex:none;font-size:11.5px;font-weight:600;color:var(--muted)}
+    text-overflow:ellipsis;font-weight:700;font-size:15.5px;letter-spacing:.2px}
+  .ik-kid-st{flex:none;font-size:15px;font-weight:700;color:var(--muted)}
+  .ik-kchip{font-size:18px;line-height:1}
   .ik-kchip.ok{color:#4bd6a0}
   .ik-kchip.bad{color:#ff6f78}
   .ik-kid.skip{opacity:.5;border-style:dashed}
-  .ik-kbtn{flex:none;border:1px solid var(--copper);background:rgba(197,149,107,.12);color:var(--copper);
-    cursor:pointer;font-size:11.5px;font-weight:700;border-radius:8px;padding:4px 11px}
+  .ik-kid.skip .ik-kid-nm{font-size:13px;font-weight:600}
+  .ik-kbtn{flex:none;border:1px solid var(--copper);background:rgba(197,149,107,.16);color:var(--copper);
+    cursor:pointer;font-size:14px;font-weight:800;border-radius:10px;padding:9px 18px;min-height:40px}
   .ik-kbtn:hover{background:var(--copper);color:#1a1206}
   /* ── the quick-review page (mirrors the ocr line drawer: raw file + what to check) ── */
   #ikreview{position:fixed;inset:0;z-index:78;background:var(--app-grad);display:none;flex-direction:column}
