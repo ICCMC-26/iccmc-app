@@ -310,9 +310,11 @@
     cursor:pointer;font-size:12.5px;font-weight:700;border-radius:9px;padding:6px 13px;transition:background .12s,color .12s}
   .ik-review-btn:hover{background:var(--copper);color:#1a1206}
   /* ── packet «family»: the split children grouped under their packet row ── */
-  .ik-pk-toggle{flex:none;border:none;background:transparent;color:var(--muted);cursor:pointer;
-    font-size:12px;width:22px;height:22px;border-radius:6px}
-  .ik-pk-toggle:hover{background:var(--panel2);color:var(--ink)}
+  .ik-pk-toggle{flex:none;display:inline-flex;align-items:center;justify-content:center;
+    width:30px;height:30px;border:1px solid var(--line);background:var(--panel2);color:var(--copper);
+    cursor:pointer;font-size:13px;border-radius:9px;transition:background .12s,border-color .12s,transform .12s}
+  .ik-pk-toggle:hover{background:var(--copper);border-color:var(--copper);color:#1a1206;transform:translateY(-1px)}
+  .ik-pk-toggle:active{transform:translateY(0)}
   .ik-fam{margin:-2px 0 4px 0;padding-inline-start:14px;margin-inline-start:21px;
     border-inline-start:2px solid var(--line);display:flex;flex-direction:column;gap:5px}
   .ik-fam.closed{display:none}
@@ -328,6 +330,7 @@
   .ik-kid-st{flex:none;font-size:15px;font-weight:700;color:var(--muted)}
   .ik-kchip{font-size:18px;line-height:1}
   .ik-kchip.ok{color:#4bd6a0}
+  .ik-done{color:#4bd6a0;font-weight:800}   /* committed child — «✓ أُودِعت», matches the regular line */
   .ik-kchip.bad{color:#ff6f78}
   .ik-kid.skip{opacity:.5;border-style:dashed}
   .ik-kid.skip .ik-kid-nm{font-size:13px;font-weight:600}

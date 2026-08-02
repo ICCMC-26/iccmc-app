@@ -1072,7 +1072,7 @@ function kidClsLabel(cls){ const m={passport:'ik_cls_passport',visa:'ik_cls_visa
 function kidName(k){ const f=k.fields||{}; return f.name_latin||f.name_native||kidClsLabel((k.split_class||'').toLowerCase()); }
 function kidStatus(k){
   const s=k.status;
-  if(s==='committed'||s==='done')            return '<span class="ik-kid-st ik-kchip ok">✓</span>';
+  if(s==='committed'||s==='done')            return '<span class="ik-kid-st ik-done">✓ '+esc(t('ik_committed'))+'</span>';   // «أُودِعت» — same as the regular line
   if(s==='pending-review'||s==='needs-linking') return `<button class="ik-kbtn" data-kidreview="${esc(String(k.job_id))}">${t('ik_review')}</button>`;
   if(s==='legal-review')                     return '<span class="ik-kid-st ik-kchip">⚖</span>';
   if(s==='failed')                           return '<span class="ik-kid-st ik-kchip bad">✕</span>';
@@ -1398,9 +1398,14 @@ async function ikDoAdd(forcePid){
   try{
     const r=await ikCommitSerial(j,f,fpid);
     if(r.defer){ toast(t('rv_defer')); const b=$('#rvw-add'); if(b){b.disabled=false;b.textContent=t('rv_add');} return; }
+    const _kidJid=(jk._kid&&jk.job)?jk.job.job_id:null;     // capture BEFORE jk.job is cleared
     jk.state='landed'; jk.job=null; if(jk.hash)delete _ikPending[jk.hash];
     toast(t('rv_added')+(r.pid||'')); closeIkReview(); ikRender();
-    if(jk._kid)ikRefreshFamilies();                         // a packet child was reviewed → refresh its family
+    if(_kidJid){                                            // a packet child was reviewed → flip it to ✓ NOW + re-confirm from DB
+      for(const fam of IK){ if(fam.state==='split'&&fam.kids){ const kk=fam.kids.find(k=>k.job_id===_kidJid);
+        if(kk){ kk.status='done'; fam.kidsSettled=false; } } }   // optimistic tick + un-stick the family so it re-queries
+      ikRender(); ikRefreshFamilies();
+    }
     search($('#q')?$('#q').value:'');                       // reflect the new employee at once (Realtime also fires)
   }catch(e){ toast(t('rv_addfail')+((e&&e.message)||e)); if(btn){btn.disabled=false;btn.textContent=t('rv_add');} }
 }
