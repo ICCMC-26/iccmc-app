@@ -1065,30 +1065,35 @@ function ikRetry(id){const j=IK.find(x=>x.id===id);if(j){j.state='queued';j.err=
    Minimal: the packet on top, its documents beneath, each with its status + a review
    action — the same review drawer a normal scan uses. */
 let _ikKids={};                     // job_id → a synthetic review-job wrapper for a child
-const IK_KID_ACTIVE=new Set(['captured','raw-uploaded','preprocessed-&-seen','scored',
-  'sorted','staged','skipped']);    // still moving → keep polling; anything else has settled
 function kidClsLabel(cls){ const m={passport:'ik_cls_passport',visa:'ik_cls_visa',legal:'ik_cls_legal'}[cls];
   return m?t(m):String(cls||'—').toUpperCase(); }
 function kidName(k){ const f=k.fields||{}, cls=(k.split_class||'').toLowerCase();
   if(cls==='legal'){ const pt=f.paper_type||String(k.doc_type||'').replace('legal_','');   // تعهد / استمارة / منح
     return t('lg_'+pt) || kidClsLabel('legal'); }
   return f.name_latin||f.name_native||kidClsLabel(cls); }
-function kidStatus(k){
-  const s=k.status;
-  if(s==='committed'||s==='done')            return '<span class="ik-kid-st ik-done">✓ '+esc(t('ik_committed'))+'</span>';   // «أُودِعت» — same as the regular line
-  if(s==='pending-review'||s==='needs-linking') return `<button class="ik-kbtn" data-kidreview="${esc(String(k.job_id))}">${t('ik_review')}</button>`;
-  if(s==='legal-review')                     return `<button class="ik-kbtn lglaw" data-legalreview="${esc(k.image_hash||(k.fields&&k.fields.scan_hash)||'')}"><span class="lgmark">⚖</span> ${t('ik_legal')} ›</button>`;   // opens the § assembler, like the regular line
-  if(s==='failed')                           return '<span class="ik-kid-st ik-fail">✕ '+esc(t('ik_refused'))+'</span>';   // «✕ مرفوض» — same as the regular line
-  return `<span class="ik-kid-st ik-proc">${esc(ikStageTxt(s))}</span>`;   // reading / scoring — with the same spinner as the regular line
+/* A child renders as a REAL .ik-row — so name (.ik-nm), status (.ik-state), spinner and the
+   review buttons (.ik-review-btn / .lglaw) are IDENTICAL to the regular line. The state class
+   (landed/refused/review/legal/processing) drives the exact same colours. The only additions
+   are the type chip (.ik-kid-cls) and the nesting rail (.ik-fam). */
+function kidRow(k){
+  const cls=(k.split_class||'').toLowerCase(), s=k.status;
+  let st, body;
+  if(s==='committed'||s==='done'){            st='landed';     body=`<span class="ik-state">✓ ${esc(t('ik_committed'))}</span>`; }
+  else if(s==='failed'){                       st='refused';    body=`<span class="ik-state">✕ ${esc(t('ik_refused'))}</span>`; }
+  else if(s==='pending-review'||s==='needs-linking'){ st='review'; body=`<button class="ik-review-btn" data-kidreview="${esc(String(k.job_id))}">${t('ik_review')}</button>`; }
+  else if(s==='legal-review'){                 st='legal';      body=`<button class="ik-review-btn lglaw" data-legalreview="${esc(k.image_hash||(k.fields&&k.fields.scan_hash)||'')}"><span class="lgmark">⚖</span> ${t('ik_legal')} ›</button>`; }
+  else {                                       st='processing'; body=`<span class="ik-state">${esc(ikStageTxt(s))}</span>`; }
+  return `<div class="ik-row ik-kid ${st} ${cls}">`
+    + `<span class="ik-kid-cls ${cls}">${esc(kidClsLabel(cls))}</span>`
+    + `<div class="ik-meta"><div class="ik-nm">${esc(kidName(k))}</div></div>`
+    + `${body}</div>`;
 }
 function ikKidsHtml(j){
   if(j.state!=='split')return '';
   const kids=j.kids||[], skip=(j.summary&&j.summary.noise)||0;
-  const body=kids.map(k=>{ const cls=(k.split_class||'').toLowerCase();
-    return `<div class="ik-kid ${cls}"><span class="ik-kid-cls">${esc(kidClsLabel(cls))}</span>`
-      +`<span class="ik-kid-nm">${esc(kidName(k))}</span>${kidStatus(k)}</div>`; }).join('');
-  const skipHtml=skip?`<div class="ik-kid skip"><span class="ik-kid-nm">${esc(t('ik_pk_skip',skip))}</span></div>`:'';
-  const wait=(!kids.length&&!skip)?`<div class="ik-kid skip"><span class="ik-kid-nm">…</span></div>`:'';
+  const body=kids.map(kidRow).join('');
+  const skipHtml=skip?`<div class="ik-row ik-kid skip"><span class="ik-kid-cls">—</span><div class="ik-meta"><div class="ik-nm">${esc(t('ik_pk_skip',skip))}</div></div></div>`:'';
+  const wait=(!kids.length&&!skip)?`<div class="ik-row ik-kid skip"><div class="ik-meta"><div class="ik-nm">…</div></div></div>`:'';
   return `<div class="ik-fam${j.pkOpen===false?' closed':''}">${body}${skipHtml}${wait}</div>`;
 }
 async function ikRefreshFamilies(){
@@ -1105,8 +1110,11 @@ async function ikRefreshFamilies(){
       for(const k of j.kids){ _ikKids[k.job_id]={id:'k'+k.job_id,job:k,hash:null,state:'review',_kid:true,
         file:{name:kidName(k)}}; }   // the review drawer reads jk.file.name — a child has no upload, so use its person name
       if(j.kids.some(k=>k.status==='staged'))staged=true;
-      const active=j.kids.some(k=>IK_KID_ACTIVE.has(k.status))||(j.splitN&&j.kids.length<j.splitN);
-      if(active)pending=true; else j.kidsSettled=true;
+      // Keep WATCHING until every child is truly terminal. A legal-review child flips to ✓ once the
+      // § assembler commits its batch (an external event); a pending-review one when it's reviewed.
+      const _term=st=>st==='committed'||st==='done'||st==='failed';
+      const allDone=j.kids.length>0 && (!j.splitN||j.kids.length>=j.splitN) && j.kids.every(k=>_term(k.status));
+      if(allDone) j.kidsSettled=true; else pending=true;
     }catch(_){ pending=true; }
   }
   if(staged)ikSweepStaged();          // a clean child parked at the gate → commit it live

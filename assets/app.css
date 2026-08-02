@@ -315,34 +315,19 @@
     cursor:pointer;font-size:13px;border-radius:9px;transition:background .12s,border-color .12s,transform .12s}
   .ik-pk-toggle:hover{background:var(--copper);border-color:var(--copper);color:#1a1206;transform:translateY(-1px)}
   .ik-pk-toggle:active{transform:translateY(0)}
-  .ik-fam{margin:-2px 0 4px 0;padding-inline-start:14px;margin-inline-start:21px;
-    border-inline-start:2px solid var(--line);display:flex;flex-direction:column;gap:5px}
+  .ik-fam{margin:-2px 0 6px 0;padding-inline-start:14px;margin-inline-start:21px;
+    border-inline-start:2px solid var(--line);display:flex;flex-direction:column;gap:8px}
   .ik-fam.closed{display:none}
-  .ik-kid{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--bg2);
-    border:1px solid var(--line);border-radius:11px;min-height:52px}
-  .ik-kid-cls{flex:none;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
-    color:var(--muted);background:var(--panel2);border-radius:7px;padding:4px 10px;min-width:62px;text-align:center}
+  /* A child IS a .ik-row — so its padding, border, radius, name (.ik-nm), status (.ik-state),
+     spinner and buttons (.ik-review-btn) are all inherited VERBATIM from the regular line.
+     The only additions are the recessed background and the type chip below. */
+  .ik-kid{background:var(--bg2)}
+  .ik-kid-cls{flex:none;font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;
+    color:var(--muted);background:var(--panel2);border-radius:7px;padding:5px 9px;min-width:56px;text-align:center}
   .ik-kid.passport .ik-kid-cls{color:#7ab8ff}
   .ik-kid.visa .ik-kid-cls{color:#4bd6a0}
   .ik-kid.legal .ik-kid-cls{color:var(--copper)}
-  .ik-kid-nm{flex:1;min-width:0;color:var(--ink);white-space:nowrap;overflow:hidden;
-    text-overflow:ellipsis;font-weight:700;font-size:15.5px;letter-spacing:.2px}
-  .ik-kid-st{flex:none;font-size:15px;font-weight:700;color:var(--muted)}
-  .ik-kchip{font-size:18px;line-height:1}
-  .ik-kchip.ok{color:#4bd6a0}
-  .ik-done{color:#4bd6a0;font-weight:800}   /* committed child — «✓ أُودِعت», matches the regular line */
-  .ik-fail{color:#ff6f78;font-weight:800}   /* refused child — «✕ مرفوض» */
-  .ik-proc{color:var(--muted)}              /* reading/scoring — with the SAME spinner as .ik-row.processing */
-  .ik-proc::before{content:"";display:inline-block;width:11px;height:11px;
-    border:2px solid rgba(197,149,107,.3);border-top-color:var(--copper);border-radius:50%;
-    animation:ikspin .7s linear infinite;vertical-align:-1px;margin-inline-end:6px}
-  .ik-kchip.bad{color:#ff6f78}
-  .ik-kid.skip{opacity:.5;border-style:dashed}
-  .ik-kid.skip .ik-kid-nm{font-size:13px;font-weight:600}
-  .ik-kbtn{flex:none;border:1px solid var(--copper);background:rgba(197,149,107,.16);color:var(--copper);
-    cursor:pointer;font-size:14px;font-weight:800;border-radius:10px;padding:9px 18px;min-height:40px}
-  .ik-kbtn:hover{background:var(--copper);color:#1a1206}
-  .ik-kbtn.lglaw{display:inline-flex;align-items:center;gap:6px}   /* legal review — ⚖ + text, like the regular line */
+  .ik-kid.skip{opacity:.55;border-style:dashed}
   /* ── the quick-review page (mirrors the ocr line drawer: raw file + what to check) ── */
   #ikreview{position:fixed;inset:0;z-index:78;background:var(--app-grad);display:none;flex-direction:column}
   #ikreview.on{display:flex}
