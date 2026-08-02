@@ -1075,8 +1075,8 @@ function kidStatus(k){
   if(s==='committed'||s==='done')            return '<span class="ik-kid-st ik-done">✓ '+esc(t('ik_committed'))+'</span>';   // «أُودِعت» — same as the regular line
   if(s==='pending-review'||s==='needs-linking') return `<button class="ik-kbtn" data-kidreview="${esc(String(k.job_id))}">${t('ik_review')}</button>`;
   if(s==='legal-review')                     return '<span class="ik-kid-st ik-kchip">⚖</span>';
-  if(s==='failed')                           return '<span class="ik-kid-st ik-kchip bad">✕</span>';
-  return `<span class="ik-kid-st">${esc(ikStageTxt(s))}</span>`;   // reading / scoring / …
+  if(s==='failed')                           return '<span class="ik-kid-st ik-fail">✕ '+esc(t('ik_refused'))+'</span>';   // «✕ مرفوض» — same as the regular line
+  return `<span class="ik-kid-st ik-proc">${esc(ikStageTxt(s))}</span>`;   // reading / scoring — with the same spinner as the regular line
 }
 function ikKidsHtml(j){
   if(j.state!=='split')return '';

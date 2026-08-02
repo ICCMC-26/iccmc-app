@@ -331,6 +331,11 @@
   .ik-kchip{font-size:18px;line-height:1}
   .ik-kchip.ok{color:#4bd6a0}
   .ik-done{color:#4bd6a0;font-weight:800}   /* committed child — «✓ أُودِعت», matches the regular line */
+  .ik-fail{color:#ff6f78;font-weight:800}   /* refused child — «✕ مرفوض» */
+  .ik-proc{color:var(--muted)}              /* reading/scoring — with the SAME spinner as .ik-row.processing */
+  .ik-proc::before{content:"";display:inline-block;width:11px;height:11px;
+    border:2px solid rgba(197,149,107,.3);border-top-color:var(--copper);border-radius:50%;
+    animation:ikspin .7s linear infinite;vertical-align:-1px;margin-inline-end:6px}
   .ik-kchip.bad{color:#ff6f78}
   .ik-kid.skip{opacity:.5;border-style:dashed}
   .ik-kid.skip .ik-kid-nm{font-size:13px;font-weight:600}
