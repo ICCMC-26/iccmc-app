@@ -1069,12 +1069,15 @@ const IK_KID_ACTIVE=new Set(['captured','raw-uploaded','preprocessed-&-seen','sc
   'sorted','staged','skipped']);    // still moving → keep polling; anything else has settled
 function kidClsLabel(cls){ const m={passport:'ik_cls_passport',visa:'ik_cls_visa',legal:'ik_cls_legal'}[cls];
   return m?t(m):String(cls||'—').toUpperCase(); }
-function kidName(k){ const f=k.fields||{}; return f.name_latin||f.name_native||kidClsLabel((k.split_class||'').toLowerCase()); }
+function kidName(k){ const f=k.fields||{}, cls=(k.split_class||'').toLowerCase();
+  if(cls==='legal'){ const pt=f.paper_type||String(k.doc_type||'').replace('legal_','');   // تعهد / استمارة / منح
+    return t('lg_'+pt) || kidClsLabel('legal'); }
+  return f.name_latin||f.name_native||kidClsLabel(cls); }
 function kidStatus(k){
   const s=k.status;
   if(s==='committed'||s==='done')            return '<span class="ik-kid-st ik-done">✓ '+esc(t('ik_committed'))+'</span>';   // «أُودِعت» — same as the regular line
   if(s==='pending-review'||s==='needs-linking') return `<button class="ik-kbtn" data-kidreview="${esc(String(k.job_id))}">${t('ik_review')}</button>`;
-  if(s==='legal-review')                     return '<span class="ik-kid-st ik-kchip">⚖</span>';
+  if(s==='legal-review')                     return `<button class="ik-kbtn lglaw" data-legalreview="${esc(k.image_hash||(k.fields&&k.fields.scan_hash)||'')}"><span class="lgmark">⚖</span> ${t('ik_legal')} ›</button>`;   // opens the § assembler, like the regular line
   if(s==='failed')                           return '<span class="ik-kid-st ik-fail">✕ '+esc(t('ik_refused'))+'</span>';   // «✕ مرفوض» — same as the regular line
   return `<span class="ik-kid-st ik-proc">${esc(ikStageTxt(s))}</span>`;   // reading / scoring — with the same spinner as the regular line
 }
@@ -1096,7 +1099,7 @@ async function ikRefreshFamilies(){
     if(j.kidsSettled)continue;
     try{
       const {data}=await sb.from('scan_jobs')
-        .select('job_id,split_class,status,doc_type,fields,field_conf,flagged,error_msg,person_id,image_path')
+        .select('job_id,image_hash,split_class,status,doc_type,fields,field_conf,flagged,error_msg,person_id,image_path')
         .eq('parent_packet',j.hash).order('created_at');
       j.kids=data||[];
       for(const k of j.kids){ _ikKids[k.job_id]={id:'k'+k.job_id,job:k,hash:null,state:'review',_kid:true,
