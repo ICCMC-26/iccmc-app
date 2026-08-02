@@ -1351,7 +1351,7 @@ function validateDates(f){
 }
 function ikBuildReview(){
   const jk=_rvJob, j=jk.job;
-  const fl=(j.flagged||[]).filter(k=>k!=='doc_type');                 // what needs checking
+  const fl=(j.flagged||[]).filter(k=>k!=='doc_type' && k!=='mrz');    // what needs checking (mrz is machine-only — a human can't retype it, so never a fill field)
   const present=k=>j.fields&&j.fields[k]!=null&&String(j.fields[k]).trim()!=='';
   const typeSet=TYPE_FIELDS[j.doc_type]||RV_ORDER;                    // every field this doc can carry
   const filled=typeSet.filter(k=>present(k)||fl.includes(k));         // what's read or flagged
