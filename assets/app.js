@@ -34,7 +34,8 @@ const I18N={
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
-    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n,
+    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل',
+    ik_cls_passport:'جواز', ik_cls_visa:'تأشيرة', ik_cls_legal:'قانوني',
     ik_next2:'المستندات قيد المسح — تظهر في صفحة البحث فور اعتمادها.',
     ik_review:'مراجعة ›', ik_legal:'مراجعة قانونية', rv_ask:'بانتظار مراجعتك — تأكيد سريع', rv_asklink:'يحتاج ربطًا — راجِع للمتابعة',
     rv_h:'مراجعة سريعة', rv_scan:'المستند الأصلي', rv_noscan:'لا صورة متاحة', rv_loading:'…جارٍ التحميل',
@@ -95,7 +96,8 @@ const I18N={
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
-    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n,
+    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped',
+    ik_cls_passport:'passport', ik_cls_visa:'visa', ik_cls_legal:'legal',
     ik_next2:'Being scanned — they appear on the search page once committed.',
     ik_review:'Review ›', ik_legal:'legal review', rv_ask:'Waiting for your check — quick confirm', rv_asklink:'Needs linking — open to continue',
     rv_h:'Quick review', rv_scan:'Original document', rv_noscan:'No scan available', rv_loading:'…loading',
@@ -856,7 +858,9 @@ async function ikReconcile(){
       // «split into N» summary. The parent card is NEVER committed — its child documents flow
       // on their own through the normal gate — so it uses the dedicated 'packet-split' status.
       if(r.status==='packet-split'){
-        j.state='split'; j.splitN=(r.fields&&r.fields.children)||0; delete _ikPending[h]; changed=true;
+        j.state='split'; j.summary=r.fields||{}; j.splitN=(j.summary.children)||0;
+        if(j.pkOpen===undefined)j.pkOpen=true; j.kidsSettled=false;
+        delete _ikPending[h]; changed=true; ikEnsurePoll();     // keep polling for the children
       } else if(j.stage!=='splitting'){ j.stage='splitting'; changed=true; }
     } else if(r.status==='pending-review'||r.status==='needs-linking'){
       // a stuck pic waiting for a human — NOT terminal, so keep watching until it commits.
@@ -929,14 +933,18 @@ async function ikSweepStaged(){
    transition (and its auto-commit) is caught within seconds regardless. */
 function ikEnsurePoll(){
   if(_ikPoll)return;
-  _ikPoll=setInterval(()=>{ if(Object.keys(_ikPending).length)ikReconcile();
-    else{clearInterval(_ikPoll);_ikPoll=null;} }, 4000);
+  _ikPoll=setInterval(async ()=>{
+    let live=false;
+    if(Object.keys(_ikPending).length){ ikReconcile(); live=true; }   // uploads in flight
+    try{ if(await ikRefreshFamilies())live=true; }catch(_){}          // a packet's children still moving
+    if(!live){ clearInterval(_ikPoll); _ikPoll=null; }
+  }, 4000);
 }
 function ikWatch(){                                  // flip 'processing' → 'landed' on commit, live
   if(_ikCh)return;
   _ikCh=sb.channel('ik_jobs')
     .on('postgres_changes',{event:'*',schema:'public',table:'scan_jobs'},
-      ()=>{clearTimeout(_ikRecTimer);_ikRecTimer=setTimeout(ikReconcile,400)})
+      ()=>{clearTimeout(_ikRecTimer);_ikRecTimer=setTimeout(()=>{ikReconcile();ikRefreshFamilies();},400)})
     .subscribe();
 }
 // the OCR-line stages, shown live on a processing row so the paper's movement is visible
@@ -1051,6 +1059,61 @@ function ikAdd(files){
 }
 function ikRemove(id){IK=IK.filter(j=>j.id!==id);ikRender()}
 function ikRetry(id){const j=IK.find(x=>x.id===id);if(j){j.state='queued';j.err='';ikUpload(j)}}
+/* ── packet «family»: show the split children grouped under their packet row ──
+   Every split child carries parent_packet = the packet file's hash (= the packet IK
+   row's own hash), so we gather a packet's children with one query and nest them.
+   Minimal: the packet on top, its documents beneath, each with its status + a review
+   action — the same review drawer a normal scan uses. */
+let _ikKids={};                     // job_id → a synthetic review-job wrapper for a child
+const IK_KID_ACTIVE=new Set(['captured','raw-uploaded','preprocessed-&-seen','scored',
+  'sorted','staged','skipped']);    // still moving → keep polling; anything else has settled
+function kidClsLabel(cls){ const m={passport:'ik_cls_passport',visa:'ik_cls_visa',legal:'ik_cls_legal'}[cls];
+  return m?t(m):String(cls||'—').toUpperCase(); }
+function kidName(k){ const f=k.fields||{}; return f.name_latin||f.name_native||kidClsLabel((k.split_class||'').toLowerCase()); }
+function kidStatus(k){
+  const s=k.status;
+  if(s==='committed'||s==='done')            return '<span class="ik-kid-st ik-kchip ok">✓</span>';
+  if(s==='pending-review'||s==='needs-linking') return `<button class="ik-kbtn" data-kidreview="${esc(String(k.job_id))}">${t('ik_review')}</button>`;
+  if(s==='legal-review')                     return '<span class="ik-kid-st ik-kchip">⚖</span>';
+  if(s==='failed')                           return '<span class="ik-kid-st ik-kchip bad">✕</span>';
+  return `<span class="ik-kid-st">${esc(ikStageTxt(s))}</span>`;   // reading / scoring / …
+}
+function ikKidsHtml(j){
+  if(j.state!=='split')return '';
+  const kids=j.kids||[], skip=(j.summary&&j.summary.noise)||0;
+  const body=kids.map(k=>{ const cls=(k.split_class||'').toLowerCase();
+    return `<div class="ik-kid ${cls}"><span class="ik-kid-cls">${esc(kidClsLabel(cls))}</span>`
+      +`<span class="ik-kid-nm">${esc(kidName(k))}</span>${kidStatus(k)}</div>`; }).join('');
+  const skipHtml=skip?`<div class="ik-kid skip"><span class="ik-kid-nm">${esc(t('ik_pk_skip',skip))}</span></div>`:'';
+  const wait=(!kids.length&&!skip)?`<div class="ik-kid skip"><span class="ik-kid-nm">…</span></div>`:'';
+  return `<div class="ik-fam${j.pkOpen===false?' closed':''}">${body}${skipHtml}${wait}</div>`;
+}
+async function ikRefreshFamilies(){
+  const packs=IK.filter(j=>j.state==='split'&&j.hash);
+  if(!packs.length)return false;
+  let pending=false, staged=false;
+  for(const j of packs){
+    if(j.kidsSettled)continue;
+    try{
+      const {data}=await sb.from('scan_jobs')
+        .select('job_id,split_class,status,doc_type,fields,field_conf,flagged,error_msg,person_id,image_path')
+        .eq('parent_packet',j.hash).order('created_at');
+      j.kids=data||[];
+      for(const k of j.kids){ _ikKids[k.job_id]={id:'k'+k.job_id,job:k,hash:null,state:'review',_kid:true}; }
+      if(j.kids.some(k=>k.status==='staged'))staged=true;
+      const active=j.kids.some(k=>IK_KID_ACTIVE.has(k.status))||(j.splitN&&j.kids.length<j.splitN);
+      if(active)pending=true; else j.kidsSettled=true;
+    }catch(_){ pending=true; }
+  }
+  if(staged)ikSweepStaged();          // a clean child parked at the gate → commit it live
+  ikRender();
+  return pending;
+}
+function openKidReview(jobId){
+  const jk=_ikKids[jobId]; if(!jk||!jk.job)return;
+  _rvJob=jk; _rvJob._scanUrl=null; _rvShowAll=false;
+  ikBuildReview(); $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
+}
 function ikRender(){
   // A card that asks something of a human (review / legal) is pinned to the TOP so it
   // is never buried among committed rows — stable sort keeps every other card in its
@@ -1065,11 +1128,12 @@ function ikRender(){
       ${j.state==='review'?`<div class="ik-ask">${j.needsBoard?t('rv_asklink'):t('rv_ask')}</div>`:''}
       <div class="ik-bar2"><i style="width:${j.pct}%"></i></div></div>
     <span class="ik-state">${ikStateTxt(j)}</span>
+    ${j.state==='split'?`<button class="ik-pk-toggle" data-pktoggle="${j.id}">${j.pkOpen===false?'▸':'▾'}</button>`:''}
     ${j.state==='review'?`<button class="ik-review-btn" data-review="${j.id}">${t('ik_review')}</button>`:''}
     ${j.state==='legal'?`<button class="ik-review-btn lglaw" data-legalreview="${esc(j.hash||'')}"><span class="lgmark">⚖</span> ${t('ik_legal')} ›</button>`:''}
     ${j.state==='failed'?`<button class="ik-retry" data-retry="${j.id}">${t('ik_retry')}</button>`:''}
     <button class="ik-x" data-rm="${j.id}" title="${t('t_close')}">✕</button>
-  </div>`).join('');
+  </div>${ikKidsHtml(j)}`).join('');
   const sent=IK.filter(j=>j.state==='processing'||j.state==='landed').length;
   const landed=IK.filter(j=>j.state==='landed').length;
   const fail=IK.filter(j=>j.state==='failed'||j.state==='refused').length;   // both didn't make it
@@ -1335,6 +1399,7 @@ async function ikDoAdd(forcePid){
     if(r.defer){ toast(t('rv_defer')); const b=$('#rvw-add'); if(b){b.disabled=false;b.textContent=t('rv_add');} return; }
     jk.state='landed'; jk.job=null; if(jk.hash)delete _ikPending[jk.hash];
     toast(t('rv_added')+(r.pid||'')); closeIkReview(); ikRender();
+    if(jk._kid)ikRefreshFamilies();                         // a packet child was reviewed → refresh its family
     search($('#q')?$('#q').value:'');                       // reflect the new employee at once (Realtime also fires)
   }catch(e){ toast(t('rv_addfail')+((e&&e.message)||e)); if(btn){btn.disabled=false;btn.textContent=t('rv_add');} }
 }
@@ -2006,6 +2071,9 @@ async function lrCommit(){
 
 $('#ik-list').addEventListener('click',e=>{
   const lr=e.target.closest('[data-legalreview]'); if(lr){openLegalReview(lr.getAttribute('data-legalreview'));return}
+  const kr=e.target.closest('[data-kidreview]'); if(kr){openKidReview(kr.getAttribute('data-kidreview'));return}   // a packet child's review
+  const pt=e.target.closest('[data-pktoggle]'); if(pt){ const jj=IK.find(x=>x.id===+pt.dataset.pktoggle);          // collapse/expand a family
+    if(jj){ jj.pkOpen=(jj.pkOpen===false); ikRender(); } return }
   const rv=e.target.closest('[data-review]'); if(rv){openIkReview(+rv.dataset.review);return}
   const rm=e.target.closest('[data-rm]'); if(rm){ikRemove(+rm.dataset.rm);return}
   const rt=e.target.closest('[data-retry]'); if(rt)ikRetry(+rt.dataset.retry);
