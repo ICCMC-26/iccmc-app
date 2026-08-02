@@ -2169,3 +2169,7 @@ document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
 applyLang();
 /* resume a remembered session */
 (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session&&session.user)enterApp()}catch(_){}})();
+/* BOOT-BEACON — the LAST line. It is true ONLY if the whole script executed with no mid-file halt
+   (e.g. a ReferenceError before the button wiring). After ANY load-time change, verify window.__APP_BOOTED
+   === true: it can't be fooled by hoisting the way "typeof fn === 'function'" can. Do not move it. */
+window.__APP_BOOTED = true;
