@@ -965,7 +965,7 @@ function ikResync(){
   ikReconcile();      // and snap to truth now (the token is fresh after a refresh/focus)
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') ikResync(); });
-if(LIVE && sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN') ikResync(); });
+if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN') ikResync(); });   // (app.js has no LIVE flag — sb is always created)
 
 // the OCR-line stages, shown live on a processing row so the paper's movement is visible
 const IK_STAGE_L={'captured':['التُقط','captured'],'raw-uploaded':['حُفظت الصورة','image saved'],
@@ -1085,7 +1085,7 @@ async function ikRemove(id){
   // the worker's board — dismissing must clear THAT too, or the row lingers as a DB leftover (exactly
   // the residue we had to sweep by hand). Server-side + CONFIRMED: if the delete fails (e.g. an expired
   // token) we RESTORE the card so a retry removes it for real — never a silent orphan.
-  if(j.state==='landed' || !j.hash || !LIVE || !sb) return;
+  if(j.state==='landed' || !j.hash || !sb) return;
   try{
     const {error}=await sb.from('scan_jobs').delete()
       .eq('image_hash',j.hash).not('status','in','(done,committed)');   // never a committed employee
