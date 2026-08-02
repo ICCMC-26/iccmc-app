@@ -950,6 +950,23 @@ function ikWatch(){                                  // flip 'processing' → 'l
       ()=>{clearTimeout(_ikRecTimer);_ikRecTimer=setTimeout(()=>{ikReconcile();ikRefreshFamilies();},400)})
     .subscribe();
 }
+/* SELF-HEAL after a background / session lapse. The realtime socket (_ikCh) is subscribed ONCE and
+   never re-armed if it dies while the tab is backgrounded; and a reconcile fetch silently no-ops on
+   an expired token (Cloudflare Access / Supabase). Either can freeze a pending card at its last-seen
+   stage even though the worker already finished server-side. On regaining focus — or right after
+   Supabase refreshes the token — we re-arm realtime and force ONE reconcile, so every pending card
+   snaps to its TRUE db state. No-op when nothing is pending (zero cost), and it invents NO status:
+   a card only resolves to what the DB already says (✓ landed / ✕ refused / review). */
+function ikResync(){
+  if(!Object.keys(_ikPending).length) return;          // nothing waiting → nothing to heal
+  if(_ikCh){ try{ sb.removeChannel(_ikCh); }catch(_){} _ikCh=null; }   // drop a possibly-dead socket
+  ikWatch();          // re-subscribe realtime
+  ikEnsurePoll();     // ensure the 4s reconcile poll is alive
+  ikReconcile();      // and snap to truth now (the token is fresh after a refresh/focus)
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') ikResync(); });
+if(LIVE && sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN') ikResync(); });
+
 // the OCR-line stages, shown live on a processing row so the paper's movement is visible
 const IK_STAGE_L={'captured':['التُقط','captured'],'raw-uploaded':['حُفظت الصورة','image saved'],
   'preprocessed-&-seen':['قيد القراءة…','reading…'],'scored':['قيد التقييم…','scoring…'],
