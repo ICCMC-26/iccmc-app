@@ -808,12 +808,15 @@ async function printBatch(b){
    `intake` bucket; the Python OCR worker consumes them and the scan board shows OCR
    live. Keeps the proven OCR brain — only the intake source moved off the local folder. */
 const IK_BUCKET='intake', IK_MAX=200*1024*1024, IK_OK=/^(image\/|application\/pdf)/;
-const IK_CONC=3;                 // upload at most 3 at once — drop UNLIMITED files, they queue behind
-const IK_PIPELINE=5;             // BACKPRESSURE: at most 5 files IN THE WORKER PIPELINE at once
+const IK_CONC=6;                 // upload at most 6 at once — drop UNLIMITED files, they queue behind
+                                 // (6 ≈ the browser's per-host connection limit; more won't parallelise
+                                 //  against one Supabase host anyway).
+const IK_PIPELINE=12;            // BACKPRESSURE: at most 12 files IN THE WORKER PIPELINE at once
                                  // (uploaded but not yet landed). Uploads finish in ~1s but the
                                  // Cloud Run worker needs ~20s each; without this cap a 35-file drop
-                                 // fires 35 webhooks in seconds and overflows Cloud Run → 429. Kept
-                                 // just under the worker's max-instances so it never queues past capacity.
+                                 // fires 35 webhooks in seconds and overflows Cloud Run → 429. Set to
+                                 // the worker's max-instances (12). A rare self-heal re-fire that brushes
+                                 // capacity now 429-retries with JITTERED backoff, so no cushion needed.
 const IK_STUCK_MS=45000;         // a file 'processing' this long with NO job = its webhook was dropped
 const IK_TRIES=3;                // …(429/missed) → re-fire it, up to this many times (self-heal)
 const IK_RESUMABLE=6*1024*1024;  // ≥6MB → chunked resumable (TUS) upload; smaller → one-shot POST
