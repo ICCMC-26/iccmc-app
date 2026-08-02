@@ -34,7 +34,7 @@ const I18N={
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
-    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل',
+    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا',
     ik_cls_passport:'جواز', ik_cls_visa:'تأشيرة', ik_cls_legal:'قانوني',
     ik_next2:'المستندات قيد المسح — تظهر في صفحة البحث فور اعتمادها.',
     ik_review:'مراجعة ›', ik_legal:'مراجعة قانونية', rv_ask:'بانتظار مراجعتك — تأكيد سريع', rv_asklink:'يحتاج ربطًا — راجِع للمتابعة',
@@ -96,7 +96,7 @@ const I18N={
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
-    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped',
+    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again',
     ik_cls_passport:'passport', ik_cls_visa:'visa', ik_cls_legal:'legal',
     ik_next2:'Being scanned — they appear on the search page once committed.',
     ik_review:'Review ›', ik_legal:'legal review', rv_ask:'Waiting for your check — quick confirm', rv_asklink:'Needs linking — open to continue',
@@ -1077,7 +1077,23 @@ function ikAdd(files){
   }
   ikRender(); ikPump();                              // queue drains IK_CONC at a time
 }
-function ikRemove(id){IK=IK.filter(j=>j.id!==id);ikRender()}
+async function ikRemove(id){
+  const j=IK.find(x=>x.id===id); if(!j) return;
+  IK=IK.filter(x=>x.id!==id); if(j.hash) delete _ikPending[j.hash]; ikRender();   // dismiss the card now (responsive)
+  // A LANDED card is a committed employee — dismissing just HIDES it; NEVER delete the person.
+  // A NON-terminal card (processing / review / legal / split / refused) still has a scan_jobs row on
+  // the worker's board — dismissing must clear THAT too, or the row lingers as a DB leftover (exactly
+  // the residue we had to sweep by hand). Server-side + CONFIRMED: if the delete fails (e.g. an expired
+  // token) we RESTORE the card so a retry removes it for real — never a silent orphan.
+  if(j.state==='landed' || !j.hash || !LIVE || !sb) return;
+  try{
+    const {error}=await sb.from('scan_jobs').delete()
+      .eq('image_hash',j.hash).not('status','in','(done,committed)');   // never a committed employee
+    if(error) throw error;
+  }catch(_){
+    IK.push(j); _ikPending[j.hash]=j; ikRender(); toast(t('ik_rm_fail'));   // undo the dismiss → a retry cleans it
+  }
+}
 function ikRetry(id){const j=IK.find(x=>x.id===id);if(j){j.state='queued';j.err='';ikUpload(j)}}
 /* ── packet «family»: show the split children grouped under their packet row ──
    Every split child carries parent_packet = the packet file's hash (= the packet IK
