@@ -34,7 +34,7 @@ const I18N={
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
-    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض',
+    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n,
     ik_next2:'المستندات قيد المسح — تظهر في صفحة البحث فور اعتمادها.',
     ik_review:'مراجعة ›', ik_legal:'مراجعة قانونية', rv_ask:'بانتظار مراجعتك — تأكيد سريع', rv_asklink:'يحتاج ربطًا — راجِع للمتابعة',
     rv_h:'مراجعة سريعة', rv_scan:'المستند الأصلي', rv_noscan:'لا صورة متاحة', rv_loading:'…جارٍ التحميل',
@@ -95,7 +95,7 @@ const I18N={
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
-    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused',
+    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n,
     ik_next2:'Being scanned — they appear on the search page once committed.',
     ik_review:'Review ›', ik_legal:'legal review', rv_ask:'Waiting for your check — quick confirm', rv_asklink:'Needs linking — open to continue',
     rv_h:'Quick review', rv_scan:'Original document', rv_noscan:'No scan available', rv_loading:'…loading',
@@ -851,6 +851,13 @@ async function ikReconcile(){
       j.state='landed'; delete _ikPending[h]; changed=true;
     } else if(r.status==='failed'){                          // quality gate / read refused it → ✕
       j.state='refused'; j.err=r.error_msg||''; delete _ikPending[h]; changed=true;
+    } else if(r.source==='packet' || r.doc_type==='packet'){
+      // the packet «zero line»: while it is being cut show «in the splitter», then a terminal
+      // «split into N» summary. The parent card is NEVER committed — its child documents flow
+      // on their own through the normal gate — so it uses the dedicated 'packet-split' status.
+      if(r.status==='packet-split'){
+        j.state='split'; j.splitN=(r.fields&&r.fields.children)||0; delete _ikPending[h]; changed=true;
+      } else if(j.stage!=='splitting'){ j.stage='splitting'; changed=true; }
     } else if(r.status==='pending-review'||r.status==='needs-linking'){
       // a stuck pic waiting for a human — NOT terminal, so keep watching until it commits.
       // needsBoard = the rare orphan/ambiguous case the quick-review may not auto-resolve.
@@ -935,13 +942,15 @@ function ikWatch(){                                  // flip 'processing' → 'l
 // the OCR-line stages, shown live on a processing row so the paper's movement is visible
 const IK_STAGE_L={'captured':['التُقط','captured'],'raw-uploaded':['حُفظت الصورة','image saved'],
   'preprocessed-&-seen':['قيد القراءة…','reading…'],'scored':['قيد التقييم…','scoring…'],
-  'sorted':['قيد الفرز…','sorting…'],'needs-linking':['بحاجة ربط','needs linking']};
+  'sorted':['قيد الفرز…','sorting…'],'needs-linking':['بحاجة ربط','needs linking'],
+  'splitting':['في المُقسِّم…','in the splitter…']};   // a packet on the «zero line» being split
 function ikStageTxt(s){ const m=IK_STAGE_L[s]; return m?(LANG==='ar'?m[0]:m[1]):t('ik_processing'); }
 function ikStateTxt(j){
   if(j.state==='queued')return t('ik_queued');
   if(j.state==='uploading')return j.pct+'%';
   if(j.state==='processing')return j.stage?ikStageTxt(j.stage):t('ik_processing');
   if(j.state==='landed')return '✓ '+t('ik_landed');
+  if(j.state==='split')return '✓ '+t('ik_split',j.splitN||0);   // a packet: split into N documents (its children flow on their own)
   if(j.state==='refused')return '✕ '+t('ik_refused');
   if(j.state==='review')return '';                    // the Review button fills the slot instead
   if(j.state==='legal')return '';                     // the «§ legal review» button fills the slot
