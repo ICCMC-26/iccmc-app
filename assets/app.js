@@ -854,7 +854,7 @@ async function buildBatchDossier(b){
     const rr=chunk.map(m=>`<tr><td>${esc(m.serial??'—')}</td><td>${esc(m.name_as_written||'—')}</td><td>${esc(m.passport_no||'—')}</td><td>${m.person_id?esc(m.person_id):'—'}</td></tr>`).join('');
     pages+=`<div class="pg report">${run}<div class="pv-body"><div class="pv-h2">${rosterTitle(ci)}</div>
       <table class="lb-print">${thead}<tbody>${rr}</tbody></table></div>${foot(pg)}</div>`; });
-  scanPages.forEach(s=>{ pg++; pages+=`<div class="pg scan">${run}<div class="pv-body"><div class="pv-h2">${esc(s.title)}</div><img class="pv-scan" src="${s.img}" alt=""></div>${foot(pg)}</div>`; });
+  scanPages.forEach(s=>{ pg++; pages+=`<div class="pg scan bleed"><img class="pv-scan" src="${s.img}" alt=""></div>`; });   // the legal paper fills the whole page (no chrome), max space
   for(const s of officeTasks){ const oh=await officeDocHtml(s.path); if(!oh)continue; pg++;   // the actual Word/Excel page, rendered in-app
     pages+=`<div class="pg scan office">${run}<div class="pv-body"><div class="pv-h2">${esc(s.title)}</div><div class="pv-office" dir="ltr">${oh}</div></div>${foot(pg)}</div>`; }
   return cover+contents+pages;
@@ -2274,6 +2274,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v44';
+window.__APP_VER = 'v45';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

@@ -586,6 +586,9 @@
        min-height parent, so the image would grow the page and spill the footer to a blank
        page). 190mm leaves room for the running header + heading + footer within one sheet. */
     #print .pv-scan{max-width:100%;max-height:190mm;object-fit:contain;margin:auto;display:block}
+    /* a legal paper scan FILLS the whole A4 page (no header/title/footer) → maximum space, tidy */
+    #print .pg.scan.bleed{padding:0;min-height:auto;height:297mm;display:block;overflow:hidden}
+    #print .pg.scan.bleed .pv-scan{width:100%;height:297mm;max-width:none;max-height:none;object-fit:contain;margin:0}
     /* Word/Excel legal papers rendered in-app (docx-preview / SheetJS) → flow across pages, don't clip */
     #print .pg.office{min-height:auto;overflow:visible}
     #print .pv-office{background:#fff;color:#000}
