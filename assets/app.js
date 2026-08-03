@@ -726,12 +726,12 @@ async function buildDossier(){
       // legal papers are multi-page tables → print ALL pages (multi:true), so a worker on page 2+ is shown.
       // `hl` = where HIS row sits on that paper (from the member's boxes) → a yellow band in print.
       const bx=m.boxes||{}, rot=b.rot||{}, sfx=multiB?` ${id}`:'';
-      if(b.taahud_scan)   scanTasks.push({title:`${t('lg_taahud')}${sfx}`,   path:b.taahud_scan,   multi:true, rotDeg:rot.taahud||0, hl:bx.taahud});
+      if(b.taahud_scan)   scanTasks.push({title:`${t('lg_taahud')}${sfx}`,   path:_printPath(b.taahud_scan),   multi:true, rotDeg:rot.taahud||0, hl:bx.taahud});
       // الاستمارة may arrive sideways → the human's stored turn (rot) stands it up; its box isn't mapped to
       // that frame yet, so alongside the upright scan we keep a gentle professional NOTE of his serial.
-      if(b.istimara_scan) scanTasks.push({title:`${t('lg_istimara')}${sfx}`, path:b.istimara_scan, multi:true, rotDeg:rot.istimara||0,
+      if(b.istimara_scan) scanTasks.push({title:`${t('lg_istimara')}${sfx}`, path:_printPath(b.istimara_scan), multi:true, rotDeg:rot.istimara||0,
                                           note:(m.serial!=null?t('pv_legal_note',name,m.serial):null)});
-      if(b.manh_scan)     scanTasks.push({title:`${t('lg_manh')}${sfx}`,     path:b.manh_scan,     multi:true, rotDeg:rot.manh||0});
+      if(b.manh_scan)     scanTasks.push({title:`${t('lg_manh')}${sfx}`,     path:_printPath(b.manh_scan),     multi:true, rotDeg:rot.manh||0});
     });
   }
   // render each scan → its page image(s). Legal scans render EVERY page (at their upright rotation);
@@ -784,6 +784,9 @@ async function buildDossier(){
     scans+=`<div class="pg scan office">${run}<div class="pv-body"><div class="pv-h2">${esc(s.title)}</div><div class="pv-office" dir="ltr">${oh}</div></div>${foot(pg)}</div>`; }
   return cover+contents+report+scans;
 }
+// عرض shows the RAW intake file (scan_path stays the original .xlsx/.docx, opened as-is); only PRINT
+// swaps in the rendered .pdf sibling (same path, .pdf) so the dossier shows the stamped pic.
+function _printPath(p){ return /\.(xlsx|docx)$/i.test(p||'') ? p.replace(/\.(xlsx|docx)$/i, '.pdf') : (p||null); }
 // A WIDE scan (a landscape form — e.g. an استمارة) should print BIG on a landscape page, not shrunk
 // onto a portrait sheet. After the scans rasterise, flag the wide ones so the print CSS turns just
 // those pages landscape (portrait passports/visas are untouched).
@@ -816,10 +819,10 @@ async function buildBatchDossier(b){
   const tl={taahud:t('lg_taahud'),istimara:t('lg_istimara'),manh:t('lg_manh')};
   const scanTasks=[];
   const brot=b.rot||{};
-  if(b.taahud_scan)   scanTasks.push({title:tl.taahud,   path:b.taahud_scan,   rotDeg:brot.taahud||0});
-  if(b.istimara_scan) scanTasks.push({title:tl.istimara, path:b.istimara_scan, rotDeg:brot.istimara||0});
-  if(b.manh_scan)     scanTasks.push({title:tl.manh,     path:b.manh_scan,     rotDeg:brot.manh||0});
-  const officeTasks=scanTasks.filter(s=>/\.(docx|xlsx)$/i.test(s.path||''));   // Word/Excel → rendered as office pages
+  if(b.taahud_scan)   scanTasks.push({title:tl.taahud,   path:_printPath(b.taahud_scan),   rotDeg:brot.taahud||0});
+  if(b.istimara_scan) scanTasks.push({title:tl.istimara, path:_printPath(b.istimara_scan), rotDeg:brot.istimara||0});
+  if(b.manh_scan)     scanTasks.push({title:tl.manh,     path:_printPath(b.manh_scan),     rotDeg:brot.manh||0});
+  const officeTasks=scanTasks.filter(s=>/\.(docx|xlsx)$/i.test(s.path||''));   // any Office scan without a PDF render → fallback
   const perTask=await Promise.all(scanTasks.map(s=>scanImagesAll(s.path, s.rotDeg||0)));
   const scanPages=[];
   scanTasks.forEach((s,i)=>{ const imgs=(perTask[i]||[]).filter(Boolean);
@@ -2271,6 +2274,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v42';
+window.__APP_VER = 'v43';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
