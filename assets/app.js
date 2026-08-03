@@ -2097,44 +2097,80 @@ async function commitProposal(i){
    from any of its papers — the raw scan on one side (a tab per paper to switch), the confirm panel on
    the other (type the منح number, tick the stamps), one save. Same commitLegalBatch path. */
 let _lrBatch=null, _lrIdx=0, _lrRot={}, _lrZoom=1;   // _lrRot[type] = the user's manual turn per paper; _lrZoom = review-pane magnification
-// ── review-pane VIEWER: the modern minimal pattern — GPU transform (translate+scale), wheel/pinch
-//    ZOOM-TO-CURSOR + drag-to-PAN ("grab the page and move it"). One controller for every render path
-//    (office PDF, scanned image, منح). Content lives in .lr-stage; .lr-pan is the fixed viewport. ──
-const LR_ZMIN=1, LR_ZMAX=5;
+// ── review-pane VIEWER (modern document-viewer pattern) ──────────────────────────────────────────
+// A PDF page is RE-RENDERED at the current zoom (scale × devicePixelRatio) so text stays razor-sharp at
+// any magnification — never a stretched bitmap. It sits in a normal SCROLLABLE pane (the up/down slider
+// is back), with grab-to-pan and Ctrl/⌘-wheel + pinch zoom-to-cursor. A raw image scan uses the same
+// shell but css-scales (a photo has no more detail to render). One glass toolbar for both.
+const LR_ZMIN=1, LR_ZMAX=6;
 function _lrToolsHtml(){
-  return `<button class="lr-rotate" id="lr-rot" title="${t('lr_rotate')}">⟳</button>`
-    + `<div class="lr-zoom"><button data-lz="out" title="−">−</button><span class="lz-lbl">100%</span>`
-    + `<button data-lz="in" title="+">+</button><button data-lz="fit" title="⊡">⊡</button></div>`; }
-function _lrWireTools(box,paper){
+  return `<div class="lr-bar">`
+    + `<button class="lr-b" id="lr-rot" title="${t('lr_rotate')}">⟳</button><i class="lr-sep"></i>`
+    + `<button class="lr-b" data-lz="out" title="−">−</button><span class="lz-lbl">100%</span>`
+    + `<button class="lr-b" data-lz="in" title="+">+</button>`
+    + `<button class="lr-b" data-lz="fit" title="⊡">⊡</button></div>`; }
+// shared interaction: rotate · buttons · Ctrl-wheel zoom-to-cursor · grab-pan · pinch. api={zoomAt(cx,cy,f),reset()}.
+function _lrWire(box, paper, api){
+  const pan=box.querySelector('.lr-pan'); if(!pan)return;
   const rb=box.querySelector('#lr-rot'); if(rb)rb.onclick=()=>{ _lrRot[paper.type]=((_lrRot[paper.type]||0)+90)%360; lrPaintScan(paper); };
-  const pan=box.querySelector('.lr-pan'), stage=box.querySelector('.lr-stage'); if(!pan||!stage)return;
-  const base=paper.type==='manh'?1.5:1;              // منح opens gently zoomed on its العدد
-  let z=base, x=0, y=0; const lbl=box.querySelector('.lz-lbl');
-  const clamp=()=>{ const sw=stage.offsetWidth*z, sh=stage.offsetHeight*z, w=pan.clientWidth, h=pan.clientHeight;
-    x = sw<=w ? (w-sw)/2 : Math.max(w-sw, Math.min(0,x));    // fill width; centred when it fits, never past an edge
-    y = sh<=h ? 0        : Math.max(h-sh, Math.min(0,y)); };
-  const apply=()=>{ clamp(); stage.style.transform=`translate3d(${x}px,${y}px,0) scale(${z})`;
-    if(lbl)lbl.textContent=Math.round(z*100)+'%'; _lrZoom=z; };
-  const zoomAt=(cx,cy,f)=>{ const nz=Math.min(LR_ZMAX,Math.max(LR_ZMIN,z*f)), k=nz/z;   // keep the point under the cursor fixed
-    x=cx-(cx-x)*k; y=cy-(cy-y)*k; z=nz; apply(); };
-  const atCenter=f=>zoomAt(pan.clientWidth/2, pan.clientHeight/2, f);
-  box.querySelectorAll('[data-lz]').forEach(b=>b.onclick=()=>{ const a=b.dataset.lz;
-    if(a==='in')atCenter(1.3); else if(a==='out')atCenter(1/1.3); else { z=base;x=0;y=0;apply(); } });
-  pan.addEventListener('wheel',e=>{ e.preventDefault(); const r=pan.getBoundingClientRect();
-    zoomAt(e.clientX-r.left, e.clientY-r.top, e.deltaY<0?1.12:1/1.12); },{passive:false});
-  const pts=new Map(); let pinch=0;                  // pointer events → drag-pan (1 finger) + pinch-zoom (2)
-  pan.addEventListener('pointerdown',e=>{ if(e.target.closest('.lr-zoom,.lr-rotate'))return;   // let toolbar clicks through
-    pan.setPointerCapture(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    pan.classList.add('grabbing'); if(pts.size===2){ const [a,b]=[...pts.values()]; pinch=Math.hypot(a.x-b.x,a.y-b.y); } });
-  pan.addEventListener('pointermove',e=>{ const p=pts.get(e.pointerId); if(!p)return;
-    if(pts.size===1){ x+=e.clientX-p.x; y+=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY; apply(); }
-    else if(pts.size===2){ p.x=e.clientX; p.y=e.clientY; const [a,b]=[...pts.values()], d=Math.hypot(a.x-b.x,a.y-b.y), r=pan.getBoundingClientRect();
-      if(pinch) zoomAt((a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top, d/pinch); pinch=d; } });
+  box.querySelectorAll('[data-lz]').forEach(b=>b.onclick=()=>{ const a=b.dataset.lz, r=pan.getBoundingClientRect();
+    if(a==='in')api.zoomAt(r.width/2,r.height/2,1.25); else if(a==='out')api.zoomAt(r.width/2,r.height/2,1/1.25); else api.reset(); });
+  pan.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return;      // plain wheel SCROLLS (slider); Ctrl/⌘-wheel zooms
+    e.preventDefault(); const r=pan.getBoundingClientRect(); api.zoomAt(e.clientX-r.left,e.clientY-r.top, e.deltaY<0?1.15:1/1.15); },{passive:false});
+  const pts=new Map(); let pinch=0, sl=0, st=0, sx=0, sy=0;                  // 1 pointer = grab-pan (scroll), 2 = pinch-zoom
+  pan.addEventListener('pointerdown',e=>{ if(e.target.closest('.lr-bar'))return; pan.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); pan.classList.add('grabbing');
+    if(pts.size===1){ sl=pan.scrollLeft; st=pan.scrollTop; sx=e.clientX; sy=e.clientY; }
+    else if(pts.size===2){ const [a,b]=[...pts.values()]; pinch=Math.hypot(a.x-b.x,a.y-b.y); } });
+  pan.addEventListener('pointermove',e=>{ const p=pts.get(e.pointerId); if(!p)return; p.x=e.clientX; p.y=e.clientY;
+    if(pts.size===1){ pan.scrollLeft=sl-(e.clientX-sx); pan.scrollTop=st-(e.clientY-sy); }
+    else if(pts.size===2){ const [a,b]=[...pts.values()], d=Math.hypot(a.x-b.x,a.y-b.y), r=pan.getBoundingClientRect();
+      if(pinch) api.zoomAt((a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top, d/pinch); pinch=d; } });
   const up=e=>{ pts.delete(e.pointerId); if(pts.size<2)pinch=0; if(!pts.size)pan.classList.remove('grabbing'); };
   pan.addEventListener('pointerup',up); pan.addEventListener('pointercancel',up);
-  box.querySelectorAll('.lr-stage img').forEach(im=>im.addEventListener('load',apply));   // re-clamp once real heights are known
-  if(paper.type==='manh') requestAnimationFrame(()=>{ x=pan.clientWidth-stage.offsetWidth*z; y=0; apply(); });  // open at the top-right العدد
-  else apply();
+}
+async function _lrPdfView(box, url, rot, paper){        // sharp: re-renders each page at the chosen zoom
+  if(!window.pdfjsLib) return false;
+  let pdf; try{ const buf=await (await fetch(url)).arrayBuffer(); pdf=await pdfjsLib.getDocument({data:buf}).promise; }
+  catch(e){ console.warn('pdf view',e); return false; }
+  box.innerHTML=`<div class="lr-pan pdf"><div class="lr-stage"></div></div>${_lrToolsHtml()}`;
+  const pan=box.querySelector('.lr-pan'), stage=box.querySelector('.lr-stage'), lbl=box.querySelector('.lz-lbl');
+  const dpr=Math.min(window.devicePixelRatio||1, 2), base=paper.type==='manh'?1.5:1;
+  const rotOf=p=>(((p.rotate||0)+rot)%360+360)%360, pages=[];
+  for(let n=1;n<=pdf.numPages;n++){ const p=await pdf.getPage(n); const c=document.createElement('canvas'); c.className='lr-page'; stage.appendChild(c); pages.push({p,c}); }
+  let z=base;
+  const fit=()=>{ const w=pan.clientWidth-16, vp1=pages[0].p.getViewport({scale:1,rotation:rotOf(pages[0].p)}); return Math.max(.15, w/vp1.width); };
+  const cssSizes=cs=>{ for(const {p,c} of pages){ const vp1=p.getViewport({scale:1,rotation:rotOf(p)}); c.style.width=(cs*vp1.width)+'px'; c.style.height=(cs*vp1.height)+'px'; } };
+  let tok=0;
+  async function sharp(){ const my=++tok, cs=fit()*z;
+    for(const {p,c} of pages){ if(my!==tok)return; const r=rotOf(p), vp1=p.getViewport({scale:1,rotation:r});
+      c.style.width=(cs*vp1.width)+'px'; c.style.height=(cs*vp1.height)+'px';           // logical size = the zoom
+      let vp=p.getViewport({scale:cs*dpr,rotation:r}); const mx=Math.max(vp.width,vp.height);
+      if(mx>4096) vp=p.getViewport({scale:cs*dpr*4096/mx,rotation:r});                   // cap the bitmap (memory safety at extreme zoom)
+      c.width=Math.floor(vp.width); c.height=Math.floor(vp.height);
+      try{ await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise; }catch(_){} } }
+  let deb=0; const sharpen=()=>{ clearTimeout(deb); deb=setTimeout(sharp,150); };
+  function zoomTo(nz,cx,cy){ nz=Math.min(LR_ZMAX,Math.max(LR_ZMIN,nz)); if(Math.abs(nz-z)<1e-3)return;
+    const r=nz/z, l=pan.scrollLeft, tp=pan.scrollTop; z=nz; cssSizes(fit()*z);           // instant: stretch the current bitmap
+    pan.scrollLeft=(l+cx)*r-cx; pan.scrollTop=(tp+cy)*r-cy;                              // keep the point under the cursor put
+    if(lbl)lbl.textContent=Math.round(z*100)+'%'; _lrZoom=z; sharpen(); }
+  _lrWire(box, paper, { zoomAt:(cx,cy,f)=>zoomTo(z*f,cx,cy),
+    reset:()=>{ zoomTo(base, pan.clientWidth/2, pan.clientHeight/2); pan.scrollTop=0; pan.scrollLeft=paper.type==='manh'?pan.scrollWidth:0; } });
+  await sharp(); cssSizes(fit()*z); if(lbl)lbl.textContent=Math.round(z*100)+'%';
+  if(paper.type==='manh') requestAnimationFrame(()=>{ pan.scrollLeft=pan.scrollWidth; });   // open on the top-right العدد (RTL)
+  return true;
+}
+function _lrImgView(box, urls, paper){                   // a raw image scan → scroll + css-zoom (a photo has no vector detail)
+  box.innerHTML=`<div class="lr-pan imgv"><div class="lr-stage">${urls.map(u=>`<img class="lr-page" src="${esc(u)}" alt="scan">`).join('')}</div></div>${_lrToolsHtml()}`;
+  const pan=box.querySelector('.lr-pan'), lbl=box.querySelector('.lz-lbl'), imgs=[...box.querySelectorAll('.lr-stage img')];
+  const base=paper.type==='manh'?1.5:1; let z=base;
+  const apply=()=>{ const w=pan.clientWidth*z; imgs.forEach(im=>im.style.width=w+'px'); if(lbl)lbl.textContent=Math.round(z*100)+'%'; _lrZoom=z; };
+  function zoomTo(nz,cx,cy){ nz=Math.min(LR_ZMAX,Math.max(LR_ZMIN,nz)); if(Math.abs(nz-z)<1e-3)return;
+    const r=nz/z, l=pan.scrollLeft, tp=pan.scrollTop; z=nz; apply(); pan.scrollLeft=(l+cx)*r-cx; pan.scrollTop=(tp+cy)*r-cy; }
+  _lrWire(box, paper, { zoomAt:(cx,cy,f)=>zoomTo(z*f,cx,cy),
+    reset:()=>{ z=base; apply(); pan.scrollTop=0; pan.scrollLeft=paper.type==='manh'?pan.scrollWidth:0; } });
+  apply();
+  if(paper.type==='manh') requestAnimationFrame(()=>{ pan.scrollLeft=pan.scrollWidth; });
 }
 // each paper's OWN expected stamp(s) — reviewing a paper shows ONLY these, defaulting to present (the
 // STANDARD): تعهد=company · استمارة=company+ministry · منح=ministry. The human unticks a missing one.
@@ -2216,23 +2252,19 @@ function renderLegalReview(){
 async function lrPaintScan(paper){
   const box=$('#lr-scan'); if(!box)return;
   if(!paper||!paper.scan_path){ box.textContent=t('rv_noscan'); return; }
-  // EXCEL roster: there is no scanned image to rasterize — instead of a blank pane, show a gentle
-  // panel with a download link to the source .xlsx. Scoped to .xlsx ONLY; scanned PDFs/images fall
-  // straight through to the unchanged viewer below (no byproduct to them).
-  if(/\.(xlsx|docx)$/i.test(paper.scan_path)){
-    // Show the SAME LibreOffice-rendered PDF the PRINT uses — a full office engine reproduces the Word/Excel
-    // layout (positioned text boxes, the signature block, stamps, the photo) far better than the in-browser
-    // docx-preview, which overlaps those frames. Review now matches print exactly (WYSIWYG). The in-app
-    // docx-preview render + a download link stay as the fallback when no PDF sibling exists yet.
-    const pdfPath=_printPath(paper.scan_path);
-    const imgs=pdfPath?await scanImagesAll(pdfPath, _lrRot[paper.type]||0):[];
-    if(imgs.length){
-      box.innerHTML=`<div class="lr-pan">${_lrToolsHtml()}<div class="lr-stage">${imgs.map(u=>`<img src="${u}" alt="scan">`).join('')}</div></div>`;   // faithful, zoom+pan
-      _lrWireTools(box,paper);
-      return;
-    }
+  const isOffice=/\.(xlsx|docx)$/i.test(paper.scan_path);
+  // office → the SAME faithful LibreOffice PDF the print uses (a full office engine reproduces the layout,
+  // text boxes, stamps, photo — far better than the in-browser docx-preview). Scanned → the file itself.
+  const src=isOffice ? _printPath(paper.scan_path) : paper.scan_path, rot=_lrRot[paper.type]||0;
+  if(src && /\.pdf$/i.test(src)){
+    const url=await docUrl(src);
+    if(url && await _lrPdfView(box, url, rot, paper)) return;     // sharp, re-rendered-at-zoom PDF viewer
+  } else if(src && !isOffice){
+    const url=await docUrl(src); if(url){ _lrImgView(box, [url], paper); return; }   // a raw image scan
+  }
+  // FALLBACK — no PDF sibling yet (or an .xlsx that didn't render): the in-app docx-preview + a download link
+  if(isOffice){
     const _doc=/\.docx$/i.test(paper.scan_path), _k=_doc?'Word':'Excel', _ic=_doc?'📄':'📊';
-    // fallback: render the raw Word/Excel in-app (docx-preview / SheetJS); the download stays under it
     box.innerHTML=`<div class="lr-pan office" dir="ltr"><div class="lr-doc-loading">${t('rv_loading')}</div></div>`;
     const ok=await renderOfficeDoc(paper.scan_path, box.querySelector('.lr-pan.office'));
     if(!ok){ const u=await docUrl(paper.scan_path);
@@ -2243,17 +2275,7 @@ async function lrPaintScan(paper){
       </div>`; }
     return;
   }
-  // the USER's manual turn (remembered per paper type this session; default 0 = as scanned)
-  const imgs=await scanImagesAll(paper.scan_path, _lrRot[paper.type]||0);
-  if(!imgs.length){ box.textContent=t('rv_noscan'); return; }
-  const pics=imgs.map(u=>`<img src="${u}" alt="scan">`).join('');
-  if(paper.type==='manh'){
-    // the WHOLE paper, GENTLY zoomed, freely pannable — opens on the العدد (top-right), drag to see the rest
-    box.innerHTML=`<div class="lr-pan manh" dir="ltr">${_lrToolsHtml()}<span class="lr-zlabel">${t('lr_verify')}</span><div class="lr-stage">${pics}</div></div>`;
-  }else{
-    box.innerHTML=`<div class="lr-pan">${_lrToolsHtml()}<div class="lr-stage">${pics}</div></div>`;   // all pages, zoom+pan
-  }
-  _lrWireTools(box,paper);
+  box.textContent=t('rv_noscan');
 }
 async function lrCommit(){
   const b=_lrBatch; if(!b)return; _lrRead();
@@ -2340,6 +2362,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v50';
+window.__APP_VER = 'v51';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
