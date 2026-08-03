@@ -34,7 +34,7 @@ const I18N={
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
-    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا',
+    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_allclear:'أُودِع الكل ✓',
     ik_cls_passport:'جواز', ik_cls_visa:'تأشيرة', ik_cls_legal:'قانوني',
     ik_next2:'المستندات قيد المسح — تظهر في صفحة البحث فور اعتمادها.',
     ik_review:'مراجعة ›', ik_legal:'مراجعة قانونية', rv_ask:'بانتظار مراجعتك — تأكيد سريع', rv_asklink:'يحتاج ربطًا — راجِع للمتابعة',
@@ -96,7 +96,7 @@ const I18N={
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
-    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again',
+    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again', ik_v_compact:'Compact', ik_v_detailed:'Detailed', ik_allclear:'All committed ✓',
     ik_cls_passport:'passport', ik_cls_visa:'visa', ik_cls_legal:'legal',
     ik_next2:'Being scanned — they appear on the search page once committed.',
     ik_review:'Review ›', ik_legal:'legal review', rv_ask:'Waiting for your check — quick confirm', rv_asklink:'Needs linking — open to continue',
@@ -1162,13 +1162,11 @@ function openKidReview(jobId){
   _rvJob=jk; _rvJob._scanUrl=null; _rvShowAll=false;
   ikBuildReview(); $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
 }
-function ikRender(){
-  // A card that asks something of a human (review / legal) is pinned to the TOP so it
-  // is never buried among committed rows — stable sort keeps every other card in its
-  // natural upload order. Display-only: counts and the pipeline below are unchanged.
-  const rank=j=>(j.state==='review'||j.state==='legal')?0:1;
-  const view=IK.map((j,i)=>[j,i]).sort((a,b)=>rank(a[0])-rank(b[0])||a[1]-b[1]).map(p=>p[0]);
-  $('#ik-list').innerHTML=view.map(j=>`<div class="ik-row ${j.state}" data-id="${j.id}">
+const IK_COMPACT_AT=20;                // ≥ this many files in ONE intake → auto-compact (a screenful, above the 12-wide pipe)
+let _ikView='auto';                    // 'auto' | 'compact' | 'detailed' — the count picks the default, the user overrides either way
+function ikCompact(){ return _ikView==='compact' || (_ikView==='auto' && IK.length>=IK_COMPACT_AT); }
+/* one card = one file row — extracted so compact + detailed render the EXACT same card. */
+function ikRowHtml(j){ return `<div class="ik-row ${j.state}" data-id="${j.id}">
     <div class="ik-th">${ikThumb(j)}</div>
     <div class="ik-meta"><div class="ik-nm">${esc(j.file.name)}</div>
       <div class="ik-sz">${(j.file.size/1048576).toFixed(1)} MB</div>
@@ -1181,13 +1179,39 @@ function ikRender(){
     ${j.state==='legal'?`<button class="ik-review-btn lglaw" data-legalreview="${esc(j.hash||'')}"><span class="lgmark">⚖</span> ${t('ik_legal')} ›</button>`:''}
     ${j.state==='failed'?`<button class="ik-retry" data-retry="${j.id}">${t('ik_retry')}</button>`:''}
     <button class="ik-x" data-rm="${j.id}" title="${t('t_close')}">✕</button>
-  </div>${ikKidsHtml(j)}`).join('');
-  const sent=IK.filter(j=>j.state==='processing'||j.state==='landed').length;
-  const landed=IK.filter(j=>j.state==='landed').length;
-  const fail=IK.filter(j=>j.state==='failed'||j.state==='refused').length;   // both didn't make it
+  </div>${ikKidsHtml(j)}`; }
+function ikRender(){
+  // review/legal cards pin to the TOP (never buried); stable sort keeps upload order otherwise.
+  const rank=j=>(j.state==='review'||j.state==='legal')?0:1;
+  const sorted=IK.map((j,i)=>[j,i]).sort((a,b)=>rank(a[0])-rank(b[0])||a[1]-b[1]).map(p=>p[0]);
+  const compact=ikCompact();
+  const landed=IK.filter(j=>j.state==='landed').length, split=IK.filter(j=>j.state==='split').length;
+  const review=IK.filter(j=>j.state==='review'||j.state==='legal').length;
+  const fail=IK.filter(j=>j.state==='failed'||j.state==='refused').length;
   const busy=IK.filter(j=>j.state==='uploading'||j.state==='queued').length;
-  let f='';                                          // honest, live summary
-  if(IK.length){ f=`<b>${sent}</b> ${t('ik_sent')}`;
+  const proc=IK.filter(j=>j.state==='processing').length;
+  const total=IK.length, committed=landed+split, working=busy+proc;
+  const toggle=total?`<button class="ik-viewtoggle" data-ikview="${compact?'detailed':'compact'}">${t(compact?'ik_v_detailed':'ik_v_compact')}</button>`:'';
+  // COMPACT = only the cards a human must act on; committed ones collapse into the ring + tally.
+  const isExc=j=>j.state==='review'||j.state==='legal'||j.state==='refused'||j.state==='failed';
+  const cards=(compact?sorted.filter(isExc):sorted).map(ikRowHtml).join('');
+  let header='';
+  if(compact){
+    const C=100.53, off=C*(1-(total-working)/(total||1));       // ring fills as files LEAVE the pipeline
+    header=`<div class="ik-compact${working?' work':''}">
+      <div class="ik-ringwrap">
+        <svg class="ik-ring" viewBox="0 0 36 36" aria-hidden="true">
+          <circle class="ik-ring-bg" cx="18" cy="18" r="16"></circle>
+          <circle class="ik-ring-fg" cx="18" cy="18" r="16" style="stroke-dasharray:${C};stroke-dashoffset:${off.toFixed(1)}"></circle>
+        </svg><div class="ik-ringnum">${committed}<i>/${total}</i></div></div>
+      <div class="ik-tally"><span class="ik-chip ok">✓ ${committed}</span>${review?`<span class="ik-chip rev">⚑ ${review}</span>`:''}${fail?`<span class="ik-chip ref">✕ ${fail}</span>`:''}${working?`<span class="ik-chip work">${working} ${t('ik_busy')}</span>`:''}</div>
+      ${toggle}</div>${cards?'':`<div class="ik-allclear">${t('ik_allclear')}</div>`}`;
+  } else if(toggle){ header=`<div class="ik-viewbar">${toggle}</div>`; }
+  $('#ik-list').innerHTML=header+cards;
+  // DETAILED keeps the honest text footer; in COMPACT the ring IS the summary, so the footer clears.
+  let f='';
+  if(!compact && total){ const sent=proc+landed;
+    f=`<b>${sent}</b> ${t('ik_sent')}`;
     if(landed)f+=` · <b>${landed}</b> ${t('ik_committed')}`;
     if(busy)f+=` · ${busy} ${t('ik_busy')}`;
     if(fail)f+=` · <b>${fail}</b> ${t('ik_fail')}`;
@@ -2142,6 +2166,7 @@ async function lrCommit(){
 }
 
 $('#ik-list').addEventListener('click',e=>{
+  const vt=e.target.closest('[data-ikview]'); if(vt){ _ikView=vt.dataset.ikview; ikRender(); return }   // compact ⇄ detailed
   const lr=e.target.closest('[data-legalreview]'); if(lr){openLegalReview(lr.getAttribute('data-legalreview'));return}
   const kr=e.target.closest('[data-kidreview]'); if(kr){openKidReview(kr.getAttribute('data-kidreview'));return}   // a packet child's review
   const pt=e.target.closest('[data-pktoggle]'); if(pt){ const jj=IK.find(x=>x.id===+pt.dataset.pktoggle);          // collapse/expand a family

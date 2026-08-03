@@ -302,6 +302,29 @@
     font-size:12px;font-weight:600;border-radius:8px;padding:4px 10px} .ik-retry:hover{border-color:var(--copper)}
   #ik-foot{margin-top:20px;text-align:center;color:var(--muted);font-size:13.5px}
   #ik-foot b{color:var(--ink)}
+  /* ── high-intake COMPACT view: one ring + tally, only the cards a human must act on ── */
+  .ik-compact{display:flex;align-items:center;gap:16px;padding:13px 16px;margin-bottom:14px;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius)}
+  .ik-ringwrap{position:relative;width:54px;height:54px;flex:none}
+  .ik-ring{width:54px;height:54px;transform:rotate(-90deg)}
+  .ik-ring-bg{fill:none;stroke:var(--line2);stroke-width:3}
+  .ik-ring-fg{fill:none;stroke:var(--ok);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .45s ease}
+  .ik-compact.work .ik-ring{animation:ikspin 1.5s linear infinite}
+  .ik-ringnum{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--mono);
+    font-size:15px;font-weight:700;color:var(--ink);line-height:1}
+  .ik-ringnum i{color:var(--muted);font-style:normal;font-size:11px;font-weight:600}
+  .ik-tally{display:flex;flex-wrap:wrap;gap:7px;flex:1}
+  .ik-chip{font-family:var(--mono);font-size:12.5px;font-weight:600;padding:4px 9px;border-radius:999px;
+    border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
+  .ik-chip.ok{color:var(--ok);border-color:rgba(99,209,138,.42)}
+  .ik-chip.rev{color:var(--warn);border-color:rgba(247,182,79,.42)}
+  .ik-chip.ref{color:var(--red);border-color:rgba(255,77,89,.42)}
+  .ik-chip.work{color:var(--copper);border-color:rgba(197,149,107,.36)}
+  .ik-viewtoggle{flex:none;border:1px solid var(--line);background:transparent;color:var(--ink2);
+    cursor:pointer;font-size:12.5px;font-weight:600;border-radius:8px;padding:5px 11px;font-family:var(--sans)}
+  .ik-viewtoggle:hover{border-color:var(--copper);color:var(--copper)}
+  .ik-viewbar{display:flex;justify-content:flex-end;margin-bottom:10px}
+  .ik-allclear{text-align:center;color:var(--ok);font-size:13.5px;font-weight:600;padding:6px 0 2px}
   /* a stuck pic → a gentle Review button in the state slot + a concise line under the name */
   .ik-row.review{border-color:rgba(197,149,107,.42)}
   .ik-ask{font-size:11.5px;color:var(--copper);margin-top:3px;line-height:1.35;
