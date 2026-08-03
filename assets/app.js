@@ -583,36 +583,40 @@ async function docUrl(path){ if(!path)return null;
     return (data&&data.signedUrl)||null; }catch(_){ return null; } }
 // ── Word/Excel rendered IN-APP (docx-preview vendored + SheetJS), lazy-loaded on first use so the app
 //    stays light. Used by the legal review viewer AND the print dossier — the browser then prints it. ──
-let _docLibsP;
-function ensureDocLibs(){
-  if(_docLibsP) return _docLibsP;
-  const load=src=>new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('load '+src)); document.head.appendChild(s); });
-  _docLibsP=(async()=>{
-    if(typeof window.JSZip==='undefined') await load('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
-    if(typeof window.XLSX ==='undefined') await load('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-    if(typeof window.docx ==='undefined') await load('assets/docx-preview.min.js?v=1');
-  })();
-  _docLibsP.catch(()=>{ _docLibsP=null; });   // a failed load can retry next time
-  return _docLibsP;
+const _libP={};
+function _loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('script load failed: '+src)); document.head.appendChild(s); }); }
+// load ONE lib on demand (cached). Per-format so a broken docx-preview can't stop Excel from rendering.
+function ensureLib(kind){
+  const G={jszip:'JSZip',xlsx:'XLSX',docx:'docx'}[kind];
+  if(typeof window[G]!=='undefined') return Promise.resolve();
+  if(!_libP[kind]){ const S={
+      jszip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+      xlsx :'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+      docx :'assets/docx-preview.min.js?v=1' }[kind];
+    _libP[kind]=_loadScript(S).catch(e=>{ _libP[kind]=null; throw e; }); }
+  return _libP[kind];
 }
 // render the .docx/.xlsx at `path` into `el`. true = rendered; false = caller shows a download fallback.
+// Logs the REAL reason on failure (console) so a prod-only issue is diagnosable, not silent.
 async function renderOfficeDoc(path, el){
   if(!/\.(docx|xlsx)$/i.test(path||'')) return false;
   try{
-    await ensureDocLibs();
-    const url=await docUrl(path); if(!url) return false;
+    const url=await docUrl(path); if(!url){ console.warn('[office] no signed URL for', path); return false; }
     const buf=await (await fetch(url)).arrayBuffer();
     el.innerHTML='';
     if(/\.docx$/i.test(path)){
+      await ensureLib('jszip'); await ensureLib('docx');
       await window.docx.renderAsync(new Blob([buf]), el, null,
         {className:'dxp', inWrapper:true, ignoreWidth:false, ignoreHeight:false, breakPages:true, experimental:true});
     }else{
+      await ensureLib('xlsx');   // xlsx.full.min.js bundles its own unzip → no JSZip needed
       const wb=window.XLSX.read(buf,{type:'array'});
       el.innerHTML=wb.SheetNames.map(n=>`<div class="xl-sheet">${window.XLSX.utils.sheet_to_html(wb.Sheets[n],{editable:false})}</div>`).join('');
     }
     return el.childElementCount>0;
-  }catch(_){ return false; }
+  }catch(e){ console.warn('[office] render failed for', path, e); return false; }
 }
+function ensureDocLibs(){ return Promise.resolve(); }   // kept for compatibility; libs now load per-format
 // render a .docx/.xlsx to an HTML STRING for the print dossier (rendered off-screen, then embedded so
 // the browser's own print engine paginates it — no rasterizing, no server).
 async function officeDocHtml(path){
@@ -828,7 +832,8 @@ async function buildBatchDossier(b){
   // ONE clean TOC entry per SECTION at its FIRST page (القائمة once; each scan document once) — never
   // «(1/2)(2/2)», consistent with the employee dossier. The pages themselves still show (p/N) headers.
   const toc=[{k:t('law_roster'), pg:3}]; let _sp=3+chunks.length;
-  scanTasks.forEach((s,ti)=>{ const n=(perTask[ti]||[]).filter(Boolean).length; if(n){ toc.push({k:s.title, pg:_sp}); _sp+=n; } });
+  scanTasks.forEach((s,ti)=>{ const office=/\.(docx|xlsx)$/i.test(s.path||'');   // office scans render as 1 page each (no image)
+    const n=office?1:(perTask[ti]||[]).filter(Boolean).length; if(n){ toc.push({k:s.title, pg:_sp}); _sp+=n; } });
   const tocRows=toc.map(e=>`<li><span>${e.k}</span><span class="tp">${e.pg}</span></li>`).join('');
   const contents=`<div class="pg toc">${run}<div class="pv-body"><div class="pv-h2">${t('pv_contents')}</div><ol class="toc-list">${tocRows}</ol></div>${foot(2)}</div>`;
   const thead=`<thead><tr><th>${t('lg_serial')}</th><th>${fieldLabel('name_latin')}</th><th>${fieldLabel('passport_no')}</th><th>${t('law_emp')}</th></tr></thead>`;
@@ -2257,6 +2262,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v40';
+window.__APP_VER = 'v41';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
