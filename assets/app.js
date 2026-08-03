@@ -1891,13 +1891,19 @@ async function adoptManh(manhPaper, oldId){         // attach a منح to a prov
   let ptr=manhPaper.scan_path;
   if(ptr){ const ext=(String(ptr).match(/\.[a-z0-9]+$/i)||['.pdf'])[0].toLowerCase();
     const dest=`${LEGAL_DIR}/${newId}/manh${ext}`;
-    try{ const {error}=await sb.storage.from('documents').move(ptr,dest); if(!error)ptr=dest; }catch(_){}}
+    if(ptr===dest){ /* already in place */ }
+    else{ try{ const {error}=await sb.storage.from('documents').move(ptr,dest);
+      if(!error){ ptr=dest; }
+      // a PRIOR failed commit may have already moved the file to dest → the source is gone. Don't
+      // point manh_scan at the vanished source; if dest holds the file, use it (idempotent retry).
+      else{ const {data:_ex}=await sb.storage.from('documents').createSignedUrl(dest,60); if(_ex&&_ex.signedUrl)ptr=dest; }
+    }catch(_){} } }
   const patch={ batch_id:newId, manh_scan:ptr, manh_stamp:!!manhPaper.stamp_ministry,
     manh_date:manhPaper.manh_date||null, status:'active' };
   if(manhPaper.interval_from!=null)patch.interval_from=manhPaper.interval_from;
   if(manhPaper.interval_to  !=null)patch.interval_to  =manhPaper.interval_to;
   const {error}=await sb.from('legal_batches').update(patch).eq('batch_id',oldId);   // members+papers cascade
-  if(error){ toast(t('lg_savefail')+((error&&error.message)||error)); return; }
+  if(error){ throw new Error((error&&error.message)||String(error)); }   // LOUD: propagate so the caller shows the failure and NEVER optimistically marks the card committed
   try{ await sb.from('legal_papers').update({batch_id:newId,match_status:'committed'}).eq('paper_id',manhPaper.paper_id); }catch(_){}
   // advance the OCR-line board: the منح's own scan row → 'done' (flows to مُودَع, out of § legal-review)
   try{ if(manhPaper.scan_hash) await sb.from('scan_jobs').update({status:'done'}).eq('image_hash',manhPaper.scan_hash); }catch(_){}
@@ -1959,7 +1965,7 @@ async function legalReload(){
   _provBatches=_legalMock?[]:await loadProvisionalBatches();
   box.innerHTML=`<div class="lg-sh">${t('lg_pending')}</div>`+renderLegalProposals(papers);
   box.querySelectorAll('.lg-commit-prop').forEach(b=>b.onclick=()=>commitProposal(+b.dataset.i));
-  box.querySelectorAll('.lg-adopt-btn').forEach(b=>b.onclick=()=>adoptManh(_legalManhs[+b.dataset.mi], b.dataset.bid));
+  box.querySelectorAll('.lg-adopt-btn').forEach(b=>b.onclick=()=>adoptManh(_legalManhs[+b.dataset.mi], b.dataset.bid).catch(e=>toast(t('lg_savefail')+((e&&e.message)||e))));
   box.querySelectorAll('[data-view]').forEach(c=>c.onclick=()=>legalViewScan(c.getAttribute('data-view')));
 }
 async function commitProposal(i){
