@@ -2255,3 +2255,8 @@ applyLang();
    (e.g. a ReferenceError before the button wiring). After ANY load-time change, verify window.__APP_BOOTED
    === true: it can't be fooled by hoisting the way "typeof fn === 'function'" can. Do not move it. */
 window.__APP_BOOTED = true;
+// ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
+//    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
+window.__APP_VER = 'v40';
+try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
+     console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

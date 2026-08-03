@@ -29,3 +29,5 @@
 # The repo map — explains which file is the app's source of truth (for contributors + a fresh Claude).
 # Documentation only; .assetsignore keeps it out of the public Cloudflare deploy.
 !README.md
+# Cloudflare cache headers — keep the shell fresh, cache assets hard. Explicit allowlist entry.
+!_headers
