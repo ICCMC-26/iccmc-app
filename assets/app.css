@@ -306,10 +306,10 @@
   #ik-foot b{color:var(--ink)}
   /* ── high-intake COMPACT view: a single segmented progress bar + a quiet legend; exception cards below ── */
   .ik-compact{padding:15px 17px 13px;margin-bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius)}
-  .ik-bar{display:flex;height:6px;border-radius:999px;overflow:hidden;background:var(--line2)}
-  .ik-bar .seg{height:100%;transition:flex-grow .5s ease}
-  .ik-bar .seg.ok{background:var(--ok)} .ik-bar .seg.rev{background:var(--warn)}
-  .ik-bar .seg.ref{background:var(--red)} .ik-bar .seg.track{background:transparent}
+  .ik-pbar{display:flex;align-items:stretch;height:6px;border-radius:999px;overflow:hidden;background:var(--line2)}
+  .ik-pbar .seg{align-self:stretch;min-height:6px;transition:flex-grow .5s ease}
+  .ik-pbar .seg.ok{background:var(--ok)} .ik-pbar .seg.rev{background:var(--warn)}
+  .ik-pbar .seg.ref{background:var(--red)} .ik-pbar .seg.track{background:transparent}
   .ik-legend{display:flex;align-items:center;gap:15px;margin-top:12px;flex-wrap:wrap}
   .ik-legend .lg{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12.5px;color:var(--ink2);white-space:nowrap}
   .ik-legend .d{width:7px;height:7px;border-radius:50%;flex:none}

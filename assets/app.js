@@ -852,10 +852,14 @@ async function ikReconcile(){
   for(const h of Object.keys(_ikPending)){
     const r=latest[h]; if(!r)continue;
     const j=_ikPending[h];
+    // Two files with IDENTICAL content share ONE image_hash, so _ikPending holds only the last of them.
+    // Resolve EVERY card with this hash together (twins), or a duplicate freezes at 'processing' forever
+    // while its (same) job is already committed — the "status never syncs" bug.
+    const twins=IK.filter(x=>x.hash===h);
     if(r.status==='committed'||r.status==='done'){          // landed in the registry → ✓
-      j.state='landed'; delete _ikPending[h]; changed=true;
+      twins.forEach(x=>{x.state='landed';x.stage=null;}); delete _ikPending[h]; changed=true;
     } else if(r.status==='failed'){                          // quality gate / read refused it → ✕
-      j.state='refused'; j.err=r.error_msg||''; delete _ikPending[h]; changed=true;
+      twins.forEach(x=>{x.state='refused';x.err=r.error_msg||'';}); delete _ikPending[h]; changed=true;
     } else if(r.source==='packet' || r.doc_type==='packet'){
       // the packet «zero line»: while it is being cut show «in the splitter», then a terminal
       // «split into N» summary. The parent card is NEVER committed — its child documents flow
@@ -1201,9 +1205,9 @@ function ikRender(){
     const seg=(c,n)=>n?`<span class="seg ${c}" style="flex:${n}"></span>`:'';
     const lg =(c,n,w)=>`<span class="lg"><i class="d ${c}"></i>${n} ${w}</span>`;
     header=`<div class="ik-compact${working?' work':''}">
-      <div class="ik-bar">${seg('ok',committed)}${seg('rev',review)}${seg('ref',fail)}${seg('track',working)}</div>
+      <div class="ik-pbar">${seg('ok',committed)}${seg('rev',review)}${seg('ref',fail)}${seg('track',working)}</div>
       <div class="ik-legend">${lg('ok',committed,t('ik_committed'))}${review?lg('rev',review,t('ik_lg_rev')):''}${fail?lg('ref',fail,t('ik_refused')):''}${working?lg('track',working,t('ik_busy')):''}<span class="ik-lg-spacer"></span>${toggle}</div>
-    </div>${cards?'':`<div class="ik-allclear">${t('ik_allclear')}</div>`}`;
+    </div>${(!cards&&!working&&total)?`<div class="ik-allclear">${t('ik_allclear')}</div>`:''}`;
   } else if(toggle){ header=`<div class="ik-viewbar">${toggle}</div>`; }
   $('#ik-list').innerHTML=header+cards;
   // DETAILED keeps the honest text footer; in COMPACT the ring IS the summary, so the footer clears.
