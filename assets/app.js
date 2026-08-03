@@ -1885,10 +1885,15 @@ function manhCandidates(manhPaper, provBatches){    // which provisional batches
     const fo=bs.firstName?_nameOverlap(sig.firstName,bs.firstName):0.5, lo=bs.lastName?_nameOverlap(sig.lastName,bs.lastName):0.5;
     return (iv && fo>=0.5 && lo>=0.5) || legalMatch(bs,sig).ends>=LEGAL_CONFIDENT; }); }
 let _legalManhs=[], _provBatches=[];
-async function findMergeTarget(rows){        // does this paper belong to an existing committed provisional batch?
+async function findMergeTarget(rows){        // does this roster belong to an existing batch — provisional OR منح-anchored?
   const newPass=new Set((rows||[]).map(r=>r&&r.passport).filter(Boolean));
   if(!newPass.size) return null;             // no passports (a منح) → handled by adoptManh, not here
-  const prov=await loadProvisionalBatches(); if(!prov.length) return null;
+  // ALL batches, not only provisional ones: a roster arriving AFTER its منح already anchored the batch
+  // (e.g. the تعهد landing after منح+استمارة) still joins by PASSPORT-SET overlap. Passports are globally
+  // unique, so this is the most reliable link and a منح already on the batch must never block it. (The
+  // old provisional-only scope is exactly why the تعهد fell out into its own batch.)
+  let prov; try{ const {data}=await sb.from('legal_batches').select('*'); prov=data||[]; }catch(_){ return null; }
+  if(!prov.length) return null;
   let by={}; try{ const {data}=await sb.from('legal_batch_members').select('batch_id,passport_no').in('batch_id',prov.map(b=>b.batch_id));
     (data||[]).forEach(m=>{ if(m.passport_no)(by[m.batch_id]=by[m.batch_id]||new Set()).add(m.passport_no); }); }catch(_){ return null; }
   let best=null,bestOv=0;
@@ -1940,12 +1945,25 @@ async function commitMerged(papers, rows, tgt, stamps){   // union this paper in
   // rows ARE the provisional roster, so they stand.
   const union = Object.keys(bySerial).length ? Object.values(bySerial) : Object.values(extra);
   const ep=legalEndpoints(union);
+  // THE منح OWNS THE SPAN. It prints the granted interval + endpoint names ("1→35, DING JIA … LI CHUNTING").
+  // A roster fills MEMBERS; it must never SHRINK the interval or ERASE a known endpoint. Bug it fixes: a
+  // short/misread استمارة (34 rows, last row garbled) overwrote 1→35/LI CHUNTING with 1→34/REN LIXIN, so the
+  // next correct تعهد no longer matched and fell into its own batch. Rule: on a منح-anchored batch keep the
+  // widest interval (never below the grant), and take the endpoint NAME from the fullest roster (ep) but
+  // fall back to the batch's when this roster didn't read it — a blank never erases a known name.
+  const anchored=!!tgt.manh_scan;
+  const iFrom = anchored && tgt.interval_from!=null ? Math.min(tgt.interval_from, ep.fSerial??tgt.interval_from) : ep.fSerial;
+  const iTo   = anchored && tgt.interval_to  !=null ? Math.max(tgt.interval_to,   ep.lSerial??tgt.interval_to)   : ep.lSerial;
+  const fName = ep.fName || (anchored?tgt.first_name:'') || ep.fName;
+  const lName = ep.lName || (anchored?tgt.last_name :'') || ep.lName;
+  const fPass = ep.fPass || (anchored?tgt.first_passport:null) || ep.fPass;
+  const lPass = ep.lPass || (anchored?tgt.last_passport :null) || ep.lPass;
   const scans={ taahud:tgt.taahud_scan, istimara:tgt.istimara_scan, manh:tgt.manh_scan };
   (papers||[]).forEach(p=>{ if(p&&p.scan_path) scans[p.type]=p.scan_path; });   // add THIS paper's scan, keep the others
   const st={ taahud:tgt.taahud_stamp||!!(stamps&&stamps.taahud), istco:tgt.istimara_company_stamp||!!(stamps&&stamps.istco),
              istmo:tgt.istimara_ministry_stamp||!!(stamps&&stamps.istmo), manh:tgt.manh_stamp||!!(stamps&&stamps.manh) };
-  return commitLegalBatch({ batch_id:tgt.batch_id, interval_from:ep.fSerial, interval_to:ep.lSerial,
-    rows:union, scans, stamps:st, first_name:ep.fName, last_name:ep.lName, first_passport:ep.fPass, last_passport:ep.lPass,
+  return commitLegalBatch({ batch_id:tgt.batch_id, interval_from:iFrom, interval_to:iTo,
+    rows:union, scans, stamps:st, first_name:fName, last_name:lName, first_passport:fPass, last_passport:lPass,
     manh_date:tgt.manh_date||null, provisional:!tgt.manh_scan, paperIds:(papers||[]).map(p=>p.paper_id).filter(Boolean) }); }
 async function adoptManh(manhPaper, oldId){         // attach a منح to a provisional batch + RE-KEY to its number
   if(!manhPaper){ return; }
@@ -2274,6 +2292,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v46';
+window.__APP_VER = 'v47';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
