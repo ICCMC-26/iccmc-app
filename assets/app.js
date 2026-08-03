@@ -2181,8 +2181,20 @@ async function lrPaintScan(paper){
   // panel with a download link to the source .xlsx. Scoped to .xlsx ONLY; scanned PDFs/images fall
   // straight through to the unchanged viewer below (no byproduct to them).
   if(/\.(xlsx|docx)$/i.test(paper.scan_path)){
+    // Show the SAME LibreOffice-rendered PDF the PRINT uses — a full office engine reproduces the Word/Excel
+    // layout (positioned text boxes, the signature block, stamps, the photo) far better than the in-browser
+    // docx-preview, which overlaps those frames. Review now matches print exactly (WYSIWYG). The in-app
+    // docx-preview render + a download link stay as the fallback when no PDF sibling exists yet.
+    const pdfPath=_printPath(paper.scan_path);
+    const imgs=pdfPath?await scanImagesAll(pdfPath, _lrRot[paper.type]||0):[];
+    if(imgs.length){
+      const rotBtn=`<button class="lr-rotate" id="lr-rot" title="${t('lr_rotate')}">⟳</button>`;
+      box.innerHTML=`<div class="lr-pan">${rotBtn}${imgs.map(u=>`<img src="${u}" alt="scan">`).join('')}</div>`;   // faithful, fit-width, scrollable — same as a scanned paper
+      const rb=$('#lr-rot'); if(rb)rb.onclick=()=>{ _lrRot[paper.type]=((_lrRot[paper.type]||0)+90)%360; lrPaintScan(paper); };
+      return;
+    }
     const _doc=/\.docx$/i.test(paper.scan_path), _k=_doc?'Word':'Excel', _ic=_doc?'📄':'📊';
-    // render the ACTUAL Word/Excel page in-app (docx-preview / SheetJS); the download stays as a fallback
+    // fallback: render the raw Word/Excel in-app (docx-preview / SheetJS); the download stays under it
     box.innerHTML=`<div class="lr-pan office" dir="ltr"><div class="lr-doc-loading">${t('rv_loading')}</div></div>`;
     const ok=await renderOfficeDoc(paper.scan_path, box.querySelector('.lr-pan.office'));
     if(!ok){ const u=await docUrl(paper.scan_path);
@@ -2292,6 +2304,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v47';
+window.__APP_VER = 'v48';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
