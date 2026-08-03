@@ -34,7 +34,7 @@ const I18N={
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
-    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_allclear:'أُودِع الكل ✓', ik_lg_rev:'مراجعة',
+    ik_processing:'قيد المعالجة…', ik_landed:'أودعت', ik_sent:'قيد المعالجة', ik_committed:'أودعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_allclear:'أودِع الكل ✓', ik_lg_rev:'مراجعة',
     ik_cls_passport:'جواز', ik_cls_visa:'تأشيرة', ik_cls_legal:'قانوني',
     ik_next2:'المستندات قيد المسح — تظهر في صفحة البحث فور اعتمادها.',
     ik_review:'مراجعة ›', ik_legal:'مراجعة قانونية', rv_ask:'بانتظار مراجعتك — تأكيد سريع', rv_asklink:'يحتاج ربطًا — راجِع للمتابعة',
@@ -1203,7 +1203,7 @@ function ikRender(){
   if(compact){
     // a single segmented progress bar shows the whole breakdown at a glance; a quiet legend names it.
     const seg=(c,n)=>n?`<span class="seg ${c}" style="flex:${n}"></span>`:'';
-    const lg =(c,n,w)=>`<span class="lg"><i class="d ${c}"></i>${n} ${w}</span>`;
+    const lg =(c,n,w)=>`<span class="lg"><i class="d ${c}"></i><b class="lg-n">${n}</b><span class="lg-w">${w}</span></span>`;
     header=`<div class="ik-compact${working?' work':''}">
       <div class="ik-pbar">${seg('ok',committed)}${seg('rev',review)}${seg('ref',fail)}${seg('track',working)}</div>
       <div class="ik-legend">${lg('ok',committed,t('ik_committed'))}${review?lg('rev',review,t('ik_lg_rev')):''}${fail?lg('ref',fail,t('ik_refused')):''}${working?lg('track',working,t('ik_busy')):''}<span class="ik-lg-spacer"></span>${toggle}</div>
