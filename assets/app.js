@@ -803,7 +803,7 @@ function waitImages(root){
 async function printEmployee(){
   try{
     const html=await buildDossier(); if(!html){window.print();return}
-    $('#print').innerHTML=html; await waitImages($('#print')); _flipWidePages();
+    $('#print').innerHTML=html; await waitImages($('#print'));
     window.print();
   }catch(e){ console.warn('print',e); window.print(); }
 }
@@ -861,7 +861,7 @@ async function buildBatchDossier(b){
 }
 async function printBatch(b){
   try{ const html=await buildBatchDossier(b); if(!html){window.print();return}
-    $('#print').innerHTML=html; await waitImages($('#print')); _flipWidePages(); window.print();
+    $('#print').innerHTML=html; await waitImages($('#print')); window.print();
   }catch(e){ console.warn('batch print',e); window.print(); }
 }
 
@@ -2274,6 +2274,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v43';
+window.__APP_VER = 'v44';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

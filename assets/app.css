@@ -527,10 +527,6 @@
   #print{display:none}
   @media print{
     @page{size:A4;margin:0}          /* margin:0 also suppresses Chrome's OWN header/date/URL footer */
-    /* a WIDE scan (a landscape legal form) prints on its OWN landscape page → big + upright, one page */
-    @page land{size:A4 landscape;margin:0}
-    #print .pg.land{page:land;min-height:auto}
-    #print .pg.land .pv-scan{max-width:100%;max-height:170mm}
     html,body{background:#fff;margin:0;padding:0}     /* kill the default body margin → no overflow page */
     body::before,body::after{display:none!important}  /* the ambient diamond wash never prints */
     #app,#gate,#toast,#lightbox,#intake,#detail,#ikreview,#legalform{display:none!important}
