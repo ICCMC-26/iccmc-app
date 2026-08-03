@@ -633,10 +633,10 @@ async function scanImage(path){
     const buf=await (await fetch(url)).arrayBuffer();
     const pdf=await pdfjsLib.getDocument({data:buf}).promise;
     const page=await pdf.getPage(1);
-    const vp=page.getViewport({scale:2.2});
+    const vp=page.getViewport({scale:3.5});
     const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
     await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
-    return c.toDataURL('image/jpeg',0.92);
+    return c.toDataURL('image/jpeg',0.95);
   }catch(e){ console.warn('pdf render',e); return null; }
 }
 /* render EVERY page of a scan (not just page 1). A legal تعهد/استمارة is a multi-page table — an
@@ -660,10 +660,10 @@ async function scanImagesAll(path, rot){
     for(let n=1;n<=pdf.numPages;n++){
       const page=await pdf.getPage(n);
       const r=(((page.rotate||0)+rot)%360+360)%360;
-      const vp=page.getViewport({scale:2.2, rotation:r});
+      const vp=page.getViewport({scale:3.5, rotation:r});
       const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
       await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
-      out.push(c.toDataURL('image/jpeg',0.92));
+      out.push(c.toDataURL('image/jpeg',0.95));
     }
     return out;
   }catch(e){ console.warn('pdf render all',e); return []; }
@@ -2274,6 +2274,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v45';
+window.__APP_VER = 'v46';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
