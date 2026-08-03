@@ -586,6 +586,14 @@
        min-height parent, so the image would grow the page and spill the footer to a blank
        page). 190mm leaves room for the running header + heading + footer within one sheet. */
     #print .pv-scan{max-width:100%;max-height:190mm;object-fit:contain;margin:auto;display:block}
+    /* Word/Excel legal papers rendered in-app (docx-preview / SheetJS) → flow across pages, don't clip */
+    #print .pg.office{min-height:auto;overflow:visible}
+    #print .pv-office{background:#fff;color:#000}
+    #print .pv-office .docx-wrapper{padding:0;background:transparent}
+    #print .pv-office .docx-wrapper>section.docx{box-shadow:none!important;margin:0 auto 8mm!important;max-width:100%;background:#fff}
+    #print .pv-office .xl-sheet{display:block;overflow:visible;padding:0}
+    #print .pv-office table{border-collapse:collapse;font:12px/1.4 var(--mono);color:#000;margin:0 auto;max-width:100%}
+    #print .pv-office td,#print .pv-office th{border:1px solid #999;padding:3px 7px;text-align:start;word-break:break-word}
     #print .pv-photowrap{flex:1;display:flex;align-items:center;justify-content:center}
     #print .pv-photoimg{max-width:92mm;max-height:120mm;object-fit:contain;border:1px solid #ccc;box-shadow:0 1px 5px rgba(0,0,0,.18)}
     /* the yellow highlighter band across the employee's row on a legal scan (translucent FILL — a
