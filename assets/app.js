@@ -34,7 +34,7 @@ const I18N={
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
-    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_allclear:'أُودِع الكل ✓',
+    ik_processing:'قيد المعالجة…', ik_landed:'أُودِعت', ik_sent:'قيد المعالجة', ik_committed:'أُودِعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_allclear:'أُودِع الكل ✓', ik_lg_rev:'مراجعة',
     ik_cls_passport:'جواز', ik_cls_visa:'تأشيرة', ik_cls_legal:'قانوني',
     ik_next2:'المستندات قيد المسح — تظهر في صفحة البحث فور اعتمادها.',
     ik_review:'مراجعة ›', ik_legal:'مراجعة قانونية', rv_ask:'بانتظار مراجعتك — تأكيد سريع', rv_asklink:'يحتاج ربطًا — راجِع للمتابعة',
@@ -96,7 +96,7 @@ const I18N={
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
-    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again', ik_v_compact:'Compact', ik_v_detailed:'Detailed', ik_allclear:'All committed ✓',
+    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again', ik_v_compact:'Compact', ik_v_detailed:'Detailed', ik_allclear:'All committed ✓', ik_lg_rev:'review',
     ik_cls_passport:'passport', ik_cls_visa:'visa', ik_cls_legal:'legal',
     ik_next2:'Being scanned — they appear on the search page once committed.',
     ik_review:'Review ›', ik_legal:'legal review', rv_ask:'Waiting for your check — quick confirm', rv_asklink:'Needs linking — open to continue',
@@ -1191,21 +1191,19 @@ function ikRender(){
   const busy=IK.filter(j=>j.state==='uploading'||j.state==='queued').length;
   const proc=IK.filter(j=>j.state==='processing').length;
   const total=IK.length, committed=landed+split, working=busy+proc;
-  const toggle=total?`<button class="ik-viewtoggle" data-ikview="${compact?'detailed':'compact'}">${t(compact?'ik_v_detailed':'ik_v_compact')}</button>`:'';
-  // COMPACT = only the cards a human must act on; committed ones collapse into the ring + tally.
+  const toggle=total?`<button class="ik-viewtoggle" data-ikview="${compact?'detailed':'compact'}">${t(compact?'ik_v_detailed':'ik_v_compact')} ›</button>`:'';
+  // COMPACT = only the cards a human must act on; committed ones collapse into the bar + legend.
   const isExc=j=>j.state==='review'||j.state==='legal'||j.state==='refused'||j.state==='failed';
   const cards=(compact?sorted.filter(isExc):sorted).map(ikRowHtml).join('');
   let header='';
   if(compact){
-    const C=100.53, off=C*(1-(total-working)/(total||1));       // ring fills as files LEAVE the pipeline
+    // a single segmented progress bar shows the whole breakdown at a glance; a quiet legend names it.
+    const seg=(c,n)=>n?`<span class="seg ${c}" style="flex:${n}"></span>`:'';
+    const lg =(c,n,w)=>`<span class="lg"><i class="d ${c}"></i>${n} ${w}</span>`;
     header=`<div class="ik-compact${working?' work':''}">
-      <div class="ik-ringwrap">
-        <svg class="ik-ring" viewBox="0 0 36 36" aria-hidden="true">
-          <circle class="ik-ring-bg" cx="18" cy="18" r="16"></circle>
-          <circle class="ik-ring-fg" cx="18" cy="18" r="16" style="stroke-dasharray:${C};stroke-dashoffset:${off.toFixed(1)}"></circle>
-        </svg><div class="ik-ringnum">${committed}<i>/${total}</i></div></div>
-      <div class="ik-tally"><span class="ik-chip ok">✓ ${committed}</span>${review?`<span class="ik-chip rev">⚑ ${review}</span>`:''}${fail?`<span class="ik-chip ref">✕ ${fail}</span>`:''}${working?`<span class="ik-chip work">${working} ${t('ik_busy')}</span>`:''}</div>
-      ${toggle}</div>${cards?'':`<div class="ik-allclear">${t('ik_allclear')}</div>`}`;
+      <div class="ik-bar">${seg('ok',committed)}${seg('rev',review)}${seg('ref',fail)}${seg('track',working)}</div>
+      <div class="ik-legend">${lg('ok',committed,t('ik_committed'))}${review?lg('rev',review,t('ik_lg_rev')):''}${fail?lg('ref',fail,t('ik_refused')):''}${working?lg('track',working,t('ik_busy')):''}<span class="ik-lg-spacer"></span>${toggle}</div>
+    </div>${cards?'':`<div class="ik-allclear">${t('ik_allclear')}</div>`}`;
   } else if(toggle){ header=`<div class="ik-viewbar">${toggle}</div>`; }
   $('#ik-list').innerHTML=header+cards;
   // DETAILED keeps the honest text footer; in COMPACT the ring IS the summary, so the footer clears.
