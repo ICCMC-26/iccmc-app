@@ -784,6 +784,15 @@ async function buildDossier(){
     scans+=`<div class="pg scan office">${run}<div class="pv-body"><div class="pv-h2">${esc(s.title)}</div><div class="pv-office" dir="ltr">${oh}</div></div>${foot(pg)}</div>`; }
   return cover+contents+report+scans;
 }
+// A WIDE scan (a landscape form — e.g. an استمارة) should print BIG on a landscape page, not shrunk
+// onto a portrait sheet. After the scans rasterise, flag the wide ones so the print CSS turns just
+// those pages landscape (portrait passports/visas are untouched).
+function _flipWidePages(){
+  try{ document.querySelectorAll('#print .pg.scan').forEach(pg=>{
+    const im=pg.querySelector('.pv-scan');
+    if(im && im.naturalWidth && im.naturalWidth > im.naturalHeight*1.15) pg.classList.add('land');
+  }); }catch(_){}
+}
 function waitImages(root){
   const imgs=[...root.querySelectorAll('img')];
   return Promise.all(imgs.map(im=>im.complete?1:new Promise(r=>{im.onload=im.onerror=r})));
@@ -791,7 +800,7 @@ function waitImages(root){
 async function printEmployee(){
   try{
     const html=await buildDossier(); if(!html){window.print();return}
-    $('#print').innerHTML=html; await waitImages($('#print'));
+    $('#print').innerHTML=html; await waitImages($('#print')); _flipWidePages();
     window.print();
   }catch(e){ console.warn('print',e); window.print(); }
 }
@@ -849,7 +858,7 @@ async function buildBatchDossier(b){
 }
 async function printBatch(b){
   try{ const html=await buildBatchDossier(b); if(!html){window.print();return}
-    $('#print').innerHTML=html; await waitImages($('#print')); window.print();
+    $('#print').innerHTML=html; await waitImages($('#print')); _flipWidePages(); window.print();
   }catch(e){ console.warn('batch print',e); window.print(); }
 }
 
@@ -2262,6 +2271,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v41';
+window.__APP_VER = 'v42';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
