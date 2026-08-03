@@ -2096,7 +2096,25 @@ async function commitProposal(i){
    The § assembler brought INLINE, where you dropped the files (owner's ask): reviews the whole BATCH
    from any of its papers — the raw scan on one side (a tab per paper to switch), the confirm panel on
    the other (type the منح number, tick the stamps), one save. Same commitLegalBatch path. */
-let _lrBatch=null, _lrIdx=0, _lrRot={};   // _lrRot[type] = the user's manual turn for each paper this review
+let _lrBatch=null, _lrIdx=0, _lrRot={}, _lrZoom=1;   // _lrRot[type] = the user's manual turn per paper; _lrZoom = review-pane magnification
+// ── review-pane toolbar: rotate + ZOOM (scales the page width; the pane scrolls, so you can pan a big roster
+//    or read a tiny signature). Shared by every render path (office PDF, scanned image, منح). ──
+const LR_ZMIN=1, LR_ZMAX=4, LR_ZSTEP=0.25;
+function _lrToolsHtml(){
+  return `<button class="lr-rotate" id="lr-rot" title="${t('lr_rotate')}">⟳</button>`
+    + `<div class="lr-zoom"><button data-lz="out" title="−">−</button><span class="lz-lbl">${Math.round(_lrZoom*100)}%</span>`
+    + `<button data-lz="in" title="+">+</button><button data-lz="fit" title="⊡">⊡</button></div>`; }
+function _lrApplyZoom(box){ const pan=box.querySelector('.lr-pan'); if(pan)pan.style.setProperty('--z',_lrZoom);
+  const lbl=box.querySelector('.lz-lbl'); if(lbl)lbl.textContent=Math.round(_lrZoom*100)+'%'; }
+function _lrWireTools(box,paper){
+  const rb=box.querySelector('#lr-rot'); if(rb)rb.onclick=()=>{ _lrRot[paper.type]=((_lrRot[paper.type]||0)+90)%360; lrPaintScan(paper); };
+  box.querySelectorAll('[data-lz]').forEach(b=>b.onclick=()=>{ const a=b.dataset.lz;
+    _lrZoom = a==='in' ? Math.min(LR_ZMAX,_lrZoom+LR_ZSTEP) : a==='out' ? Math.max(LR_ZMIN,_lrZoom-LR_ZSTEP) : 1;
+    _lrApplyZoom(box); });
+  const pan=box.querySelector('.lr-pan');   // Ctrl/⌘ + wheel zooms too (natural for a big document)
+  if(pan)pan.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return; e.preventDefault();
+    _lrZoom = Math.min(LR_ZMAX,Math.max(LR_ZMIN, _lrZoom + (e.deltaY<0?LR_ZSTEP:-LR_ZSTEP))); _lrApplyZoom(box); },{passive:false});
+  _lrApplyZoom(box); }
 // each paper's OWN expected stamp(s) — reviewing a paper shows ONLY these, defaulting to present (the
 // STANDARD): تعهد=company · استمارة=company+ministry · منح=ministry. The human unticks a missing one.
 const PAPER_STAMPS={taahud:[['taahud','lg_st_taahud']],
@@ -2107,7 +2125,7 @@ async function openLegalReview(hash){
   const {batches}=legalAssemble(papers);
   let bi=batches.findIndex(b=>b.papers.some(p=>p.scan_hash&&p.scan_hash===hash));
   if(bi<0)bi=0;
-  _lrBatch=batches[bi]; _lrBatch._num=undefined; _lrBatch._stamps={}; _lrRot={};
+  _lrBatch=batches[bi]; _lrBatch._num=undefined; _lrBatch._stamps={}; _lrRot={}; _lrZoom=1;
   // fixed logical order تعهد · استمارة · منح; the DOM order + `dir` make it read right-to-left in AR,
   // left-to-right in EN automatically (the segmented control is a flex row that follows the language).
   const LORDER={taahud:0,istimara:1,manh:2};
@@ -2188,9 +2206,8 @@ async function lrPaintScan(paper){
     const pdfPath=_printPath(paper.scan_path);
     const imgs=pdfPath?await scanImagesAll(pdfPath, _lrRot[paper.type]||0):[];
     if(imgs.length){
-      const rotBtn=`<button class="lr-rotate" id="lr-rot" title="${t('lr_rotate')}">⟳</button>`;
-      box.innerHTML=`<div class="lr-pan">${rotBtn}${imgs.map(u=>`<img src="${u}" alt="scan">`).join('')}</div>`;   // faithful, fit-width, scrollable — same as a scanned paper
-      const rb=$('#lr-rot'); if(rb)rb.onclick=()=>{ _lrRot[paper.type]=((_lrRot[paper.type]||0)+90)%360; lrPaintScan(paper); };
+      box.innerHTML=`<div class="lr-pan">${_lrToolsHtml()}${imgs.map(u=>`<img src="${u}" alt="scan">`).join('')}</div>`;   // faithful, fit-width, scrollable, zoomable
+      _lrWireTools(box,paper);
       return;
     }
     const _doc=/\.docx$/i.test(paper.scan_path), _k=_doc?'Word':'Excel', _ic=_doc?'📄':'📊';
@@ -2208,16 +2225,15 @@ async function lrPaintScan(paper){
   // the USER's manual turn (remembered per paper type this session; default 0 = as scanned)
   const imgs=await scanImagesAll(paper.scan_path, _lrRot[paper.type]||0);
   if(!imgs.length){ box.textContent=t('rv_noscan'); return; }
-  const rotBtn=`<button class="lr-rotate" id="lr-rot" title="${t('lr_rotate')}">⟳</button>`;
   const pics=imgs.map(u=>`<img src="${u}" alt="scan">`).join('');
   if(paper.type==='manh'){
     // the WHOLE paper, GENTLY zoomed, freely pannable — opens at the العدد (top-right), scroll to see the rest
-    box.innerHTML=`<div class="lr-pan manh" dir="ltr">${rotBtn}<span class="lr-zlabel">${t('lr_verify')}</span>${pics}</div>`;
+    box.innerHTML=`<div class="lr-pan manh" dir="ltr">${_lrToolsHtml()}<span class="lr-zlabel">${t('lr_verify')}</span>${pics}</div>`;
     const z=box.querySelector('.lr-pan'); if(z)requestAnimationFrame(()=>{ z.scrollTop=0; z.scrollLeft=z.scrollWidth; });
   }else{
-    box.innerHTML=`<div class="lr-pan">${rotBtn}${pics}</div>`;   // all pages, fit-width, scrollable
+    box.innerHTML=`<div class="lr-pan">${_lrToolsHtml()}${pics}</div>`;   // all pages, fit-width, scrollable
   }
-  const rb=$('#lr-rot'); if(rb)rb.onclick=()=>{ _lrRot[paper.type]=((_lrRot[paper.type]||0)+90)%360; lrPaintScan(paper); };
+  _lrWireTools(box,paper);
 }
 async function lrCommit(){
   const b=_lrBatch; if(!b)return; _lrRead();
@@ -2304,6 +2320,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v48';
+window.__APP_VER = 'v49';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
