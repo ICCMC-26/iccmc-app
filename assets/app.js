@@ -2142,11 +2142,14 @@ async function _lrPdfView(box, url, rot, paper){        // sharp: re-renders eac
   const fit=()=>{ const w=pan.clientWidth-16, vp1=pages[0].p.getViewport({scale:1,rotation:rotOf(pages[0].p)}); return Math.max(.15, w/vp1.width); };
   const cssSizes=cs=>{ for(const {p,c} of pages){ const vp1=p.getViewport({scale:1,rotation:rotOf(p)}); c.style.width=(cs*vp1.width)+'px'; c.style.height=(cs*vp1.height)+'px'; } };
   let tok=0;
+  // SUPERSAMPLE: render the bitmap at ~3.5x the CSS size (matching the old fixed-3.5 raster that looked
+  // crisp) so text is sharp AT THE DEFAULT view too — not just when zoomed. dpr only raises it further.
+  const SS=Math.max(3.5, dpr), CAP=5200;
   async function sharp(){ const my=++tok, cs=fit()*z;
     for(const {p,c} of pages){ if(my!==tok)return; const r=rotOf(p), vp1=p.getViewport({scale:1,rotation:r});
       c.style.width=(cs*vp1.width)+'px'; c.style.height=(cs*vp1.height)+'px';           // logical size = the zoom
-      let vp=p.getViewport({scale:cs*dpr,rotation:r}); const mx=Math.max(vp.width,vp.height);
-      if(mx>4096) vp=p.getViewport({scale:cs*dpr*4096/mx,rotation:r});                   // cap the bitmap (memory safety at extreme zoom)
+      let s=cs*SS, vp=p.getViewport({scale:s,rotation:r}); const mx=Math.max(vp.width,vp.height);
+      if(mx>CAP) vp=p.getViewport({scale:s*CAP/mx,rotation:r});                          // cap the bitmap (memory safety at extreme zoom)
       c.width=Math.floor(vp.width); c.height=Math.floor(vp.height);
       try{ await p.render({canvasContext:c.getContext('2d'),viewport:vp}).promise; }catch(_){} } }
   let deb=0; const sharpen=()=>{ clearTimeout(deb); deb=setTimeout(sharp,150); };
@@ -2362,6 +2365,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v51';
+window.__APP_VER = 'v52';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
