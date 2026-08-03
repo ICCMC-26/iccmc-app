@@ -453,7 +453,8 @@
   .lr-stamps{display:flex;flex-direction:column;gap:10px}
   /* legal review scan viewer — the WHOLE paper, upright, freely pannable (scroll). The منح opens gently
      zoomed and scrolled to the العدد (grant number); the user can pan to see the rest of the page. */
-  .lr-pan{position:relative;width:100%;height:74vh;overflow:auto;background:#fff;border-radius:14px;scrollbar-gutter:stable}
+  .lr-pan{position:relative;width:100%;height:74vh;overflow:hidden;background:#fff;border-radius:14px;cursor:grab;touch-action:none;user-select:none}
+  .lr-pan.grabbing{cursor:grabbing}
   /* PROMINENT copper scrollbar — on the white scan pane the thin global bar was easy to miss, so a
      multi-page roster looked like it ended at the fold. This makes «scrollable up/down» obvious. */
   .lr-pan{scrollbar-width:auto;scrollbar-color:var(--copper) #e9e3d9}
@@ -461,8 +462,8 @@
   .lr-pan::-webkit-scrollbar-track{background:#e9e3d9;border-radius:14px}
   .lr-pan::-webkit-scrollbar-thumb{background:var(--copper);border-radius:999px;border:3px solid #e9e3d9;background-clip:padding-box;min-height:44px}
   .lr-pan::-webkit-scrollbar-thumb:hover{filter:brightness(1.08)}
-  .lr-pan>img{width:calc(100% * var(--z,1));max-width:none;display:block;margin:0 auto 6px}   /* --z = zoom; pane scrolls when >100% */
-  .lr-pan.manh>img{width:calc(150% * var(--z,1))}      /* gentle base zoom for the number; pannable */
+  .lr-stage{transform-origin:0 0;width:100%;will-change:transform}   /* the zoom/pan target (translate+scale) */
+  .lr-stage>img{width:100%;display:block;margin:0 auto 6px;-webkit-user-drag:none;user-select:none;pointer-events:none}
   /* Word/Excel rendered in-app (docx-preview / SheetJS) inside the scan pane */
   .lr-pan.office{background:#eceae4}
   .lr-pan .docx-wrapper{background:transparent;padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:14px}
@@ -471,16 +472,16 @@
   .lr-pan .xl-sheet table{border-collapse:collapse;font:13px/1.45 var(--mono);color:#111;background:#fff}
   .lr-pan .xl-sheet td,.lr-pan .xl-sheet th{border:1px solid #c6c6c6;padding:4px 9px;white-space:nowrap;text-align:start}
   .lr-doc-loading{padding:46px;text-align:center;color:#555}
-  .lr-rotate{position:sticky;top:10px;float:inline-end;margin:10px;z-index:3;background:var(--copper);color:#1a1206;
+  .lr-rotate{position:absolute;top:10px;inset-inline-end:10px;z-index:4;background:var(--copper);color:#1a1206;
     border:none;border-radius:9px;width:38px;height:38px;cursor:pointer;font-size:19px;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.25)}
   .lr-rotate:hover{filter:brightness(1.08)}
-  .lr-zoom{position:sticky;top:54px;float:inline-end;margin:0 10px 10px;z-index:3;display:inline-flex;align-items:center;gap:1px;
+  .lr-zoom{position:absolute;top:56px;inset-inline-end:10px;z-index:4;display:inline-flex;align-items:center;gap:1px;
     background:var(--copper);border-radius:10px;padding:3px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
   .lr-zoom button{background:transparent;border:0;color:#1a1206;font:800 17px/1 var(--mono);width:28px;height:28px;cursor:pointer;border-radius:7px}
   .lr-zoom button:hover{background:rgba(0,0,0,.14)}
   .lr-zoom .lz-lbl{font:800 11px/1 var(--mono);color:#1a1206;min-width:40px;text-align:center;pointer-events:none}
-  .lr-zlabel{position:sticky;top:10px;inset-inline-start:10px;margin:10px;background:var(--copper);color:#1a1206;
-    font-size:12px;font-weight:800;padding:5px 11px;border-radius:8px;z-index:2;display:inline-block}
+  .lr-zlabel{position:absolute;top:10px;inset-inline-start:10px;z-index:4;background:var(--copper);color:#1a1206;
+    font-size:12px;font-weight:800;padding:5px 11px;border-radius:8px;display:inline-block}
   /* the ⚖ legal mark — bigger & clearer wherever it labels a legal thing */
   .lgmark{font-size:17px;line-height:1;vertical-align:-3px;display:inline-block}
   .ik-review-btn.lglaw{display:inline-flex;align-items:center;gap:5px}

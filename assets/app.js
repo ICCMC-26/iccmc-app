@@ -2097,24 +2097,45 @@ async function commitProposal(i){
    from any of its papers — the raw scan on one side (a tab per paper to switch), the confirm panel on
    the other (type the منح number, tick the stamps), one save. Same commitLegalBatch path. */
 let _lrBatch=null, _lrIdx=0, _lrRot={}, _lrZoom=1;   // _lrRot[type] = the user's manual turn per paper; _lrZoom = review-pane magnification
-// ── review-pane toolbar: rotate + ZOOM (scales the page width; the pane scrolls, so you can pan a big roster
-//    or read a tiny signature). Shared by every render path (office PDF, scanned image, منح). ──
-const LR_ZMIN=1, LR_ZMAX=4, LR_ZSTEP=0.25;
+// ── review-pane VIEWER: the modern minimal pattern — GPU transform (translate+scale), wheel/pinch
+//    ZOOM-TO-CURSOR + drag-to-PAN ("grab the page and move it"). One controller for every render path
+//    (office PDF, scanned image, منح). Content lives in .lr-stage; .lr-pan is the fixed viewport. ──
+const LR_ZMIN=1, LR_ZMAX=5;
 function _lrToolsHtml(){
   return `<button class="lr-rotate" id="lr-rot" title="${t('lr_rotate')}">⟳</button>`
-    + `<div class="lr-zoom"><button data-lz="out" title="−">−</button><span class="lz-lbl">${Math.round(_lrZoom*100)}%</span>`
+    + `<div class="lr-zoom"><button data-lz="out" title="−">−</button><span class="lz-lbl">100%</span>`
     + `<button data-lz="in" title="+">+</button><button data-lz="fit" title="⊡">⊡</button></div>`; }
-function _lrApplyZoom(box){ const pan=box.querySelector('.lr-pan'); if(pan)pan.style.setProperty('--z',_lrZoom);
-  const lbl=box.querySelector('.lz-lbl'); if(lbl)lbl.textContent=Math.round(_lrZoom*100)+'%'; }
 function _lrWireTools(box,paper){
   const rb=box.querySelector('#lr-rot'); if(rb)rb.onclick=()=>{ _lrRot[paper.type]=((_lrRot[paper.type]||0)+90)%360; lrPaintScan(paper); };
+  const pan=box.querySelector('.lr-pan'), stage=box.querySelector('.lr-stage'); if(!pan||!stage)return;
+  const base=paper.type==='manh'?1.5:1;              // منح opens gently zoomed on its العدد
+  let z=base, x=0, y=0; const lbl=box.querySelector('.lz-lbl');
+  const clamp=()=>{ const sw=stage.offsetWidth*z, sh=stage.offsetHeight*z, w=pan.clientWidth, h=pan.clientHeight;
+    x = sw<=w ? (w-sw)/2 : Math.max(w-sw, Math.min(0,x));    // fill width; centred when it fits, never past an edge
+    y = sh<=h ? 0        : Math.max(h-sh, Math.min(0,y)); };
+  const apply=()=>{ clamp(); stage.style.transform=`translate3d(${x}px,${y}px,0) scale(${z})`;
+    if(lbl)lbl.textContent=Math.round(z*100)+'%'; _lrZoom=z; };
+  const zoomAt=(cx,cy,f)=>{ const nz=Math.min(LR_ZMAX,Math.max(LR_ZMIN,z*f)), k=nz/z;   // keep the point under the cursor fixed
+    x=cx-(cx-x)*k; y=cy-(cy-y)*k; z=nz; apply(); };
+  const atCenter=f=>zoomAt(pan.clientWidth/2, pan.clientHeight/2, f);
   box.querySelectorAll('[data-lz]').forEach(b=>b.onclick=()=>{ const a=b.dataset.lz;
-    _lrZoom = a==='in' ? Math.min(LR_ZMAX,_lrZoom+LR_ZSTEP) : a==='out' ? Math.max(LR_ZMIN,_lrZoom-LR_ZSTEP) : 1;
-    _lrApplyZoom(box); });
-  const pan=box.querySelector('.lr-pan');   // Ctrl/⌘ + wheel zooms too (natural for a big document)
-  if(pan)pan.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return; e.preventDefault();
-    _lrZoom = Math.min(LR_ZMAX,Math.max(LR_ZMIN, _lrZoom + (e.deltaY<0?LR_ZSTEP:-LR_ZSTEP))); _lrApplyZoom(box); },{passive:false});
-  _lrApplyZoom(box); }
+    if(a==='in')atCenter(1.3); else if(a==='out')atCenter(1/1.3); else { z=base;x=0;y=0;apply(); } });
+  pan.addEventListener('wheel',e=>{ e.preventDefault(); const r=pan.getBoundingClientRect();
+    zoomAt(e.clientX-r.left, e.clientY-r.top, e.deltaY<0?1.12:1/1.12); },{passive:false});
+  const pts=new Map(); let pinch=0;                  // pointer events → drag-pan (1 finger) + pinch-zoom (2)
+  pan.addEventListener('pointerdown',e=>{ if(e.target.closest('.lr-zoom,.lr-rotate'))return;   // let toolbar clicks through
+    pan.setPointerCapture(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    pan.classList.add('grabbing'); if(pts.size===2){ const [a,b]=[...pts.values()]; pinch=Math.hypot(a.x-b.x,a.y-b.y); } });
+  pan.addEventListener('pointermove',e=>{ const p=pts.get(e.pointerId); if(!p)return;
+    if(pts.size===1){ x+=e.clientX-p.x; y+=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY; apply(); }
+    else if(pts.size===2){ p.x=e.clientX; p.y=e.clientY; const [a,b]=[...pts.values()], d=Math.hypot(a.x-b.x,a.y-b.y), r=pan.getBoundingClientRect();
+      if(pinch) zoomAt((a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top, d/pinch); pinch=d; } });
+  const up=e=>{ pts.delete(e.pointerId); if(pts.size<2)pinch=0; if(!pts.size)pan.classList.remove('grabbing'); };
+  pan.addEventListener('pointerup',up); pan.addEventListener('pointercancel',up);
+  box.querySelectorAll('.lr-stage img').forEach(im=>im.addEventListener('load',apply));   // re-clamp once real heights are known
+  if(paper.type==='manh') requestAnimationFrame(()=>{ x=pan.clientWidth-stage.offsetWidth*z; y=0; apply(); });  // open at the top-right العدد
+  else apply();
+}
 // each paper's OWN expected stamp(s) — reviewing a paper shows ONLY these, defaulting to present (the
 // STANDARD): تعهد=company · استمارة=company+ministry · منح=ministry. The human unticks a missing one.
 const PAPER_STAMPS={taahud:[['taahud','lg_st_taahud']],
@@ -2206,7 +2227,7 @@ async function lrPaintScan(paper){
     const pdfPath=_printPath(paper.scan_path);
     const imgs=pdfPath?await scanImagesAll(pdfPath, _lrRot[paper.type]||0):[];
     if(imgs.length){
-      box.innerHTML=`<div class="lr-pan">${_lrToolsHtml()}${imgs.map(u=>`<img src="${u}" alt="scan">`).join('')}</div>`;   // faithful, fit-width, scrollable, zoomable
+      box.innerHTML=`<div class="lr-pan">${_lrToolsHtml()}<div class="lr-stage">${imgs.map(u=>`<img src="${u}" alt="scan">`).join('')}</div></div>`;   // faithful, zoom+pan
       _lrWireTools(box,paper);
       return;
     }
@@ -2227,11 +2248,10 @@ async function lrPaintScan(paper){
   if(!imgs.length){ box.textContent=t('rv_noscan'); return; }
   const pics=imgs.map(u=>`<img src="${u}" alt="scan">`).join('');
   if(paper.type==='manh'){
-    // the WHOLE paper, GENTLY zoomed, freely pannable — opens at the العدد (top-right), scroll to see the rest
-    box.innerHTML=`<div class="lr-pan manh" dir="ltr">${_lrToolsHtml()}<span class="lr-zlabel">${t('lr_verify')}</span>${pics}</div>`;
-    const z=box.querySelector('.lr-pan'); if(z)requestAnimationFrame(()=>{ z.scrollTop=0; z.scrollLeft=z.scrollWidth; });
+    // the WHOLE paper, GENTLY zoomed, freely pannable — opens on the العدد (top-right), drag to see the rest
+    box.innerHTML=`<div class="lr-pan manh" dir="ltr">${_lrToolsHtml()}<span class="lr-zlabel">${t('lr_verify')}</span><div class="lr-stage">${pics}</div></div>`;
   }else{
-    box.innerHTML=`<div class="lr-pan">${_lrToolsHtml()}${pics}</div>`;   // all pages, fit-width, scrollable
+    box.innerHTML=`<div class="lr-pan">${_lrToolsHtml()}<div class="lr-stage">${pics}</div></div>`;   // all pages, zoom+pan
   }
   _lrWireTools(box,paper);
 }
@@ -2320,6 +2340,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v49';
+window.__APP_VER = 'v50';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
