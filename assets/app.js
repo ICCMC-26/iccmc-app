@@ -581,6 +581,38 @@ async function openDocScan(path){ try{ if(!path)return; const u=await docUrl(pat
 async function docUrl(path){ if(!path)return null;
   try{ const {data}=await sb.storage.from('documents').createSignedUrl(path,600);
     return (data&&data.signedUrl)||null; }catch(_){ return null; } }
+// ── Word/Excel rendered IN-APP (docx-preview vendored + SheetJS), lazy-loaded on first use so the app
+//    stays light. Used by the legal review viewer AND the print dossier — the browser then prints it. ──
+let _docLibsP;
+function ensureDocLibs(){
+  if(_docLibsP) return _docLibsP;
+  const load=src=>new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('load '+src)); document.head.appendChild(s); });
+  _docLibsP=(async()=>{
+    if(typeof window.JSZip==='undefined') await load('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    if(typeof window.XLSX ==='undefined') await load('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    if(typeof window.docx ==='undefined') await load('assets/docx-preview.min.js?v=1');
+  })();
+  _docLibsP.catch(()=>{ _docLibsP=null; });   // a failed load can retry next time
+  return _docLibsP;
+}
+// render the .docx/.xlsx at `path` into `el`. true = rendered; false = caller shows a download fallback.
+async function renderOfficeDoc(path, el){
+  if(!/\.(docx|xlsx)$/i.test(path||'')) return false;
+  try{
+    await ensureDocLibs();
+    const url=await docUrl(path); if(!url) return false;
+    const buf=await (await fetch(url)).arrayBuffer();
+    el.innerHTML='';
+    if(/\.docx$/i.test(path)){
+      await window.docx.renderAsync(new Blob([buf]), el, null,
+        {className:'dxp', inWrapper:true, ignoreWidth:false, ignoreHeight:false, breakPages:true, experimental:true});
+    }else{
+      const wb=window.XLSX.read(buf,{type:'array'});
+      el.innerHTML=wb.SheetNames.map(n=>`<div class="xl-sheet">${window.XLSX.utils.sheet_to_html(wb.Sheets[n],{editable:false})}</div>`).join('');
+    }
+    return el.childElementCount>0;
+  }catch(_){ return false; }
+}
 async function scanImage(path){
   if(!path)return null;
   const url=await docUrl(path); if(!url)return null;
@@ -2101,12 +2133,15 @@ async function lrPaintScan(paper){
   // straight through to the unchanged viewer below (no byproduct to them).
   if(/\.(xlsx|docx)$/i.test(paper.scan_path)){
     const _doc=/\.docx$/i.test(paper.scan_path), _k=_doc?'Word':'Excel', _ic=_doc?'📄':'📊';
-    const u=await docUrl(paper.scan_path);
-    box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;gap:16px;text-align:center;padding:34px 24px">
-      <div style="font-size:46px;line-height:1">${_ic}</div>
-      <div style="line-height:1.6;color:var(--ink2);font-size:15px">${t('lr_xlsx').replace('{k}',_k)}</div>
-      ${u?`<a href="${esc(u)}" download target="_blank" rel="noopener" style="padding:10px 18px;background:var(--copper);color:#15201d;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">⬇ ${t('lr_xlsx_dl').replace('{k}',_k)}</a>`:''}
-    </div>`;
+    // render the ACTUAL Word/Excel page in-app (docx-preview / SheetJS); the download stays as a fallback
+    box.innerHTML=`<div class="lr-pan office" dir="ltr"><div class="lr-doc-loading">${t('rv_loading')}</div></div>`;
+    const ok=await renderOfficeDoc(paper.scan_path, box.querySelector('.lr-pan.office'));
+    if(!ok){ const u=await docUrl(paper.scan_path);
+      box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;gap:16px;text-align:center;padding:34px 24px">
+        <div style="font-size:46px;line-height:1">${_ic}</div>
+        <div style="line-height:1.6;color:var(--ink2);font-size:15px">${t('lr_xlsx').replace('{k}',_k)}</div>
+        ${u?`<a href="${esc(u)}" download target="_blank" rel="noopener" style="padding:10px 18px;background:var(--copper);color:#15201d;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">⬇ ${t('lr_xlsx_dl').replace('{k}',_k)}</a>`:''}
+      </div>`; }
     return;
   }
   // the USER's manual turn (remembered per paper type this session; default 0 = as scanned)
