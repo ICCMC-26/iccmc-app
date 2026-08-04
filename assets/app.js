@@ -2208,6 +2208,30 @@ function _lrImgView(box, urls, paper){                   // a raw image scan →
   apply();
   if(paper.type==='manh') requestAnimationFrame(()=>{ pan.scrollLeft=pan.scrollWidth; });
 }
+// office fallback WITH the full viewer chrome — used when a docx/xlsx has NO rendered PDF sibling (so the
+// sharp image path can't run). Renders the doc in-app (docx-preview/SheetJS) then wraps it in the SAME
+// grab-pan + zoom machinery as the image/pdf viewers via a CSS transform, so the review is NEVER a dead,
+// un-scrollable, un-zoomable pane. Returns false if the doc itself can't be rendered (→ download panel).
+async function _lrOfficeView(box, paper){
+  box.innerHTML=`<div class="lr-pan office" dir="ltr"><div class="lr-ofit"><div class="lr-doc"></div></div></div>${_lrToolsHtml()}`;
+  const pan=box.querySelector('.lr-pan'), fit=box.querySelector('.lr-ofit'), doc=box.querySelector('.lr-doc'), lbl=box.querySelector('.lz-lbl');
+  fit.style.cssText='position:relative;margin:0 auto';
+  doc.style.cssText='position:absolute;top:0;left:0;transform-origin:top left';
+  const ok=await renderOfficeDoc(paper.scan_path, doc);
+  if(!ok) return false;
+  doc.style.transform='none';                                              // measure natural size unscaled
+  const natW=Math.max(1, doc.offsetWidth||doc.scrollWidth), natH=Math.max(1, doc.offsetHeight||doc.scrollHeight);
+  let z=1;
+  const fitBase=()=>Math.max(.05,(pan.clientWidth-2)/natW);                // z=1 = fit-to-width (like the image view)
+  const apply=()=>{ const s=fitBase()*z; doc.style.transform='scale('+s+')';
+    fit.style.width=(natW*s)+'px'; fit.style.height=(natH*s)+'px';
+    if(lbl)lbl.textContent=Math.round(z*100)+'%'; _lrZoom=z; };
+  function zoomTo(nz,cx,cy){ nz=Math.min(LR_ZMAX,Math.max(LR_ZMIN,nz)); if(Math.abs(nz-z)<1e-3)return;
+    const r=nz/z, l=pan.scrollLeft, tp=pan.scrollTop; z=nz; apply(); pan.scrollLeft=(l+cx)*r-cx; pan.scrollTop=(tp+cy)*r-cy; }
+  _lrWire(box, paper, { zoomAt:(cx,cy,f)=>zoomTo(z*f,cx,cy), reset:()=>{ z=1; apply(); pan.scrollTop=0; pan.scrollLeft=0; } });
+  apply();
+  return true;
+}
 // each paper's OWN expected stamp(s) — reviewing a paper shows ONLY these, defaulting to present (the
 // STANDARD): تعهد=company · استمارة=company+ministry · منح=ministry. The human unticks a missing one.
 const PAPER_STAMPS={taahud:[['taahud','lg_st_taahud']],
@@ -2295,17 +2319,18 @@ async function lrPaintScan(paper){
   const src=isOffice ? _printPath(paper.scan_path) : paper.scan_path, rot=_lrRot[paper.type]||0;
   const imgs = src ? await scanImagesAll(src, rot, 6) : [];   // 6× DPI for the review → deeper sharp zoom (a big roster's cells)
   if(imgs.length){ _lrImgView(box, imgs, paper); return; }
-  // FALLBACK — no PDF sibling yet (or an .xlsx that didn't render): the in-app docx-preview + a download link
+  // FALLBACK — no PDF sibling yet (or an .xlsx that didn't render): the in-app docx-preview, now wrapped in
+  // the SAME grab-pan + zoom viewer as the image path so the review is never a dead pane. Only if the doc
+  // itself won't render do we drop to the download panel.
   if(isOffice){
-    const _doc=/\.docx$/i.test(paper.scan_path), _k=_doc?'Word':'Excel', _ic=_doc?'📄':'📊';
     box.innerHTML=`<div class="lr-pan office" dir="ltr"><div class="lr-doc-loading">${t('rv_loading')}</div></div>`;
-    const ok=await renderOfficeDoc(paper.scan_path, box.querySelector('.lr-pan.office'));
-    if(!ok){ const u=await docUrl(paper.scan_path);
-      box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;gap:16px;text-align:center;padding:34px 24px">
+    if(await _lrOfficeView(box, paper)) return;                            // rendered in-app WITH zoom + pan
+    const _doc=/\.docx$/i.test(paper.scan_path), _k=_doc?'Word':'Excel', _ic=_doc?'📄':'📊', u=await docUrl(paper.scan_path);
+    box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;gap:16px;text-align:center;padding:34px 24px">
         <div style="font-size:46px;line-height:1">${_ic}</div>
         <div style="line-height:1.6;color:var(--ink2);font-size:15px">${t('lr_xlsx').replace('{k}',_k)}</div>
         ${u?`<a href="${esc(u)}" download target="_blank" rel="noopener" style="padding:10px 18px;background:var(--copper);color:#15201d;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">⬇ ${t('lr_xlsx_dl').replace('{k}',_k)}</a>`:''}
-      </div>`; }
+      </div>`;
     return;
   }
   box.textContent=t('rv_noscan');
