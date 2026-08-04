@@ -156,6 +156,30 @@ function applyLang(){
 }
 function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang',LANG)}catch(_){}applyLang()}
 
+/* ── PAPER-TYPE REGISTRY (G6) — ONE source of truth for the legal paper types ────────────────────────
+   The DB table `paper_types` is authoritative; the client caches it. A built-in default (today's 3 types,
+   byte-identical to the seeded rows) is the FALLBACK — so the legal UI can NEVER break if the fetch fails
+   or runs before auth. Legal sites read the helpers below (never a hardcoded type list), so a new paper of
+   an existing role becomes a DB row that appears everywhere with no client deploy. */
+const PT_DEFAULT=[
+  {key:'taahud',   label:{ar:'التعهد',   en:'Undertaking'}, role:'roster', ord:1, stamps:['stamp']},
+  {key:'istimara', label:{ar:'الاستمارة', en:'Entry form'},  role:'roster', ord:2, stamps:['company','ministry']},
+  {key:'manh',     label:{ar:'المنح',    en:'Grant'},       role:'grant',  ord:3, stamps:['stamp']},
+];
+let _PT=PT_DEFAULT.slice();
+async function loadPaperTypes(){
+  try{ const {data,error}=await sb.from('paper_types').select('key,label,role,ord,stamps,active').order('ord');
+    const rows=(data||[]).filter(r=>r&&r.active!==false&&r.key);
+    if(!error && rows.length) _PT=rows;                       // else keep the safe built-in default
+  }catch(_){}
+}
+const ptKeys  =()=>_PT.map(p=>p.key);                         // type keys, in registry order
+const ptGet   =k=>_PT.find(p=>p.key===k);
+const ptLabel =k=>{ const p=ptGet(k); return (p&&p.label&&(p.label[LANG]||p.label.ar))||t('lg_'+k)||k; };  // bilingual, registry-driven
+const ptOrd   =k=>{ const p=ptGet(k); return p?p.ord:99; };
+const ptStamps=k=>{ const p=ptGet(k); return (p&&p.stamps)||[]; };
+loadPaperTypes();   // fire once now (refreshes again on SIGNED_IN); pre-auth failure just keeps the default
+
 /* ── theme ───────────────────────────────────────────────────────────────── */
 (()=>{try{if(localStorage.getItem('iccmc_theme')==='light')document.documentElement.dataset.theme='light'}catch(_){}})();
 function toggleTheme(){const r=document.documentElement;const light=r.dataset.theme!=='light';
@@ -821,7 +845,7 @@ async function buildBatchDossier(b){
   let today='—', time=''; try{ const d=new Date(), p=n=>String(n).padStart(2,'0');
     today=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; time=`${p(d.getHours())}:${p(d.getMinutes())}`; }catch(_){}
   const run=`<div class="pv-run"><b>ICCMC</b><span>⚖ ${esc(id)}</span></div>`;
-  const tl={taahud:t('lg_taahud'),istimara:t('lg_istimara'),manh:t('lg_manh')};
+  const tl=Object.fromEntries(ptKeys().map(k=>[k,ptLabel(k)]));   // registry-driven labels (G6)
   const scanTasks=[];
   const brot=b.rot||{};
   if(b.taahud_scan)   scanTasks.push({title:tl.taahud,   path:_printPath(b.taahud_scan),   rotDeg:brot.taahud||0});
@@ -1037,7 +1061,7 @@ function ikResync(){
   ikReconcile();      // and snap to truth now (the token is fresh after a refresh/focus)
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') ikResync(); });
-if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN') ikResync(); });   // (app.js has no LIVE flag — sb is always created)
+if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){ ikResync(); loadPaperTypes(); } });   // (app.js has no LIVE flag — sb is always created)
 
 // the OCR-line stages, shown live on a processing row so the paper's movement is visible
 const IK_STAGE_L={'captured':['التُقط','captured'],'raw-uploaded':['حُفظت الصورة','image saved'],
@@ -1998,7 +2022,7 @@ async function adoptManh(manhPaper, oldId){         // attach a منح to a prov
 }
 function renderLegalProposals(papers){
   const {batches,ambiguous}=legalAssemble(papers);
-  const tl={taahud:t('lg_taahud'),istimara:t('lg_istimara'),manh:t('lg_manh')};
+  const tl=Object.fromEntries(ptKeys().map(k=>[k,ptLabel(k)]));   // registry-driven labels (G6)
   const chk=(k,lab,on)=>`<label class="lg-chk"><input type="checkbox" data-st="${k}" ${on?'checked':''}><span>${esc(lab)}</span></label>`;
   // a lone منح that matches an already-committed PROVISIONAL batch → an adopt (1 match) or clarify (>1) card
   const normal=[]; let adoptHtml=''; _legalManhs=[];
@@ -2193,8 +2217,7 @@ async function openLegalReview(hash){
   _lrBatch=batches[bi]; _lrBatch._num=undefined; _lrBatch._stamps={}; _lrRot={}; _lrZoom=1;
   // fixed logical order تعهد · استمارة · منح; the DOM order + `dir` make it read right-to-left in AR,
   // left-to-right in EN automatically (the segmented control is a flex row that follows the language).
-  const LORDER={taahud:0,istimara:1,manh:2};
-  _lrBatch.papers.sort((a,b)=>(LORDER[a.type]??9)-(LORDER[b.type]??9));
+  _lrBatch.papers.sort((a,b)=>ptOrd(a.type)-ptOrd(b.type));   // registry order (G6)
   _lrIdx=Math.max(0,_lrBatch.papers.findIndex(p=>p.scan_hash===hash));
   renderLegalReview();
   $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
@@ -2223,7 +2246,7 @@ function renderLegalReview(){
   const allBtn=`<button class="lr-allbtn" id="lr-all">${b._showAll?t('rv_less'):t('rv_all')}</button>`;
   const allList=b._showAll?`<div class="lr-allroster">${_rowsF.map(r=>`<div class="lr-arow"><span class="s">${esc(r.serial??'—')}</span><span class="n${r.name?'':' miss'}">${esc(r.name||('⚑ '+(r.passport||'—')))}</span><span class="p">${esc(r.passport||'—')}</span></div>`).join('')}</div>`:'';
   const num=b._num!=null?b._num:(b.manh?b.manh.manh_number:''), hasManh=b.papers.some(p=>p.type==='manh');
-  const tl={taahud:t('lg_taahud'),istimara:t('lg_istimara'),manh:t('lg_manh')};
+  const tl=Object.fromEntries(ptKeys().map(k=>[k,ptLabel(k)]));   // registry-driven labels (G6)
   // the paper switch = a clear SEGMENTED CONTROL at the top of the confirm panel; it drives BOTH the
   // scan shown AND which stamps you confirm.
   const seg=papers.map((p,i)=>`<button class="lr-seg${i===_lrIdx?' on':''}" data-lr="${i}">${tl[p.type]||p.type}</button>`).join('');
@@ -2368,6 +2391,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v56';
+window.__APP_VER = 'v57';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
