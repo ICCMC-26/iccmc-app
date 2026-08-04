@@ -272,6 +272,9 @@
   .dz-ic{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:24px;
     background:rgba(111,192,192,.14);color:var(--teal)}
   .dz-t{font-size:17px;font-weight:700;color:var(--ink)} .dz-s{font-size:13px;color:var(--muted)}
+  .dz-tip{margin-top:9px;font-size:12px;line-height:1.5;color:var(--copper);background:color-mix(in srgb,var(--copper) 12%,transparent);
+    border:1px solid color-mix(in srgb,var(--copper) 34%,transparent);border-radius:9px;padding:6px 12px;max-width:44ch}
+  .dz-tip:empty{display:none}
   #ik-list{margin-top:18px;display:flex;flex-direction:column;gap:10px}
   .ik-row{display:flex;align-items:center;gap:13px;padding:11px 13px;background:var(--card);
     border:1px solid var(--line);border-radius:14px}

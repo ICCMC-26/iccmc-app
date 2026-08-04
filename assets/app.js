@@ -30,6 +30,7 @@ const I18N={
     t_est:'تقديري', t_novisa:'لا تأشيرة مسجّلة', t_tap:'اضغط الصورة لعرض المستند كاملاً',
     dz_t:'اسحب ملفات الموظف هنا',
     dz_s:'أو انقر للاختيار · صورة أو PDF أو Excel أو Word · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
+    dz_tip:'ورقة قانونية من Word؟ اطبعها PDF ثم أسقِط الـPDF — يُعرض مطابِقًا تمامًا للأصل (صفحة بصفحة).',
     ik_queued:'بالانتظار', ik_done:'رُفع', ik_failed:'فشل', ik_retry:'إعادة',
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
@@ -92,6 +93,7 @@ const I18N={
     t_est:'estimated', t_novisa:'No visa on record', t_tap:'Tap the photo to view the full document',
     dz_t:"Drop the employee's files here",
     dz_s:'or click to browse · image, PDF, Excel or Word · large files OK · many files & employees at once',
+    dz_tip:'A legal paper from Word? Print it to PDF and drop the PDF — it shows exactly as in Word (page for page).',
     ik_queued:'Queued', ik_done:'Uploaded', ik_failed:'Failed', ik_retry:'Retry',
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
@@ -151,6 +153,7 @@ function applyLang(){
   $('#addtxt').textContent=t('add'); $('#q').placeholder=LAWMODE?t('law_ph'):t('ph');
   $('#ik-h').textContent=t('add');
   $('#dz-t').textContent=t('dz_t'); $('#dz-s').textContent=t('dz_s');
+  { const _tip=$('#dz-tip'); if(_tip)_tip.textContent=t('dz_tip'); }
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
   if(LAWMODE)renderLaw(LAWLAST); else render(LAST);       // re-label result chrome (law or employees)
 }
@@ -2366,6 +2369,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v54';
+window.__APP_VER = 'v55';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=23">
+<link rel="stylesheet" href="assets/app.css?v=24">
 </head>
 <body>
 
@@ -67,6 +67,7 @@
       <div class="dz-ic">⬆</div>
       <div class="dz-t" id="dz-t">اسحب ملفات الموظف هنا</div>
       <div class="dz-s" id="dz-s">أو انقر للاختيار · صورة أو PDF · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا</div>
+      <div class="dz-tip" id="dz-tip"></div>
       <input type="file" id="dz-input" multiple accept="image/*,application/pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
     </label>
     <div id="ik-list"></div>
@@ -85,6 +86,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="assets/app.js?v=54"></script>
+<script src="assets/app.js?v=55"></script>
 </body>
 </html>
