@@ -1997,8 +1997,9 @@ async function commitMerged(papers, rows, tgt, stamps){   // union this paper in
              istmo:tgt.istimara_ministry_stamp||!!(stamps&&stamps.istmo), manh:tgt.manh_stamp||!!(stamps&&stamps.manh) };
   return commitLegalBatch({ batch_id:tgt.batch_id, interval_from:iFrom, interval_to:iTo,
     rows:union, scans, stamps:st, first_name:fName, last_name:lName, first_passport:fPass, last_passport:lPass,
-    manh_date:tgt.manh_date||null, provisional:!tgt.manh_scan, paperIds:(papers||[]).map(p=>p.paper_id).filter(Boolean) }); }
-async function adoptManh(manhPaper, oldId){         // attach a منح to a provisional batch + RE-KEY to its number
+    manh_date:tgt.manh_date||null, provisional:!tgt.manh_scan, rot:reviewRot(tgt.rot),   // merge review turns onto the batch's saved ones
+    paperIds:(papers||[]).map(p=>p.paper_id).filter(Boolean) }); }
+async function adoptManh(manhPaper, oldId, rot){    // attach a منح to a provisional batch + RE-KEY to its number
   if(!manhPaper){ return; }
   const newId=String(manhPaper.manh_number||'').trim();
   if(!newId){ toast(t('lg_manh_need')); return; }
@@ -2014,6 +2015,7 @@ async function adoptManh(manhPaper, oldId){         // attach a منح to a prov
     }catch(_){} } }
   const patch={ batch_id:newId, manh_scan:ptr, manh_stamp:!!manhPaper.stamp_ministry,
     manh_date:manhPaper.manh_date||null, status:'active' };
+  if(rot)patch.rot=rot;                              // the reviewer's منح rotation → merged onto the batch, cascades to print/عرض
   if(manhPaper.interval_from!=null)patch.interval_from=manhPaper.interval_from;
   if(manhPaper.interval_to  !=null)patch.interval_to  =manhPaper.interval_to;
   const {error}=await sb.from('legal_batches').update(patch).eq('batch_id',oldId);   // members+papers cascade
@@ -2130,6 +2132,16 @@ async function commitProposal(i){
    from any of its papers — the raw scan on one side (a tab per paper to switch), the confirm panel on
    the other (type the منح number, tick the stamps), one save. Same commitLegalBatch path. */
 let _lrBatch=null, _lrIdx=0, _lrRot={}, _lrZoom=1;   // _lrRot[type] = the user's manual turn per paper; _lrZoom = review-pane magnification
+// The review-pane rotations as a registry-keyed map (degrees), merged NON-DESTRUCTIVELY onto a batch's
+// existing rotation so a rotation set in review CARRIES INTO print + عرض (both raster from legal_batches.rot).
+// A paper the human turned this session is authoritative; a paper left untouched keeps its stored rotation.
+// `k in _lrRot` is true only once the rotate button was pressed for that paper → untouched papers never clobber.
+function reviewRot(existing){
+  const m={...(existing||{})};
+  ptKeys().forEach(k=>{ if(k in _lrRot) m[k]=(+_lrRot[k]||0); });
+  const out={}; Object.keys(m).forEach(k=>{ if(+m[k]) out[k]=+m[k]; });   // keep only real (non-zero) turns
+  return Object.keys(out).length?out:null;
+}
 // ── review-pane VIEWER (modern document-viewer pattern) ──────────────────────────────────────────
 // A PDF page is RE-RENDERED at the current zoom (scale × devicePixelRatio) so text stays razor-sharp at
 // any magnification — never a stretched bitmap. It sits in a normal SCROLLABLE pane (the up/down slider
@@ -2363,7 +2375,7 @@ async function lrCommit(){
   if(hasManh && b.papers.length===1 && id){             // a lone منح → complete a matching provisional batch
     const cands=manhCandidates(b.papers[0], await loadProvisionalBatches());
     if(cands.length===1){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
-      try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id);
+      try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id, reviewRot(cands[0].rot));
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
         closeIkReview(); ikRender(); search($('#q')?$('#q').value:''); }
       catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
@@ -2373,11 +2385,10 @@ async function lrCommit(){
     istimara:(b.papers.find(p=>p.type==='istimara')||{}).scan_path, manh:manh.scan_path};
   const btn=$('#lr-save'); if(btn){btn.disabled=true;btn.textContent=t('lg_saving');}
   try{
-    const anyRot=(_lrRot.taahud||_lrRot.istimara||_lrRot.manh);
     const res=await commitLegalBatch({batch_id:id, manh_date:manh.manh_date||null,
       interval_from:manh.interval_from??ep.fSerial, interval_to:manh.interval_to??ep.lSerial, rows, scans, stamps,
       first_name:ep.fName, last_name:ep.lName, first_passport:ep.fPass, last_passport:ep.lPass, provisional:!hasManh,
-      rot: anyRot?{taahud:_lrRot.taahud||0,istimara:_lrRot.istimara||0,manh:_lrRot.manh||0}:null,
+      rot: reviewRot(null),                              // the reviewer's rotations → saved so print/عرض match
       paperIds:b.papers.map(p=>p.paper_id).filter(Boolean)});
     b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
     toast((hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`);
