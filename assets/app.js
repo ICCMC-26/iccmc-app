@@ -646,8 +646,8 @@ async function scanImage(path){
 // portrait) and stands ONLY that page up — a page already upright is never touched (no byproduct).
 // rot = extra degrees the USER asked for (0/90/180/270), added to the page's own rotation. No auto-guess:
 // a fallible detector wrongly flips upright TABLES (grid lines look like vertical text), so the human drives it.
-async function scanImagesAll(path, rot){
-  rot=rot||0;
+async function scanImagesAll(path, rot, scale){
+  rot=rot||0; scale=scale||3.5;                       // print uses 3.5; the review passes a higher DPI for deeper sharp zoom
   if(!path)return [];
   if(/\.(xlsx|docx)$/i.test(path)) return [];         // Word/Excel isn't an image → rendered as its own office page
   const url=await docUrl(path); if(!url)return [];
@@ -660,10 +660,13 @@ async function scanImagesAll(path, rot){
     for(let n=1;n<=pdf.numPages;n++){
       const page=await pdf.getPage(n);
       const r=(((page.rotate||0)+rot)%360+360)%360;
-      const vp=page.getViewport({scale:3.5, rotation:r});
+      let vp=page.getViewport({scale, rotation:r});
+      const mx=Math.max(vp.width,vp.height);          // clamp the canvas for memory (a big table at high DPI)
+      if(mx>6800) vp=page.getViewport({scale:scale*6800/mx, rotation:r});
       const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
       await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
       out.push(c.toDataURL('image/jpeg',0.95));
+      c.width=c.height=0;                             // free the canvas promptly (multi-page big rosters)
     }
     return out;
   }catch(e){ console.warn('pdf render all',e); return []; }
@@ -2102,7 +2105,7 @@ let _lrBatch=null, _lrIdx=0, _lrRot={}, _lrZoom=1;   // _lrRot[type] = the user'
 // any magnification — never a stretched bitmap. It sits in a normal SCROLLABLE pane (the up/down slider
 // is back), with grab-to-pan and Ctrl/⌘-wheel + pinch zoom-to-cursor. A raw image scan uses the same
 // shell but css-scales (a photo has no more detail to render). One glass toolbar for both.
-const LR_ZMIN=1, LR_ZMAX=6;
+const LR_ZMIN=1, LR_ZMAX=10;
 function _lrToolsHtml(){
   return `<div class="lr-bar">`
     + `<button class="lr-b" id="lr-rot" title="${t('lr_rotate')}">⟳</button><i class="lr-sep"></i>`
@@ -2261,7 +2264,7 @@ async function lrPaintScan(paper){
   // scroll + zoom viewer. This replaces the pdf.js canvas re-render, which mis-rendered the text (spaced /
   // disconnected glyphs, EN + AR). scanImagesAll rasterizes a PDF and passes a raw image scan straight through.
   const src=isOffice ? _printPath(paper.scan_path) : paper.scan_path, rot=_lrRot[paper.type]||0;
-  const imgs = src ? await scanImagesAll(src, rot) : [];
+  const imgs = src ? await scanImagesAll(src, rot, 6) : [];   // 6× DPI for the review → deeper sharp zoom (a big roster's cells)
   if(imgs.length){ _lrImgView(box, imgs, paper); return; }
   // FALLBACK — no PDF sibling yet (or an .xlsx that didn't render): the in-app docx-preview + a download link
   if(isOffice){
@@ -2363,6 +2366,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v53';
+window.__APP_VER = 'v54';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
