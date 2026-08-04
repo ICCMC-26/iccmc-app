@@ -2225,18 +2225,33 @@ function _lrImgView(box, urls, paper){                   // a raw image scan →
 // grab-pan + zoom machinery as the image/pdf viewers via a CSS transform, so the review is NEVER a dead,
 // un-scrollable, un-zoomable pane. Returns false if the doc itself can't be rendered (→ download panel).
 async function _lrOfficeView(box, paper){
+  // the PAN is the LTR scroll container (predictable scrollLeft for the pan math); the DOC content's own
+  // reading direction is detected from its script so an Arabic form reads RIGHT-TO-LEFT like the original.
   box.innerHTML=`<div class="lr-pan office" dir="ltr"><div class="lr-ofit"><div class="lr-doc"></div></div></div>${_lrToolsHtml()}`;
   const pan=box.querySelector('.lr-pan'), fit=box.querySelector('.lr-ofit'), doc=box.querySelector('.lr-doc'), lbl=box.querySelector('.lz-lbl');
   fit.style.cssText='position:relative;margin:0 auto';
   doc.style.cssText='position:absolute;top:0;left:0;transform-origin:top left';
   const ok=await renderOfficeDoc(paper.scan_path, doc);
   if(!ok) return false;
+  // FIX 1 (direction): honor the document's own direction. docx-preview often emits no explicit dir, so the
+  // content inherited the pane's LTR and an Arabic form showed left-to-right. Detect the dominant script and
+  // set the content direction (Arabic/Hebrew → rtl), so the layout matches the original Word doc.
+  const _txt=(doc.textContent||'').slice(0,4000);
+  const _rtl=((_txt.match(/[֐-ࣿ]/g)||[]).length) > ((_txt.match(/[A-Za-z]/g)||[]).length);
+  doc.style.direction=_rtl?'rtl':'ltr';
   doc.style.transform='none';                                              // measure natural size unscaled
   const natW=Math.max(1, doc.offsetWidth||doc.scrollWidth), natH=Math.max(1, doc.offsetHeight||doc.scrollHeight);
   let z=1;
-  const fitBase=()=>Math.max(.05,(pan.clientWidth-2)/natW);                // z=1 = fit-to-width (like the image view)
-  const apply=()=>{ const s=fitBase()*z; doc.style.transform='scale('+s+')';
-    fit.style.width=(natW*s)+'px'; fit.style.height=(natH*s)+'px';
+  // FIX 2 (rotate): apply the review rotation (_lrRot[type]) as a CSS rotate, with the bounding box + fit
+  // recomputed per angle (90/270 swap width/height), so rotating an office paper actually turns the page —
+  // and z=1 still means fit-to-width for whichever side now faces across the pane.
+  const apply=()=>{ const r=(((+_lrRot[paper.type]||0)%360)+360)%360;
+    const alongW=(r===90||r===270)?natH:natW;                             // the dimension now spanning the pane
+    const s=Math.max(.05,(pan.clientWidth-2)/alongW)*z;
+    const W=natW*s, H=natH*s; let tx=0,ty=0,bw=W,bh=H;
+    if(r===90){ tx=H; bw=H; bh=W; } else if(r===180){ tx=W; ty=H; } else if(r===270){ ty=W; bw=H; bh=W; }
+    doc.style.transform=`translate(${tx}px,${ty}px) rotate(${r}deg) scale(${s})`;
+    fit.style.width=bw+'px'; fit.style.height=bh+'px';
     if(lbl)lbl.textContent=Math.round(z*100)+'%'; _lrZoom=z; };
   function zoomTo(nz,cx,cy){ nz=Math.min(LR_ZMAX,Math.max(LR_ZMIN,nz)); if(Math.abs(nz-z)<1e-3)return;
     const r=nz/z, l=pan.scrollLeft, tp=pan.scrollTop; z=nz; apply(); pan.scrollLeft=(l+cx)*r-cx; pan.scrollTop=(tp+cy)*r-cy; }
