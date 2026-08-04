@@ -162,13 +162,13 @@ function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang
    or runs before auth. Legal sites read the helpers below (never a hardcoded type list), so a new paper of
    an existing role becomes a DB row that appears everywhere with no client deploy. */
 const PT_DEFAULT=[
-  {key:'taahud',   label:{ar:'التعهد',   en:'Undertaking'}, role:'roster', ord:1, stamps:['stamp']},
-  {key:'istimara', label:{ar:'الاستمارة', en:'Entry form'},  role:'roster', ord:2, stamps:['company','ministry']},
-  {key:'manh',     label:{ar:'المنح',    en:'Grant'},       role:'grant',  ord:3, stamps:['stamp']},
+  {key:'taahud',   label:{ar:'التعهد',   en:'Undertaking'}, role:'roster', ord:1, stamps:['stamp'],             required:true},
+  {key:'istimara', label:{ar:'الاستمارة', en:'Entry form'},  role:'roster', ord:2, stamps:['company','ministry'], required:true},
+  {key:'manh',     label:{ar:'المنح',    en:'Grant'},       role:'grant',  ord:3, stamps:['stamp'],             required:true},
 ];
 let _PT=PT_DEFAULT.slice();
 async function loadPaperTypes(){
-  try{ const {data,error}=await sb.from('paper_types').select('key,label,role,ord,stamps,active').order('ord');
+  try{ const {data,error}=await sb.from('paper_types').select('key,label,role,ord,stamps,required,active').order('ord');
     const rows=(data||[]).filter(r=>r&&r.active!==false&&r.key);
     if(!error && rows.length) _PT=rows;                       // else keep the safe built-in default
   }catch(_){}
@@ -178,6 +178,18 @@ const ptGet   =k=>_PT.find(p=>p.key===k);
 const ptLabel =k=>{ const p=ptGet(k); return (p&&p.label&&(p.label[LANG]||p.label.ar))||t('lg_'+k)||k; };  // bilingual, registry-driven
 const ptOrd   =k=>{ const p=ptGet(k); return p?p.ord:99; };
 const ptStamps=k=>{ const p=ptGet(k); return (p&&p.stamps)||[]; };
+const ptReq   =k=>{ const p=ptGet(k); return p?p.required!==false:true; };   // does this type GATE completeness?
+// ── batchPaper: the ONE place that reads a batch's per-type completeness (registry-driven) ──────────
+// The only site that knows column names. Schema convention (holds for every seeded type):
+//   scan  = `${key}_scan`   ·   stamp = (name==='stamp') ? `${key}_stamp` : `${key}_${name}_stamp`
+// Returns {scan, present, trusted}. `trusted` = all of the type's registry stamps are marked.
+const _scanCol =k=>k+'_scan';
+const _stampCol=(k,name)=> name==='stamp' ? k+'_stamp' : k+'_'+name+'_stamp';
+function batchPaper(b,k){
+  b=b||{}; const scan=b[_scanCol(k)]||null; const need=ptStamps(k);
+  const marks=need.map(n=>!!b[_stampCol(k,n)]); const anyStamp=marks.some(Boolean);
+  return { scan, present:!!(scan||anyStamp), trusted: need.length?marks.every(Boolean):!!scan };
+}
 loadPaperTypes();   // fire once now (refreshes again on SIGNED_IN); pre-auth failure just keeps the default
 
 /* ── theme ───────────────────────────────────────────────────────────────── */
@@ -255,11 +267,8 @@ async function searchLegalBatches(q){
     || b.members.some(m=>String(m.passport_no||'').toLowerCase().includes(ql)||String(m.name_as_written||'').toLowerCase().includes(ql)));
   return rows.sort((a,c)=>String(c.batch_id).localeCompare(String(a.batch_id),undefined,{numeric:true}));
 }
-function lawPaperStatus(b){
-  const st=(scan,trusted)=> !(scan||trusted)?'–':(trusted?'✓':'⚑');
-  return {taahud:st(b.taahud_scan,b.taahud_stamp),
-    istimara:st(b.istimara_scan,b.istimara_company_stamp&&b.istimara_ministry_stamp),
-    manh:st(b.manh_scan,b.manh_stamp)}; }
+function lawPaperStatus(b){   // registry-driven: {key → '–'|'✓'|'⚑'} for every paper type
+  const o={}; ptKeys().forEach(k=>{ const x=batchPaper(b,k); o[k]= !x.present?'–':(x.trusted?'✓':'⚑'); }); return o; }
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
   rows=rows||LAWLAST; const box=$('#results'); $('#filters').innerHTML='';
@@ -277,7 +286,7 @@ function renderLaw(rows){
       <div class="ava law-ava">⚖</div>
       <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
         <div class="sub">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}</div></div>
-      <div class="val law-pp"><span class="lp-ok">${t('lg_taahud')} ${s.taahud}</span><span class="lp-ok">${t('lg_istimara')} ${s.istimara}</span><span class="lp-ok">${t('lg_manh')} ${s.manh}</span></div>
+      <div class="val law-pp">${ptKeys().map(k=>`<span class="lp-ok">${ptLabel(k)} ${s[k]}</span>`).join('')}</div>
       <button class="law-cardprint" data-lawprint="${esc(b.batch_id)}" title="${t('t_print')}"><span style="font-size:15px">⎙</span></button>
     </div>`; }).join('');
   box.innerHTML=addBtn+body;
@@ -329,7 +338,7 @@ function renderLawBatch(b){
     <div class="lb-h">⚖ ${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}</div>
     <div class="lb-meta">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${b.manh_date?` · ${esc(b.manh_date)}`:''}</div>
     <div class="lb-block"><div class="lb-sub">${t('law_papersLbl')}</div>
-      ${paper(t('lg_taahud'),s.taahud,b.taahud_scan,brot.taahud)}${paper(t('lg_istimara'),s.istimara,b.istimara_scan,brot.istimara)}${paper(t('lg_manh'),s.manh,b.manh_scan,brot.manh)}</div>
+      ${ptKeys().map(k=>paper(ptLabel(k),s[k],batchPaper(b,k).scan,brot[k])).join('')}</div>
     <div class="lb-sub">${t('law_roster')}</div>${gapNote}
     <div class="lb-roster">${mem}</div></div>`;
   $('#lb-back').onclick=()=>{ _lawBatch=null; renderLaw(LAWLAST); };
@@ -408,14 +417,12 @@ async function refreshLegalFlags(ids){
   LEGAL_INCOMPLETE=new Set();
   if(!ids.length)return;
   const {data,error}=await sb.from('legal_batch_members')
-    .select('person_id, batch:legal_batches(taahud_scan,taahud_stamp,istimara_scan,istimara_company_stamp,istimara_ministry_stamp,manh_scan,manh_stamp)')
+    .select('person_id, batch:legal_batches(*)')
     .in('person_id',ids);
   if(error)return;                                   // legal tables absent / no access → simply no chip
   (data||[]).forEach(m=>{ const b=m.batch||{}; if(!m.person_id)return;
-    const ok=(scan,stamp)=> !!(scan||stamp) && !!stamp;                          // present AND trusted
-    const complete = ok(b.taahud_scan,b.taahud_stamp)
-      && ((b.istimara_scan||b.istimara_company_stamp||b.istimara_ministry_stamp) && b.istimara_company_stamp && b.istimara_ministry_stamp)
-      && ok(b.manh_scan,b.manh_stamp);
+    // complete = every REQUIRED registry paper is present AND trusted (all stamps marked)
+    const complete = ptKeys().filter(ptReq).every(k=>{ const x=batchPaper(b,k); return x.present && x.trusted; });
     if(!complete) LEGAL_INCOMPLETE.add(m.person_id); });                          // any incomplete batch → gap
 }
 function rowStatus(r){ return worstStatus([r.passport_expiry,r.soonest_visa_expiry]); }
@@ -1727,14 +1734,11 @@ function legalCard(legal){
     const b=m.batch||{}; const id=b.batch_id||m.batch_id; if(seen[id])return; seen[id]=1; items.push({m,b}); });
   const paper=(present,trusted)=> !present ? `<span class="lg-miss">–</span>`
     : (trusted?`<span class="lg-ok">✓</span>`:`<span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
-  const has=(scan,stamp)=> !!(scan||stamp);
   const rows=items.map(({m,b})=>`<div class="lg-row">
       <div class="lg-bid">⚖ ${esc(b.batch_id||m.batch_id)}</div>
       <div class="lg-meta">${t('lg_serial')} ${esc(m.serial??'—')}${(b.interval_from!=null&&b.interval_to!=null)?` · ${t('lg_covered')} ${esc(b.interval_from)}–${esc(b.interval_to)}`:''}</div>
       <div class="lg-papers">
-        <span>${t('lg_taahud')} ${paper(has(b.taahud_scan,b.taahud_stamp),b.taahud_stamp)}</span>
-        <span>${t('lg_istimara')} ${paper(has(b.istimara_scan,b.istimara_company_stamp||b.istimara_ministry_stamp),b.istimara_company_stamp&&b.istimara_ministry_stamp)}</span>
-        <span>${t('lg_manh')} ${paper(has(b.manh_scan,b.manh_stamp),b.manh_stamp)}</span>
+        ${ptKeys().map(k=>{ const x=batchPaper(b,k); return `<span>${ptLabel(k)} ${paper(x.present,x.trusted)}</span>`; }).join('')}
       </div></div>`).join('');
   return `<div class="doc"><div class="doc-h"><span class="doc-t">${t('lg_file')}</span></div>${rows}</div>`;
 }
