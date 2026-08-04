@@ -453,7 +453,7 @@
   .lr-stamps{display:flex;flex-direction:column;gap:10px}
   /* legal review scan viewer — the WHOLE paper, upright, freely pannable (scroll). The منح opens gently
      zoomed and scrolled to the العدد (grant number); the user can pan to see the rest of the page. */
-  .lr-pan{position:relative;width:100%;height:74vh;overflow:auto;background:#eceae4;border-radius:14px;cursor:grab;touch-action:none}
+  .lr-pan{position:relative;width:100%;height:74vh;overflow:auto;background:#eceae4;border-radius:14px;cursor:grab;touch-action:none;scrollbar-gutter:stable}
   .lr-pan.grabbing{cursor:grabbing}
   /* PROMINENT copper scrollbar — the up/down slider is back; this keeps it obvious on the pale pane. */
   .lr-pan{scrollbar-width:auto;scrollbar-color:var(--copper) #d9d4cb}
@@ -461,8 +461,8 @@
   .lr-pan::-webkit-scrollbar-track{background:#d9d4cb;border-radius:14px}
   .lr-pan::-webkit-scrollbar-thumb{background:var(--copper);border-radius:999px;border:3px solid #d9d4cb;background-clip:padding-box;min-height:44px}
   .lr-pan::-webkit-scrollbar-thumb:hover{filter:brightness(1.08)}
-  .lr-stage{display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px;width:max-content;min-width:100%;box-sizing:border-box;margin:0 auto}
-  .lr-page{display:block;max-width:none;max-height:none;background:#fff;box-shadow:0 3px 16px rgba(0,0,0,.24);-webkit-user-drag:none;user-select:none}
+  .lr-stage{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;width:max-content;min-width:100%;box-sizing:border-box;margin:0 auto}
+  .lr-page{display:block;max-width:none;max-height:none;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.16);-webkit-user-drag:none;user-select:none}
   /* Word/Excel rendered in-app (docx-preview / SheetJS) inside the scan pane */
   .lr-pan.office{background:#eceae4}
   .lr-pan .docx-wrapper{background:transparent;padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:14px}
