@@ -2256,15 +2256,13 @@ async function lrPaintScan(paper){
   const box=$('#lr-scan'); if(!box)return;
   if(!paper||!paper.scan_path){ box.textContent=t('rv_noscan'); return; }
   const isOffice=/\.(xlsx|docx)$/i.test(paper.scan_path);
-  // office → the SAME faithful LibreOffice PDF the print uses (a full office engine reproduces the layout,
-  // text boxes, stamps, photo — far better than the in-browser docx-preview). Scanned → the file itself.
+  // office → the SAME faithful LibreOffice PDF the PRINT feature uses. Render it with the SAME proven path
+  // the print uses — scanImagesAll → page images (renders Word AND Excel faithfully) — then wrap it in the
+  // scroll + zoom viewer. This replaces the pdf.js canvas re-render, which mis-rendered the text (spaced /
+  // disconnected glyphs, EN + AR). scanImagesAll rasterizes a PDF and passes a raw image scan straight through.
   const src=isOffice ? _printPath(paper.scan_path) : paper.scan_path, rot=_lrRot[paper.type]||0;
-  if(src && /\.pdf$/i.test(src)){
-    const url=await docUrl(src);
-    if(url && await _lrPdfView(box, url, rot, paper)) return;     // sharp, re-rendered-at-zoom PDF viewer
-  } else if(src && !isOffice){
-    const url=await docUrl(src); if(url){ _lrImgView(box, [url], paper); return; }   // a raw image scan
-  }
+  const imgs = src ? await scanImagesAll(src, rot) : [];
+  if(imgs.length){ _lrImgView(box, imgs, paper); return; }
   // FALLBACK — no PDF sibling yet (or an .xlsx that didn't render): the in-app docx-preview + a download link
   if(isOffice){
     const _doc=/\.docx$/i.test(paper.scan_path), _k=_doc?'Word':'Excel', _ic=_doc?'📄':'📊';
@@ -2365,6 +2363,6 @@ applyLang();
 window.__APP_BOOTED = true;
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v52';
+window.__APP_VER = 'v53';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
