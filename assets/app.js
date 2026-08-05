@@ -374,6 +374,12 @@ function worstStatus(dates){
 function initials(n){return (n||'—').split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));  // escapes ' too → airtight for single-quoted attrs; output is display-only (never parsed back), getAttribute decodes on read
 let _urlCache={};
+// #4 (safe face-reuse): cache the already-DECODED <img> element per storage path. On any re-render
+// (filter click, chip switch, future filters) we MOVE the loaded element back in — instant pixels,
+// NO network re-fetch, so NO flicker and NO expired-signed-URL risk. Render-level => every filter,
+// present and future, is covered automatically. Bounded so memory stays flat.
+const _faceEls=new Map();
+function _faceCap(){ const CAP=600; while(_faceEls.size>CAP){ _faceEls.delete(_faceEls.keys().next().value); } }
 async function faceUrl(path){
   if(!path)return null; if(_urlCache[path])return _urlCache[path];
   try{const {data}=await sb.storage.from('photos').createSignedUrl(path,3600);   // 1h — survives a long session
@@ -391,6 +397,7 @@ function loadFace(el, path, clickable, fallback){
     if(!u){ if(fallback) loadFace(el, fallback, clickable); return; }
     const img=new Image(); img.alt='';
     img.onload=()=>{ el.innerHTML=''; el.appendChild(img);
+      if(PERF.faceReuse && !clickable){ _faceEls.set(path, img); _faceCap(); }   // #4: remember the decoded element
       if(clickable){ el.dataset.url=u; el.classList.add('clickable'); } };
     img.onerror=()=>{ delete _urlCache[path]; if(fallback) loadFace(el, fallback, clickable); };
     img.src=u;
@@ -442,7 +449,9 @@ function _vChunk(box){
   const end=Math.min(_vCursor+_VCHUNK, _vShown.length);
   const sen=box.querySelector('.v-sentinel'); if(sen)sen.remove();
   const tmp=document.createElement('div'); tmp.innerHTML=_vShown.slice(_vCursor,end).map(_rowHtml).join('');
-  tmp.querySelectorAll('.ava[data-face]').forEach(el=>{ const p=el.getAttribute('data-face'); if(p) loadFace(el, p); });  // only this chunk's faces, once
+  tmp.querySelectorAll('.ava[data-face]').forEach(el=>{ const p=el.getAttribute('data-face'); if(!p) return;
+    if(PERF.faceReuse){ const c=_faceEls.get(p); if(c && c.complete && c.naturalWidth>0){ el.innerHTML=''; el.appendChild(c); return; } }  // #4: reuse decoded element — no re-fetch, no flicker
+    loadFace(el, p); });  // uncached → load once (loadFace caches it)
   while(tmp.firstChild) box.appendChild(tmp.firstChild);
   _vCursor=end;
   if(_vCursor<_vShown.length){
@@ -453,7 +462,7 @@ function _vChunk(box){
   } else if(_vObs){ _vObs.disconnect(); _vObs=null; }
 }
 let _rItems=null, _rRef=null;
-const PERF={smartFlags:true, idlePoll:true, lazyPdf:true};
+const PERF={smartFlags:true, idlePoll:true, lazyPdf:true, faceReuse:true};
 let _pdfjsP=null;
 function ensurePdfjs(){   // #5: load pdf.js only when a PDF is actually opened (not on every cold load)
   if(window.pdfjsLib) return Promise.resolve();
@@ -2472,6 +2481,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v65';
+window.__APP_VER = 'v66';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
