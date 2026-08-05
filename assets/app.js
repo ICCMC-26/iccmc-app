@@ -17,6 +17,7 @@ let CURRENT_P=null, CURRENT_VS=[], CURRENT_LEGAL=[];   // the open employee — 
 /* ── bilingual (chrome translates; stored values never do) ───────────────── */
 const I18N={
   ar:{dir:'rtl', other:'English',
+    trash_t:'Trash · المحذوفات', trash_h:'المحذوفات — سجلات محذوفة', trash_none:'سلة المحذوفات فارغة', trash_restore:'استعادة', trash_restored:'تمت الاستعادة', trash_by:'حذفها', trash_persons:'موظف', trash_visas:'تأشيرة', trash_legal_batches:'دفعة قانونية',
     gtag:'سجل وثائق الموظفين', signin:'تسجيل الدخول ›', signing:'… جارٍ الدخول',
     bad:'بريد أو كلمة مرور غير صحيحة.', need:'أدخل البريد وكلمة المرور.',
     add:'موظف جديد', ph:'ابحث عن أي موظف — الاسم، الجواز، التأشيرة، الجنسية…',
@@ -78,7 +79,8 @@ const I18N={
     lr_xlsx:'ملف {k} · لا صورة للعرض', lr_xlsx_dl:'تنزيل ملف {k}',
     lr_endname:'اسم الموظف — لم يقرأه الماسح', lr_endname_need:'أكمِل اسم طرف الدفعة قبل الحفظ',
     pv_legal_note:(name,serial)=>`الموظف ${name} مُدرَج في هذه الاستمارة ضمن التسلسل رقم ${serial}.`},
-  en:{dir:'ltr', other:'العربية',
+  en:{dir:'ltr',
+    trash_t:'Trash', trash_h:'Trash — deleted records', trash_none:'Trash is empty', trash_restore:'Restore', trash_restored:'Restored', trash_by:'deleted by', trash_persons:'Employee', trash_visas:'Visa', trash_legal_batches:'Legal batch', other:'العربية',
     gtag:'Employee documents registry', signin:'Sign in ›', signing:'… signing in',
     bad:'Wrong email or password.', need:'Enter email and password.',
     add:'New employee', ph:'Search any employee — name, passport, visa, nationality…',
@@ -232,7 +234,7 @@ function subscribeLive(){
 let LAST=[], _seq=0, _timer=null;
 function onType(){clearTimeout(_timer);_timer=setTimeout(()=>search($('#q').value),180)}
 async function search(q){
-  const seq=++_seq;
+  const seq=++_seq; TRASHMODE=false;
   if(LAWMODE){ const rows=await searchLegalBatches(q); if(seq!==_seq)return; LAWLAST=rows; renderLaw(rows); return; }
   const {data,error}=await sb.rpc('search_employees',{q});
   if(seq!==_seq)return;                            // a newer keystroke won
@@ -248,7 +250,7 @@ async function search(q){
    The write side is review-in-place; this is the read side. Same "search IS the app" pattern applied
    to the legal domain: one box finds a batch by its منح number OR by any employee's name/passport in it.
    Click a batch → its papers (view links) + the full roster, each member linking to his employee dossier. */
-let LAWMODE=false, LAWLAST=[], _lawBatch=null;
+let LAWMODE=false, LAWLAST=[], _lawBatch=null, TRASHMODE=false;
 function setLaw(on){
   LAWMODE=!!on; _lawBatch=null;
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
@@ -258,7 +260,7 @@ function setLaw(on){
 }
 async function searchLegalBatches(q){
   const [br,mr]=await Promise.all([
-    sb.from('legal_batches').select('*'),
+    sb.from('legal_batches_active').select('*'),
     sb.from('legal_batch_members').select('batch_id,serial,passport_no,name_as_written,person_id')]);
   const byB={}; (mr.data||[]).forEach(m=>{ (byB[m.batch_id]=byB[m.batch_id]||[]).push(m); });
   let rows=(br.data||[]).map(b=>({...b, members:(byB[b.batch_id]||[]).sort((a,c)=>(a.serial||0)-(c.serial||0))}));
@@ -511,7 +513,7 @@ function badge(dateStr,estimated){
 async function openEmployee(pid){
   const [pr,vr,lr,dr]=await Promise.all([
     sb.from('persons').select('*').eq('person_id',pid).maybeSingle(),
-    sb.from('visas').select('*').eq('person_id',pid),
+    sb.from('visas_active').select('*').eq('person_id',pid),
     sb.from('legal_batch_members').select('*, batch:legal_batches(*)').eq('person_id',pid),
     // retired (superseded) PASSPORTS = the renewal history. person_documents is the PASSPORT SCD-2
     // ledger only; visas keep their own history in the `visas` table (a person can hold several valid
@@ -1330,7 +1332,37 @@ $('#tlang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 $('#ttheme').addEventListener('click',toggleTheme);
 $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.auth.signOut();location.reload()}});
 $('#add').addEventListener('click',openIntake);
+/* ── Trash: soft-deleted records (Phase A2) ─ list v_trash, one-tap Restore ── */
+async function openTrash(){
+  TRASHMODE=true; if(LAWMODE)setLaw(false);
+  const q=$('#q'); if(q){ q.value=''; q.blur(); }
+  $('#filters').innerHTML='';
+  const box=$('#results'); if(!box) return;
+  const {data,error}=await sb.from('v_trash').select('*').order('deleted_at',{ascending:false});
+  if(!TRASHMODE) return;
+  if(error){ toast((error&&error.message)||'—'); return; }
+  const rows=data||[];
+  $('#count').textContent=rows.length?t('n_res',rows.length):'';
+  const head=`<div class="law-actions"><button class="law-home" id="trash-home">${t('law_main')}</button>
+    <span class="law-add" style="pointer-events:none">🗑 ${t('trash_h')}</span></div>`;
+  const body=!rows.length ? `<div class="empty">${t('trash_none')}</div>`
+    : rows.map(r=>`<div class="row">
+        <div class="ava" style="font-size:18px">🗑</div>
+        <div class="who"><div class="nm">${esc(r.label||r.pk)}</div>
+          <div class="sub">${esc(t('trash_'+r.tbl)||r.tbl)} · ${esc(t('trash_by'))} ${esc(r.deleted_by||'—')} · ${esc(String(r.deleted_at||'').slice(0,16).replace('T',' '))}</div></div>
+        <button class="law-add trash-restore" data-tbl="${esc(r.tbl)}" data-pk="${esc(r.pk)}">${t('trash_restore')}</button>
+      </div>`).join('');
+  box.innerHTML=head+body;
+  const h=$('#trash-home'); if(h)h.onclick=()=>{ TRASHMODE=false; search(''); };
+  box.querySelectorAll('.trash-restore').forEach(btn=>btn.onclick=async()=>{
+    btn.disabled=true;
+    const {error}=await sb.rpc('restore_row',{p_table:btn.dataset.tbl,p_pk:btn.dataset.pk});
+    if(error){ toast((error&&error.message)||'—'); btn.disabled=false; return; }
+    toast(t('trash_restored')); openTrash();
+  });
+}
 $('#blaw').addEventListener('click',()=>setLaw(!LAWMODE));
+$('#btrash').addEventListener('click',openTrash);
 $('#intake .ik-close').addEventListener('click',closeIntake);
 $('#dz-input').addEventListener('change',e=>{ikAdd(e.target.files);e.target.value=''});
 (()=>{ const dz=$('#dz');
