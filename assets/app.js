@@ -453,7 +453,20 @@ function _vChunk(box){
   } else if(_vObs){ _vObs.disconnect(); _vObs=null; }
 }
 let _rItems=null, _rRef=null;
-const PERF={smartFlags:true, idlePoll:true};   // Phase G UI-smoothness flags (flip a key false to revert that seam)
+const PERF={smartFlags:true, idlePoll:true, lazyPdf:true};
+let _pdfjsP=null;
+function ensurePdfjs(){   // #5: load pdf.js only when a PDF is actually opened (not on every cold load)
+  if(window.pdfjsLib) return Promise.resolve();
+  if(_pdfjsP) return _pdfjsP;
+  _pdfjsP=new Promise((res,rej)=>{
+    const el=document.createElement('script');
+    el.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    el.onload=()=>{ try{ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }catch(_){}; res(); };
+    el.onerror=()=>{ _pdfjsP=null; rej(new Error('pdfjs load failed')); };
+    document.head.appendChild(el);
+  });
+  return _pdfjsP;
+}   // Phase G UI-smoothness flags (flip a key false to revert that seam)
 function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
   const bar=$('#filters'); if(!bar) return;
   bar.innerHTML=FILTERS.map(f=>{
@@ -668,6 +681,7 @@ async function scanImage(path){
   const url=await docUrl(path); if(!url)return null;
   if(!/\.pdf$/i.test(path)) return url;              // already an image → use directly
   try{
+    await ensurePdfjs();
     if(!window.pdfjsLib)return null;
     const buf=await (await fetch(url)).arrayBuffer();
     const pdf=await pdfjsLib.getDocument({data:buf}).promise;
@@ -692,6 +706,7 @@ async function scanImagesAll(path, rot, scale){
   const url=await docUrl(path); if(!url)return [];
   if(!/\.pdf$/i.test(path)) return [url];             // already an image → one page
   try{
+    await ensurePdfjs();
     if(!window.pdfjsLib)return [];
     const buf=await (await fetch(url)).arrayBuffer();
     const pdf=await pdfjsLib.getDocument({data:buf}).promise;
@@ -2184,6 +2199,7 @@ function _lrWire(box, paper, api){
   pan.addEventListener('pointerup',up); pan.addEventListener('pointercancel',up);
 }
 async function _lrPdfView(box, url, rot, paper){        // sharp: re-renders each page at the chosen zoom
+  await ensurePdfjs();
   if(!window.pdfjsLib) return false;
   let pdf; try{ const buf=await (await fetch(url)).arrayBuffer(); pdf=await pdfjsLib.getDocument({data:buf}).promise; }
   catch(e){ console.warn('pdf view',e); return false; }
@@ -2453,8 +2469,9 @@ applyLang();
    (e.g. a ReferenceError before the button wiring). After ANY load-time change, verify window.__APP_BOOTED
    === true: it can't be fooled by hoisting the way "typeof fn === 'function'" can. Do not move it. */
 window.__APP_BOOTED = true;
+try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v64';
+window.__APP_VER = 'v65';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
