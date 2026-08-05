@@ -241,7 +241,9 @@ async function search(q){
   render(LAST);                                        // PAINT after one round-trip — don't wait on the 2nd query
   // the per-row legal-gap counts (a filter-chip only) load in the BACKGROUND, then re-render — they never
   // block the results from appearing. A newer keystroke (seq bumped) discards a stale background result.
-  refreshLegalFlags(LAST.map(r=>r.person_id)).then(()=>{ if(seq===_seq) render(LAST); });
+  refreshLegalFlags(LAST.map(r=>r.person_id)).then(()=>{ if(seq!==_seq) return;
+    if(PERF.smartFlags){ paintFilters(_rItems); if(FILTER==='legal') render(LAST); }  // #1: chips-only; roster stays put unless the legal filter is active
+    else render(LAST); });
 }
 
 /* ══ THE LAW SECTION — a dedicated SEARCH/READ surface for legal batches (owner's ask) ══════════
@@ -451,6 +453,15 @@ function _vChunk(box){
   } else if(_vObs){ _vObs.disconnect(); _vObs=null; }
 }
 let _rItems=null, _rRef=null;
+const PERF={smartFlags:true, idlePoll:true};   // Phase G UI-smoothness flags (flip a key false to revert that seam)
+function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
+  const bar=$('#filters'); if(!bar) return;
+  bar.innerHTML=FILTERS.map(f=>{
+    const n=items.filter(x=>f.match(x.s,x.r)).length;
+    if(f.k!=='all'&&!n) return '';
+    return `<button class="fchip${FILTER===f.k?' on':''}" data-f="${f.k}">${t(f.lab)}<span class="fc">${n}</span></button>`;
+  }).join('');
+}
 function render(rows){
   const box=$('#results');
   // status is computed ONCE per dataset — a filter-chip click re-renders the SAME rows, so reuse it
@@ -459,12 +470,7 @@ function render(rows){
   if(rows===_rRef && _rItems){ items=_rItems; }
   else { items=rows.map(r=>({r, s:rowStatus(r)})); _rItems=items; _rRef=rows; }
   // chips: hide an empty group (except All) so the bar stays minimal
-  const bar=$('#filters');
-  if(bar) bar.innerHTML=FILTERS.map(f=>{
-    const n=items.filter(x=>f.match(x.s,x.r)).length;
-    if(f.k!=='all'&&!n) return '';
-    return `<button class="fchip${FILTER===f.k?' on':''}" data-f="${f.k}">${t(f.lab)}<span class="fc">${n}</span></button>`;
-  }).join('');
+  paintFilters(items);
   const F=FILTERS.find(f=>f.k===FILTER)||FILTERS[0];
   const shown=items.filter(x=>F.match(x.s,x.r));
   $('#count').textContent = rows.length ? t('n_res',shown.length) : '';
@@ -1042,6 +1048,7 @@ async function ikSweepStaged(){
 function ikEnsurePoll(){
   if(_ikPoll)return;
   _ikPoll=setInterval(async ()=>{
+    if(PERF.idlePoll && document.hidden) return;   // #3: pause the reconcile poll while the tab is hidden (resumes next tick when visible)
     let live=false;
     if(Object.keys(_ikPending).length){ ikReconcile(); live=true; }   // uploads in flight
     try{ if(await ikRefreshFamilies())live=true; }catch(_){}          // a packet's children still moving
