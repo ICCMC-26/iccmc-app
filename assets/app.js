@@ -370,7 +370,7 @@ function worstStatus(dates){
   return ss.sort((a,b)=>rank[a.k]-rank[b.k])[0];
 }
 function initials(n){return (n||'—').split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()}
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));  // escapes ' too → airtight for single-quoted attrs; output is display-only (never parsed back), getAttribute decodes on read
 let _urlCache={};
 async function faceUrl(path){
   if(!path)return null; if(_urlCache[path])return _urlCache[path];
@@ -429,7 +429,7 @@ function rowStatus(r){ return worstStatus([r.passport_expiry,r.soonest_visa_expi
 const _VCHUNK=60;                                   // rows in the first window; the rest stream in on scroll
 let _vShown=[], _vCursor=0, _vObs=null;
 function _rowHtml({r,s}){ return `<div class="row" data-id="${esc(r.person_id)}">
-      <div class="ava" data-face="${esc(r.photo||'')}">${initials(r.name)}</div>
+      <div class="ava" data-face="${esc(r.photo||'')}">${esc(initials(r.name))}</div>
       <div class="who">
         <div class="nm">${esc(r.name)}${r.name_native?`<span class="native">${esc(r.name_native)}</span>`:''}</div>
         <div class="sub"><span class="id">${esc(r.person_id)}</span> · ${esc(r.passport_no||'—')} · ${esc(r.nationality?tv(r.nationality):'—')}</div>
@@ -642,6 +642,8 @@ async function renderOfficeDoc(path, el){
     }else{
       await ensureLib('xlsx');   // xlsx.full.min.js bundles its own unzip → no JSZip needed
       const wb=window.XLSX.read(buf,{type:'array'});
+      // XSS note: sheet_to_html renders USER-uploaded Excel cells straight to HTML — it relies on SheetJS's
+      // own cell HTML-escaping (standard behaviour). We trust that here; if SheetJS is ever swapped, re-verify.
       el.innerHTML=wb.SheetNames.map(n=>`<div class="xl-sheet">${window.XLSX.utils.sheet_to_html(wb.Sheets[n],{editable:false})}</div>`).join('');
     }
     return el.childElementCount>0;
