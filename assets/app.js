@@ -516,8 +516,8 @@ const FL={
   national_id_no:['الرقم الوطني','National ID'],
   visa_no:['رقم التأشيرة','Visa No.'], visa_type:['نوع التأشيرة','Visa type'],
   visa_country:['دولة التأشيرة','Visa country'], visa_issue:['تاريخ الإصدار','Issued'],
-  visa_expiry:['تاريخ الانتهاء','Expires'], visa_entry_days:['أيام الدخول','Entry days'],
-  visa_stay_days:['أيام الإقامة','Stay days'],
+  visa_expiry:['تاريخ الانتهاء','Expires'], visa_entry_days:['صلاحية الدخول','Entry Validity'],
+  visa_stay_days:['مدة الإقامة','Duration of stay'],
 };
 /* controlled-vocabulary VALUES are stored canonical-Arabic; translate them to the UI
    language at render (free text — names, places, authorities — is never translated). */
@@ -1539,8 +1539,8 @@ function ikBuildReview(){
     const miss=val===''||val==null, flag=fl.includes(k);
     const tag=miss?t('rv_missing'):(conf!=null?Math.round(conf*100)+'%':'');
     const inp=DATE_FIELDS.has(k)                                     // dates: a picker, never free text
-      ? `<input type="date" data-k="${esc(k)}" value="${esc(isoDate(val))}">`
-      : `<input data-k="${esc(k)}" value="${esc(val)}" placeholder="${miss?'—':''}">`;
+      ? `<input type="date" data-k="${esc(k)}" value="${flag?'':esc(isoDate(val))}">`
+      : `<input data-k="${esc(k)}" value="${flag?'':esc(val)}" placeholder="${miss?'—':''}">`;
     return `<div class="rfield${miss?' miss':flag?' flag':''}">
       <label>${esc(fieldLabel(k))} <span class="cf">${tag}</span></label>
       ${inp}</div>`;
@@ -2481,6 +2481,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v66';
+window.__APP_VER = 'v67';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
