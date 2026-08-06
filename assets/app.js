@@ -275,12 +275,18 @@ function lawPaperStatus(b){   // registry-driven: {key → '–'|'✓'|'⚑'} fo
 let _LBL={};   // #Phase2: batch_id -> v_legal_batch_link row (connection + status)
 async function loadLegalLinks(ids){
   ids=[...new Set((ids||[]).filter(Boolean))]; if(!ids.length) return;
-  try{ const {data}=await sb.from('v_legal_batch_link').select('batch_id,connected,batch_expiry,status,expiry_variants').in('batch_id',ids);
+  try{ const {data}=await sb.from('v_legal_batch_link').select('batch_id,connected,batch_expiry,status,expiry_variants,connected_visa_id').in('batch_id',ids);
     (data||[]).forEach(r=>{ _LBL[r.batch_id]=r; }); }catch(_){}
 }
 function legalStatusChip(id){   // batch presence = its connected visa's status; static -> NO chip (honest)
   const l=_LBL[id]; if(!l||!l.connected||!l.batch_expiry) return '';
   return statusChip(statusFromDays(daysTo(l.batch_expiry)));
+}
+function visaLegalCover(v){   // #Phase2b: from a visa, show the legal batch it keeps alive (the mirror)
+  if(!v||v.visa_id==null) return '';
+  const bid=Object.keys(_LBL).find(id=>_LBL[id]&&_LBL[id].connected&&_LBL[id].connected_visa_id===v.visa_id);
+  if(!bid) return '';
+  return `<div class="v-legal" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="opacity:.7">${LANG==='ar'?'الغطاء القانوني':'Legal cover'}</span> ⚖ ${esc(bid)} ${legalStatusChip(bid)}</div>`;
 }
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
@@ -624,7 +630,7 @@ function renderDetail(p,vs,legal,hist){
       <div class="grid">${P.map(k=>cell(k,p[k])).join('')}</div></div>` : '';
   const visaCards = curVisas.length ? curVisas.map(v=>`<div class="doc">
       <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${badge(v.visa_expiry,v.visa_expiry_basis==='estimated')}</div>
-      <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div></div>`).join('')
+      <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div>${visaLegalCover(v)}</div>`).join('')
     : `<div class="doc empty2">${t('t_novisa')}</div>`;
   $('#detail').innerHTML=`
     <div class="d-scroll"><div class="d-sheet">
@@ -2495,6 +2501,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v69';
+window.__APP_VER = 'v70';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
