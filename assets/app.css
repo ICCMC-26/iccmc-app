@@ -641,3 +641,9 @@
     background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 18px;
     color:var(--ink);font-size:14px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:200}
   #toast.on{opacity:1;transform:none}
+
+/* ── clickable affordance for navigable history/legal rows (v73) ── */
+.lg-bid[data-lawgo]{cursor:pointer;display:flex;align-items:center;gap:6px;border-radius:8px;margin:2px -8px 0;padding:4px 8px;transition:background .12s}
+.lg-bid[data-lawgo]:hover,.v-legal[data-lawgo]:hover{background:var(--line)}
+.hx-open::after,.lg-bid[data-lawgo]::after,.v-legal[data-lawgo]::after{content:'‹';margin-inline-start:auto;color:var(--copper);opacity:.55;font-size:16px;font-weight:700;line-height:1}
+:root[lang="en"] .hx-open::after,:root[lang="en"] .lg-bid[data-lawgo]::after,:root[lang="en"] .v-legal[data-lawgo]::after{content:'›'}
