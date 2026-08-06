@@ -264,6 +264,7 @@ async function searchLegalBatches(q){
     sb.from('legal_batch_members').select('batch_id,serial,passport_no,name_as_written,person_id')]);
   const byB={}; (mr.data||[]).forEach(m=>{ (byB[m.batch_id]=byB[m.batch_id]||[]).push(m); });
   let rows=(br.data||[]).map(b=>({...b, members:(byB[b.batch_id]||[]).sort((a,c)=>(a.serial||0)-(c.serial||0))}));
+  await loadLegalLinks(rows.map(b=>b.batch_id));
   const ql=String(q||'').trim().toLowerCase();
   if(ql) rows=rows.filter(b=> String(b.batch_id).toLowerCase().includes(ql)
     || b.members.some(m=>String(m.passport_no||'').toLowerCase().includes(ql)||String(m.name_as_written||'').toLowerCase().includes(ql)));
@@ -271,6 +272,16 @@ async function searchLegalBatches(q){
 }
 function lawPaperStatus(b){   // registry-driven: {key → '–'|'✓'|'⚑'} for every paper type
   const o={}; ptKeys().forEach(k=>{ const x=batchPaper(b,k); o[k]= !x.present?'–':(x.trusted?'✓':'⚑'); }); return o; }
+let _LBL={};   // #Phase2: batch_id -> v_legal_batch_link row (connection + status)
+async function loadLegalLinks(ids){
+  ids=[...new Set((ids||[]).filter(Boolean))]; if(!ids.length) return;
+  try{ const {data}=await sb.from('v_legal_batch_link').select('batch_id,connected,batch_expiry,status,expiry_variants').in('batch_id',ids);
+    (data||[]).forEach(r=>{ _LBL[r.batch_id]=r; }); }catch(_){}
+}
+function legalStatusChip(id){   // batch presence = its connected visa's status; static -> NO chip (honest)
+  const l=_LBL[id]; if(!l||!l.connected||!l.batch_expiry) return '';
+  return statusChip(statusFromDays(daysTo(l.batch_expiry)));
+}
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
   rows=rows||LAWLAST; const box=$('#results'); $('#filters').innerHTML='';
@@ -286,7 +297,7 @@ function renderLaw(rows){
     const _epGap=(b.interval_from==null||b.interval_to==null)||(!b.first_name&&!b.last_name);
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
       <div class="ava law-ava">⚖</div>
-      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
+      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${legalStatusChip(b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
         <div class="sub">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}</div></div>
       <div class="val law-pp">${ptKeys().map(k=>`<span class="lp-ok">${ptLabel(k)} ${s[k]}</span>`).join('')}</div>
       <button class="law-cardprint" data-lawprint="${esc(b.batch_id)}" title="${t('t_print')}"><span style="font-size:15px">⎙</span></button>
@@ -337,7 +348,7 @@ function renderLawBatch(b){
       <button class="lb-back" id="lb-back">${t('law_back')}</button>
       <button class="lb-back" id="lb-home2">${t('law_main')}</button></span>
       <button class="lb-printbtn" id="lb-print"><span style="font-size:14px">⎙</span> ${t('t_print')}</button></div>
-    <div class="lb-h">⚖ ${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)}</div>
+    <div class="lb-h">⚖ ${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${legalStatusChip(b.batch_id)}</div>
     <div class="lb-meta">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${b.manh_date?` · ${esc(b.manh_date)}`:''}</div>
     <div class="lb-block"><div class="lb-sub">${t('law_papersLbl')}</div>
       ${ptKeys().map(k=>paper(ptLabel(k),s[k],batchPaper(b,k).scan,brot[k])).join('')}</div>
@@ -549,6 +560,7 @@ async function openEmployee(pid){
   const p=pr.data; if(!p){toast('—');return}
   const vs=(vr.data||[]).slice().sort((a,b)=>String(a.visa_expiry||'~').localeCompare(String(b.visa_expiry||'~')));
   const legal=lr.data||[];
+  await loadLegalLinks(legal.map(m=>(m.batch&&m.batch.batch_id)||m.batch_id));
   CURRENT_P=p; CURRENT_VS=vs; CURRENT_LEGAL=legal;   // subject of the print dossier
   renderDetail(p,vs,legal,(dr&&dr.data)||[]); $('#detail').classList.add('on'); document.body.style.overflow='hidden';
   const av=$('#detail .d-face');
@@ -1768,7 +1780,7 @@ function legalCard(legal){
   const paper=(present,trusted)=> !present ? `<span class="lg-miss">–</span>`
     : (trusted?`<span class="lg-ok">✓</span>`:`<span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
   const rows=items.map(({m,b})=>`<div class="lg-row">
-      <div class="lg-bid">⚖ ${esc(b.batch_id||m.batch_id)}</div>
+      <div class="lg-bid">⚖ ${esc(b.batch_id||m.batch_id)} ${legalStatusChip(b.batch_id||m.batch_id)}</div>
       <div class="lg-meta">${t('lg_serial')} ${esc(m.serial??'—')}${(b.interval_from!=null&&b.interval_to!=null)?` · ${t('lg_covered')} ${esc(b.interval_from)}–${esc(b.interval_to)}`:''}</div>
       <div class="lg-papers">
         ${ptKeys().map(k=>{ const x=batchPaper(b,k); return `<span>${ptLabel(k)} ${paper(x.present,x.trusted)}</span>`; }).join('')}
@@ -2481,6 +2493,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v67';
+window.__APP_VER = 'v68';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
