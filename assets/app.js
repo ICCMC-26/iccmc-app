@@ -280,13 +280,14 @@ async function loadLegalLinks(ids){
 }
 function legalStatusChip(id){   // batch presence = its connected visa's status; static -> NO chip (honest)
   const l=_LBL[id]; if(!l||!l.connected||!l.batch_expiry) return '';
-  return statusChip(statusFromDays(daysTo(l.batch_expiry)));
+  const _w=l.expiry_variants>1?` <span class="law-flag" title="${LANG==='ar'?'تعارض في الدفعة — راجعها':'batch mismatch — review'}">⚑</span>`:'';
+  return statusChip(statusFromDays(daysTo(l.batch_expiry)))+_w;
 }
 function visaLegalCover(v){   // #Phase2b: from a visa, show the legal batch it keeps alive (the mirror)
   if(!v||v.visa_id==null) return '';
   const bid=Object.keys(_LBL).find(id=>_LBL[id]&&_LBL[id].connected&&_LBL[id].connected_visa_id===v.visa_id);
   if(!bid) return '';
-  return `<div class="v-legal" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="opacity:.7">${LANG==='ar'?'الغطاء القانوني':'Legal cover'}</span> ⚖ ${esc(bid)} ${legalStatusChip(bid)}</div>`;
+  return `<div class="v-legal" data-lawgo="${esc(bid)}" style="cursor:pointer;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="opacity:.7">${LANG==='ar'?'الغطاء القانوني':'Legal cover'}</span> ⚖ ${esc(bid)} ${legalStatusChip(bid)}</div>`;
 }
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
@@ -313,6 +314,7 @@ function renderLaw(rows){
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
+async function gotoLawBatch(id){ closeEmployee(); setLaw(true); await search(''); openLawBatch(id); }
 async function lawFillName(b,i,name){   // fill a name the OCR missed → completes the record (review-flag action)
   name=String(name||'').trim(); if(!name)return; const m=b.members[i]; if(!m)return;
   try{
@@ -1786,7 +1788,7 @@ function legalCard(legal){
   const paper=(present,trusted)=> !present ? `<span class="lg-miss">–</span>`
     : (trusted?`<span class="lg-ok">✓</span>`:`<span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
   const rows=items.map(({m,b})=>`<div class="lg-row">
-      <div class="lg-bid">⚖ ${esc(b.batch_id||m.batch_id)} ${legalStatusChip(b.batch_id||m.batch_id)}</div>
+      <div class="lg-bid" data-lawgo="${esc(b.batch_id||m.batch_id)}" style="cursor:pointer">⚖ ${esc(b.batch_id||m.batch_id)} ${legalStatusChip(b.batch_id||m.batch_id)}</div>
       <div class="lg-meta">${t('lg_serial')} ${esc(m.serial??'—')}${(b.interval_from!=null&&b.interval_to!=null)?` · ${t('lg_covered')} ${esc(b.interval_from)}–${esc(b.interval_to)}`:''}</div>
       <div class="lg-papers">
         ${ptKeys().map(k=>{ const x=batchPaper(b,k); return `<span>${ptLabel(k)} ${paper(x.present,x.trusted)}</span>`; }).join('')}
@@ -2482,7 +2484,7 @@ $('#results').addEventListener('click',e=>{
   if(pr){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(pr.dataset.lawprint)); if(b)printBatch(b); return; }
   const lb=e.target.closest('[data-batch]'); if(lb){openLawBatch(lb.dataset.batch);return}
   const row=e.target.closest('.row'); if(row&&row.dataset.id)openEmployee(row.dataset.id);});
-$('#detail').addEventListener('click',e=>{if(e.target.closest('.d-close'))closeEmployee();if(e.target.closest('.d-print'))printEmployee();
+$('#detail').addEventListener('click',e=>{const _lg=e.target.closest('[data-lawgo]');if(_lg){gotoLawBatch(_lg.dataset.lawgo);return;}if(e.target.closest('.d-close'))closeEmployee();if(e.target.closest('.d-print'))printEmployee();
   const f=e.target.closest('.d-face');if(f&&f.dataset.url)openLightbox(f.dataset.url)});
 $('#lightbox').addEventListener('click',()=>$('#lightbox').classList.remove('on'));
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
@@ -2501,6 +2503,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v70';
+window.__APP_VER = 'v71';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
