@@ -646,7 +646,7 @@ function renderDetail(p,vs,legal,hist){
           <button class="b-exit d-close">✕ ${t('t_close')}</button>
         </div>
       </div>
-      ${passportCard}${visaCards}${legalCard(legal)}${histCard(hist)}${visaHistCard(histVisas)}
+      ${passportCard}${visaCards}${legalCard(legal)}${histCard(hist)}${visaHistCard(histVisas)}${legalHistCard(legal)}
     </div></div>`;
   // a retired document is tappable → opens its stored scan in a new tab
   $('#detail').querySelectorAll('.hx-row[data-scan]').forEach(el=>el.onclick=()=>openDocScan(el.getAttribute('data-scan')));
@@ -1780,11 +1780,25 @@ async function legalCommit(){
 /* the employee's LEGAL FILE card in the dossier — his batches + each paper's honest status.
    A paper is PRESENT when its scan OR its confirmed stamp is on file; TRUSTED (green ✓) only
    when the required stamp(s) passed; PRESENT-without-stamp shows ⚑; absent shows a gray –. */
+function legalHistCard(legal){   // expired batches = his past legal presences (muted history), clickable to the batch
+  const seen={}, items=[];
+  (legal||[]).slice().sort((a,b)=>String((b.batch&&b.batch.manh_date)||'').localeCompare(String((a.batch&&a.batch.manh_date)||''))).forEach(m=>{
+    const b=m.batch||{}, id=b.batch_id||m.batch_id, l=_LBL[id];
+    if(seen[id]||!(l&&l.connected&&l.status==='expired'))return; seen[id]=1; items.push({m,b,id,l}); });
+  if(!items.length) return '';
+  const rows=items.map(({m,b,id,l})=>`<div class="hx-row hx-open" data-lawgo="${esc(id)}" role="button" tabindex="0" style="cursor:pointer" title="${LANG==='ar'?'افتح الدفعة':'open batch'}">
+      <span class="hx-tp">⚖ ${esc(id)}</span>
+      <span class="hx-no">${esc(t('lg_serial'))} ${esc(m.serial??'—')}</span>
+      <span class="hx-dt" dir="ltr">${esc(b.manh_date||'—')}${l.batch_expiry?' → '+esc(l.batch_expiry):''}</span>
+      <span class="hx-tag">${LANG==='ar'?'منتهٍ':'expired'}</span></div>`).join('');
+  return `<div class="doc hx-card"><div class="doc-h"><span class="doc-t">${LANG==='ar'?'سجل الملف القانوني':'Legal history'}</span><span class="hx-count">${items.length}</span></div>${rows}</div>`;
+}
 function legalCard(legal){
   if(!legal||!legal.length) return `<div class="doc empty2">${t('lg_none')}</div>`;
   const seen={}, items=[];
   legal.slice().sort((a,b)=>(a.serial||0)-(b.serial||0)).forEach(m=>{
-    const b=m.batch||{}; const id=b.batch_id||m.batch_id; if(seen[id])return; seen[id]=1; items.push({m,b}); });
+    const b=m.batch||{}; const id=b.batch_id||m.batch_id; if(seen[id])return; if(_LBL[id]&&_LBL[id].status==='expired')return; seen[id]=1; items.push({m,b}); });
+  if(!items.length) return '';
   const paper=(present,trusted)=> !present ? `<span class="lg-miss">–</span>`
     : (trusted?`<span class="lg-ok">✓</span>`:`<span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
   const rows=items.map(({m,b})=>`<div class="lg-row">
@@ -2503,6 +2517,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v71';
+window.__APP_VER = 'v72';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
