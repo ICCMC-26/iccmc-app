@@ -414,7 +414,7 @@ function loadFace(el, path, clickable, fallback){
   if(!path){ if(fallback) loadFace(el, fallback, clickable); return; }
   faceUrl(path).then(u=>{
     if(!u){ if(fallback) loadFace(el, fallback, clickable); return; }
-    const img=new Image(); img.alt='';
+    const img=new Image(); img.alt=''; if(PERF.asyncDecode){ img.decoding='async'; }   // #7 asyncDecode: decode off the main thread → no scroll stutter
     img.onload=()=>{ el.innerHTML=''; el.appendChild(img);
       if(PERF.faceReuse && !clickable){ _faceEls.set(path, img); _faceCap(); }   // #4: remember the decoded element
       if(clickable){ el.dataset.url=u; el.classList.add('clickable'); } };
@@ -468,10 +468,15 @@ function _vChunk(box){
   const end=Math.min(_vCursor+_VCHUNK, _vShown.length);
   const sen=box.querySelector('.v-sentinel'); if(sen)sen.remove();
   const tmp=document.createElement('div'); tmp.innerHTML=_vShown.slice(_vCursor,end).map(_rowHtml).join('');
+  const toLoad=[];   // #6 faceBatch: faces needing a network load, gathered for ONE signed-URLs round-trip
   tmp.querySelectorAll('.ava[data-face]').forEach(el=>{ const p=el.getAttribute('data-face'); if(!p) return;
     if(PERF.faceReuse){ const c=_faceEls.get(p); if(c && c.complete && c.naturalWidth>0){ el.innerHTML=''; el.appendChild(c); return; } }  // #4: reuse decoded element — no re-fetch, no flicker
-    loadFace(el, p); });  // uncached → load once (loadFace caches it)
-  while(tmp.firstChild) box.appendChild(tmp.firstChild);
+    toLoad.push({el,p}); });
+  while(tmp.firstChild) box.appendChild(tmp.firstChild);   // rows paint instantly (initials); faces resolve next
+  if(toLoad.length){
+    const run=()=>toLoad.forEach(({el,p})=>loadFace(el,p));   // uncached → load once (loadFace caches it)
+    if(PERF.faceBatch) primeFaceUrls(toLoad.map(x=>x.p)).then(run); else run();   // #6: one round-trip signs the whole window, then each resolves cache-hot
+  }
   _vCursor=end;
   if(_vCursor<_vShown.length){
     box.insertAdjacentHTML('beforeend','<div class="v-sentinel" aria-hidden="true" style="height:1px"></div>');
@@ -481,7 +486,16 @@ function _vChunk(box){
   } else if(_vObs){ _vObs.disconnect(); _vObs=null; }
 }
 let _rItems=null, _rRef=null;
-const PERF={smartFlags:true, idlePoll:true, lazyPdf:true, faceReuse:true};
+const PERF={smartFlags:true, idlePoll:true, lazyPdf:true, faceReuse:true, faceBatch:true, asyncDecode:true, cvAuto:true};
+try{ if(PERF.cvAuto) document.documentElement.classList.add('cv-auto'); }catch(_){}   // #8 cvAuto: browser skips layout/paint of off-screen rows
+// #6 faceBatch: sign a WHOLE window of avatar URLs in ONE storage call (was: one createSignedUrl per row → ~60 round-trips/paint).
+// Populates the same _urlCache faceUrl() reads first, so each subsequent loadFace() resolves with no network hop.
+async function primeFaceUrls(paths){
+  const need=[...new Set(paths.filter(p=>p&&!_urlCache[p]))];
+  if(!need.length) return;
+  try{ const {data}=await sb.storage.from('photos').createSignedUrls(need,3600);
+    (data||[]).forEach(r=>{ if(r&&r.signedUrl&&!r.error) _urlCache[r.path]=r.signedUrl; }); }catch(_){}
+}
 let _pdfjsP=null;
 function ensurePdfjs(){   // #5: load pdf.js only when a PDF is actually opened (not on every cold load)
   if(window.pdfjsLib) return Promise.resolve();
@@ -2517,6 +2531,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v74';
+window.__APP_VER = 'v75';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

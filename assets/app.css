@@ -650,3 +650,7 @@
 :root[lang="en"] .hx-open::after,:root[lang="en"] .lg-bid[data-lawgo]::after,:root[lang="en"] .v-legal[data-lawgo]::after{content:'›'}
 /* fix: first legal row sat right under the header divider = double line */
 .doc-h + .lg-row{border-top:none}
+/* #8 cvAuto (v75): let the browser skip layout/paint for off-screen result rows.
+   Gated on html.cv-auto (set when PERF.cvAuto is on) so it's a one-flag revert.
+   intrinsic size = 46px avatar + 24px padding + 2px border = 72px (row content box). */
+html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
