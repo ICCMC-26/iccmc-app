@@ -2325,6 +2325,7 @@ async function openLegalReview(hash){
 }
 function _lrRead(){ const b=_lrBatch; if(!b)return;
   const n=$('#lr-num'); if(n){ b._num=n.value; if(b.manh)b.manh.manh_number=n.value; }
+  const md=$('#lr-mdate'); if(md){ b._mdate=md.value; if(b.manh)b.manh.manh_date=md.value; }
   b._stamps=b._stamps||{};
   document.querySelectorAll('#ikreview [data-st]').forEach(c=>{ b._stamps[c.dataset.st]=c.checked; }); // merge — keep other papers' ticks
   b._epFill=b._epFill||{};   // endpoint names the OCR missed, typed here this review
@@ -2346,7 +2347,7 @@ function renderLegalReview(){
   const gapFields=(_epGaps.length&&!_loneManh&&!_canConn)?`<div class="lr-gaps">${_epGaps.map(g=>`<div class="rfield lr-gap"><label>⚑ ${t('lr_endname')} · ${t('lg_serial')} ${g.serial}</label><input class="lr-epname" data-ser="${g.serial}" value="${esc(b._epFill[g.serial]||'')}" placeholder="${esc(g.pass||t('law_addname'))}"></div>`).join('')}</div>`:'';
   const allBtn=`<button class="lr-allbtn" id="lr-all">${b._showAll?t('rv_less'):t('rv_all')}</button>`;
   const allList=b._showAll?`<div class="lr-allroster">${_rowsF.map(r=>`<div class="lr-arow"><span class="s">${esc(r.serial??'—')}</span><span class="n${r.name?'':' miss'}">${esc(r.name||('⚑ '+(r.passport||'—')))}</span><span class="p">${esc(r.passport||'—')}</span></div>`).join('')}</div>`:'';
-  const num=b._num!=null?b._num:(b.manh?b.manh.manh_number:''), hasManh=b.papers.some(p=>p.type==='manh');
+  const num=b._num!=null?b._num:(b.manh?b.manh.manh_number:''), mdate=b._mdate!=null?b._mdate:(b.manh?(b.manh.manh_date||''):''), hasManh=b.papers.some(p=>p.type==='manh');
   const tl=Object.fromEntries(ptKeys().map(k=>[k,ptLabel(k)]));   // registry-driven labels (G6)
   // the paper switch = a clear SEGMENTED CONTROL at the top of the confirm panel; it drives BOTH the
   // scan shown AND which stamps you confirm.
@@ -2366,7 +2367,8 @@ function renderLegalReview(){
       <div class="rvw-side">
         <div class="lr-seg-wrap">${seg}</div>
         ${isManh?`<div class="rfield"><label>${t('lg_id')}</label>
-          <input id="lr-num" inputmode="numeric" value="${esc(num)}" placeholder="${esc(t('lg_manh_need'))}"></div>`
+          <input id="lr-num" inputmode="numeric" value="${esc(num)}" placeholder="${esc(t('lg_manh_need'))}"></div>
+          <div class="rfield"><label>${LANG==='ar'?'تاريخ المنح':'Grant date'}</label><input id="lr-mdate" type="date" value="${esc(isoDate(mdate))}"></div>`
           :`<div class="lr-hint">${num?`${esc(t('lg_id'))}: <b>${esc(num)}</b>`:esc(hasManh?t('lg_manh_need'):t('lg_manh_opt'))}</div>`}
         ${gapFields}
         <div class="rvw-check-h">${t('lg_stamps')} — ${tl[cur.type]||cur.type}</div>
@@ -2446,7 +2448,7 @@ async function lrCommit(){
     istimara:(b.papers.find(p=>p.type==='istimara')||{}).scan_path, manh:manh.scan_path};
   const btn=$('#lr-save'); if(btn){btn.disabled=true;btn.textContent=t('lg_saving');}
   try{
-    const res=await commitLegalBatch({batch_id:id, manh_date:manh.manh_date||null,
+    const res=await commitLegalBatch({batch_id:id, manh_date:(b._mdate||manh.manh_date)||null,
       interval_from:manh.interval_from??ep.fSerial, interval_to:manh.interval_to??ep.lSerial, rows, scans, stamps,
       first_name:ep.fName, last_name:ep.lName, first_passport:ep.fPass, last_passport:ep.lPass, provisional:!hasManh,
       rot: reviewRot(null),                              // the reviewer's rotations → saved so print/عرض match
@@ -2493,6 +2495,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v68';
+window.__APP_VER = 'v69';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
