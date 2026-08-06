@@ -279,9 +279,9 @@ async function loadLegalLinks(ids){
     (data||[]).forEach(r=>{ _LBL[r.batch_id]=r; }); }catch(_){}
 }
 function legalStatusChip(id){   // batch presence = its connected visa's status; static -> NO chip (honest)
-  const l=_LBL[id]; if(!l||!l.connected||!l.batch_expiry) return '';
+  const l=_LBL[id]; if(!l||!l.connected||!l.status||l.status==='static') return '';
   const _w=l.expiry_variants>1?` <span class="law-flag" title="${LANG==='ar'?'تعارض في الدفعة — راجعها':'batch mismatch — review'}">⚑</span>`:'';
-  return statusChip(statusFromDays(daysTo(l.batch_expiry)))+_w;
+  return phaseChip(l.status)+_w;
 }
 function visaLegalCover(v){   // #Phase2b: from a visa, show the legal batch it keeps alive (the mirror)
   if(!v||v.visa_id==null) return '';
@@ -569,6 +569,23 @@ function cell(k,val){ if(val==null||String(val).trim()==='')return '';
   return `<div class="cell"><label>${lab}</label><div class="v">${esc(disp)}</div></div>`; }
 function badge(dateStr,estimated){
   return statusChip(statusFromDays(daysTo(dateStr)))+(estimated?`<span class="est">${t('t_est')}</span>`:''); }
+/* A visa's validity is a RANGE (entry date unknown): floor = issue + مدة الإقامة,
+   ceiling = issue + مدة الإقامة + صلاحية الدخول. Three phases — active (today<floor) ·
+   expiring/uncertain (floor..ceiling; may already be expired, depends on entry date) · expired (today>ceiling). */
+function phaseChip(status){
+  if(status==='expired') return statusChip({k:'expired',ic:'✕',txt:t('expired')});
+  if(status==='expiring'){
+    const note=LANG==='ar'?'قد تكون منتهية — بحسب تاريخ الدخول':'may have expired — depends on entry date';
+    return statusChip({k:'soon',ic:'!',txt:(LANG==='ar'?'قارب الانتهاء':'Expiring')})
+      +`<span class="est" title="${esc(note)}">${LANG==='ar'?'بحسب الدخول':'per entry'}</span>`; }
+  return statusChip({k:'valid',ic:'✓',txt:t('valid')});   // active — definitely valid
+}
+function visaPhase(v){
+  const fl=v&&v.visa_valid_floor, ce=v&&v.visa_valid_ceiling;
+  if(!fl||!ce) return statusChip(statusFromDays(null));   // missing inputs → honest gray (OCR gate prevents this going forward)
+  const dFloor=daysTo(fl), dCeil=daysTo(ce);
+  return phaseChip(dFloor>0?'active':(dCeil>=0?'expiring':'expired'));
+}
 async function openEmployee(pid){
   const [pr,vr,lr,dr]=await Promise.all([
     sb.from('persons').select('*').eq('person_id',pid).maybeSingle(),
@@ -645,7 +662,7 @@ function renderDetail(p,vs,legal,hist){
       <div class="doc-h"><span class="doc-t">${t('t_passport')}</span>${badge(p.passport_expiry)}</div>
       <div class="grid">${P.map(k=>cell(k,p[k])).join('')}</div></div>` : '';
   const visaCards = curVisas.length ? curVisas.map(v=>`<div class="doc">
-      <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${badge(v.visa_expiry,v.visa_expiry_basis==='estimated')}</div>
+      <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${visaPhase(v)}</div>
       <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div>${visaLegalCover(v)}</div>`).join('')
     : `<div class="doc empty2">${t('t_novisa')}</div>`;
   $('#detail').innerHTML=`
@@ -2531,6 +2548,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v75';
+window.__APP_VER = 'v76';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
