@@ -2089,37 +2089,39 @@ async function istIngest(file,row){
 // with html2canvas, strip the screen-only cues on the CLONE (onclone — the live form is untouched), and
 // place the image on a landscape A4 via jsPDF (slicing onto more pages if a long roster overflows). The
 // user then opens/prints the downloaded file himself.
+// Export = a clean PDF that IS the real government form. The web page here is only the EDITOR;
+// on export we send its data to the worker, which fills the ORIGINAL استمارة Word file (docxtpl —
+// every font/border/margin kept) and renders it to PDF with LibreOffice, then we download it.
+// Flow: insert an istimara_renders row → a DB trigger wakes the worker → poll the row → download.
 async function istExport(){
   if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no||r.name)){ toast(t('ist_export_empty')); return; }
-  if(!(window.html2canvas && window.jspdf && window.jspdf.jsPDF)){ toast(t('ist_pdf_fail')); return; }
-  const page=document.querySelector('.ist-page'); if(!page){ toast(t('ist_pdf_fail')); return; }
+  if(!sb){ toast(t('ist_pdf_fail')); return; }
   const btn=document.getElementById('ist-export'), old=btn?btn.innerHTML:'';
   if(btn){ btn.disabled=true; btn.textContent='… '+t('ist_export'); }
   try{
-    const canvas=await window.html2canvas(page,{
-      scale:Math.min(3,(window.devicePixelRatio||1)*2), backgroundColor:'#ffffff', useCORS:true, logging:false,
-      onclone:(doc)=>{                                   // clean the CLONE only — strip every screen-only cue
-        const p=doc.querySelector('.ist-page'); if(p){ p.style.boxShadow='none'; p.style.borderRadius='0'; p.style.margin='0'; }
-        doc.querySelectorAll('.ist-bar,.ist-fill,.ist-addrow,.ist-ph-hint,.ist-ph-x,.ist-review,.ist-rowx').forEach(e=>e.style.display='none');
-        doc.querySelectorAll('.ist-in,.ist-hin').forEach(e=>{ e.style.border='none'; e.style.background='transparent'; });
-        doc.querySelectorAll('.ist-hcell').forEach(e=>{ e.style.background='#fff'; });
-        doc.querySelectorAll('.ist-photo').forEach(e=>{ if(!e.classList.contains('has-img')) e.style.border='none'; e.style.background='#fff'; });
-      }
-    });
-    const {jsPDF}=window.jspdf;
-    const pdf=new jsPDF({orientation:'landscape', unit:'mm', format:'a4', compress:true});
-    const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();   // 297 × 210
-    const pxPerMm=canvas.width/pw, pagePx=Math.floor(ph*pxPerMm);                       // canvas px that fit one A4 page
-    let y=0, first=true;
-    while(y<canvas.height){
-      const sliceH=Math.min(pagePx, canvas.height-y);
-      const c=document.createElement('canvas'); c.width=canvas.width; c.height=sliceH;
-      c.getContext('2d').drawImage(canvas,0,y,canvas.width,sliceH,0,0,canvas.width,sliceH);
-      if(!first) pdf.addPage();
-      pdf.addImage(c.toDataURL('image/jpeg',0.94),'JPEG',0,0,pw,sliceH/pxPerMm);
-      y+=sliceH; first=false;
+    const H=_IST.header;
+    const data={ company:H.company||'', company_nat:H.company_nat||'', addr:H.addr||'', purpose:H.purpose||'',
+      stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'',
+      rows:(_IST.rows||[]).filter(r=>r.passport_no||r.name).map(r=>({    // the DISPLAY values, exactly as the table shows
+        name:r.name||'', nationality:r.nationality?tv(r.nationality):'', passport_no:r.passport_no||'',
+        passport_expiry:istFmtDate(r.passport_expiry)||'', addr_iraq:r.addr_iraq||'', border:r.border||'',
+        profession:r.profession||'', res_country:r.res_country||'', visited:r.visited||'' })) };
+    const {data:ins,error:ie}=await sb.from('istimara_renders').insert({data}).select('id').single();
+    if(ie||!ins) throw new Error((ie&&ie.message)||'insert');
+    const id=ins.id;
+    let row=null;                                        // the worker cold-starts + renders (~10-50s) → poll
+    for(let i=0;i<40;i++){
+      await new Promise(r=>setTimeout(r,1500));
+      const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,error').eq('id',id).single();
+      if(r2){ row=r2; if(row.status==='done'&&row.pdf_path) break; if(row.status==='error') throw new Error(row.error||'render'); }
     }
-    pdf.save('استمارة.pdf');
+    if(!(row&&row.status==='done'&&row.pdf_path)) throw new Error('timeout');
+    const {data:sig,error:se}=await sb.storage.from('documents').createSignedUrl(row.pdf_path,120);
+    if(se||!sig) throw new Error('sign');
+    const resp=await fetch(sig.signedUrl); const blob=await resp.blob();   // download as استمارة.pdf
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download='استمارة.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
     toast(t('ist_pdf_done'));
   }catch(e){ console.warn('istExport',e); toast(t('ist_pdf_fail')); }
   finally{ if(btn){ btn.disabled=false; btn.innerHTML=old; } }
@@ -3006,6 +3008,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v128';
+window.__APP_VER = 'v129';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
