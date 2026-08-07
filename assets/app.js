@@ -24,6 +24,7 @@ const I18N={
     n_res:n=>`${n} نتيجة`, none:'لا نتائج — جرّب اسمًا أو رقم جواز آخر.',
     soon:'ينتهي خلال', day:'يوم', expired:'منتهٍ', valid:'ساري', nodocs:'لا وثائق', incomplete:'غير مكتمل',
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
+    inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
     t_passport:'جواز السفر', t_visa:'التأشيرة', t_print:'طباعة', t_close:'إغلاق',
     hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند', vhx_title:'سِجل التأشيرات',
@@ -86,6 +87,7 @@ const I18N={
     n_res:n=>`${n} result${n===1?'':'s'}`, none:'No matches — try another name or passport number.',
     soon:'expires in', day:'d', expired:'Expired', valid:'Valid', nodocs:'No documents', incomplete:'Incomplete',
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
+    inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
     out:'Sign out?', soon_v2:'Add employee — coming next.',
     t_passport:'Passport', t_visa:'Visa', t_print:'Print', t_close:'Close',
     hx_title:'Document history', hx_retired:'past', hx_open:'Open document', vhx_title:'Visa history',
@@ -478,6 +480,14 @@ const FILTERS=[
   {k:'legal',      lab:'f_legal',    match:(s,r)=>LEGAL_INCOMPLETE.has(r.person_id)},   // in a batch missing a stamped paper
 ];
 let FILTER='all';
+// second level of «غير مكتمل»: pick which side is missing. الكل = the whole incomplete set (missing passport OR
+// visa); الجواز = no passport date; الفيزا = no current visa. Someone missing BOTH shows under both (counts overlap).
+let INC_SIDE='all';
+const INC_SIDES=[
+  {k:'all',  lab:'inc_all',  match:()=>true},
+  {k:'pass', lab:'inc_pass', match:r=>!r.passport_expiry},
+  {k:'visa', lab:'inc_visa', match:r=>!r.soonest_visa_expiry},
+];
 /* who has a GAP in their legal file — a member of ≥1 batch where a paper isn't present-AND-stamped.
    Computed off the visible result set (one .in() query per search), so the chip counts live and a
    person with NO legal batch is never falsely flagged. */
@@ -576,11 +586,22 @@ function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; tr
   else { LAST=sortRows(LAST); render(LAST); } }
 function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
   const bar=$('#filters'); if(!bar) return;
-  bar.innerHTML=FILTERS.map(f=>{
+  let html=FILTERS.map(f=>{
     const n=items.filter(x=>f.match(x.s,x.r)).length;
     if(f.k!=='all'&&!n) return '';
     return `<button class="fchip${FILTER===f.k?' on':''}" data-f="${f.k}">${t(f.lab)}<span class="fc">${n}</span></button>`;
   }).join('');
+  // second level: «غير مكتمل» active → reveal الكل · الجواز · الفيزا (counts within the incomplete set only)
+  if(FILTER==='incomplete'){
+    const incF=FILTERS.find(f=>f.k==='incomplete');
+    const inc=items.filter(x=>incF.match(x.s,x.r)).map(x=>x.r);
+    html+=`<div class="subfilter" role="group">`+INC_SIDES.map(sd=>{
+      const n=inc.filter(sd.match).length;
+      if(sd.k!=='all'&&!n) return '';
+      return `<button class="subchip${INC_SIDE===sd.k?' on':''}" data-inc="${sd.k}">${t(sd.lab)}<span class="fc">${n}</span></button>`;
+    }).join('')+`</div>`;
+  }
+  bar.innerHTML=html;
 }
 function render(rows){
   const box=$('#results');
@@ -592,7 +613,8 @@ function render(rows){
   // chips: hide an empty group (except All) so the bar stays minimal
   paintFilters(items);
   const F=FILTERS.find(f=>f.k===FILTER)||FILTERS[0];
-  const shown=items.filter(x=>F.match(x.s,x.r));
+  let shown=items.filter(x=>F.match(x.s,x.r));
+  if(FILTER==='incomplete'&&INC_SIDE!=='all'){ const sd=INC_SIDES.find(s=>s.k===INC_SIDE); if(sd) shown=shown.filter(x=>sd.match(x.r)); }
   $('#count').textContent = rows.length ? t('n_res',shown.length) : '';
   if(!rows.length){box.innerHTML=`<div class="empty">${$('#q')&&$('#q').value?t('none'):t('all')}</div>`;return}
   if(!shown.length){box.innerHTML=`<div class="empty">${t('f_none')}</div>`;return}
@@ -2648,7 +2670,10 @@ $('#ik-list').addEventListener('click',e=>{
   const rt=e.target.closest('[data-retry]'); if(rt)ikRetry(+rt.dataset.retry);
 });
 $('#q').addEventListener('input',onType);
-$('#filters').addEventListener('click',e=>{const c=e.target.closest('[data-f]');if(c){FILTER=c.dataset.f;render(LAST);}});
+$('#filters').addEventListener('click',e=>{
+  const sub=e.target.closest('[data-inc]'); if(sub){ INC_SIDE=sub.dataset.inc; render(LAST); return; }   // pick passport/visa side
+  const c=e.target.closest('[data-f]'); if(c){ if(c.dataset.f!=='incomplete') INC_SIDE='all'; FILTER=c.dataset.f; render(LAST); }  // leaving incomplete resets the side
+});
 $('#results').addEventListener('click',e=>{
   const pr=e.target.closest('[data-lawprint]');       // print straight from the card, without opening it
   if(pr){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(pr.dataset.lawprint)); if(b)printBatch(b); return; }
@@ -2673,6 +2698,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v100';
+window.__APP_VER = 'v101';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
