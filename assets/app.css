@@ -720,19 +720,21 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
    S1 = the mould · S2 = workspace (header fields + photo). S3 (OCR table) + S4 (export) follow. ═══ */
 #istimara{position:fixed;inset:0;display:none;z-index:70;background:rgba(8,12,11,.78);overflow:auto;-webkit-overflow-scrolling:touch}
 #istimara.on{display:block}
-.ist-wrap{max-width:920px;margin:0 auto;padding:14px 14px 60px}
+.ist-wrap{max-width:1180px;margin:0 auto;padding:14px 14px 60px}   /* fits the 297mm landscape sheet */
 .ist-bar{position:sticky;top:0;display:flex;align-items:center;gap:10px;padding:10px 2px 14px;z-index:3;
   background:linear-gradient(rgba(8,12,11,.92),rgba(8,12,11,.6) 70%,transparent)}
 .ist-bar .ist-t{font-weight:700;color:var(--ink);font-size:15px;display:flex;align-items:center;gap:8px}
 .ist-bar .spacer{flex:1}
 /* the A4 sheet — real mm so print is faithful; scaled to fit the viewport on screen via a wrapper */
 .ist-stage{display:flex;justify-content:center}
-.ist-page{background:#fff;color:#141414;width:210mm;min-height:297mm;padding:15mm 14mm;box-sizing:border-box;
+/* the official form is A4 LANDSCAPE (297×210mm) — the sheet matches so print/export stay faithful */
+.ist-page{background:#fff;color:#141414;width:297mm;min-height:210mm;flex:none;padding:11mm 13mm;box-sizing:border-box;
   direction:rtl;font-family:'Segoe UI',Tahoma,'Noto Naskh Arabic',Arial,sans-serif;
   box-shadow:0 6px 30px rgba(0,0,0,.45);border-radius:2px}
-.ist-title{text-align:center;font-weight:800;font-size:16.5px;line-height:1.55;margin:0 0 4px}
-.ist-subj{text-align:center;font-weight:700;font-size:14.5px;margin:0 0 12px;color:#222}
-.ist-subj b{color:#000}
+.ist-title{text-align:center;font-weight:800;font-size:17px;line-height:1.5;margin:0 0 10px}
+.ist-undertaking{margin:10px 0 4px;font-size:12.5px;line-height:2;text-align:justify;color:#111}
+.ist-in-name{display:inline-block;width:190px;flex:none;font-weight:700;text-align:center;
+  vertical-align:baseline;border-bottom-style:solid}
 /* photo box: top-left of the sheet (RTL → visual left) */
 .ist-photo{float:left;width:30mm;height:38mm;border:1px solid #444;margin:0 0 6px 4mm;display:flex;
   align-items:center;justify-content:center;text-align:center;cursor:pointer;color:#999;font-size:11px;
@@ -767,4 +769,4 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* the "add employees" bar under the table */
 .ist-add{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:14px 0 4px}
 /* on narrow screens the mm-wide sheet would overflow — let it scroll rather than break the layout */
-@media(max-width:900px){ .ist-stage{overflow-x:auto;justify-content:flex-start} }
+@media(max-width:1180px){ .ist-stage{overflow-x:auto;justify-content:flex-start} }  /* landscape sheet ≈1122px → scroll on smaller screens */

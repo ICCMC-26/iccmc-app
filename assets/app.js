@@ -70,9 +70,10 @@ const I18N={
     lg_saved_prov:'حُفظت دفعة مؤقتة ✓ ', lg_adopt:(n,b)=>`المنح ${n} يُكمل الدفعة: ${b}`, lg_adopt_do:'أكمِل الدفعة بهذا المنح',
     lg_adopted:'اكتملت الدفعة برقم المنح ✓ ', lg_adopt_amb:'منح يطابق أكثر من دفعة — اختر الصحيحة:', lg_manh_opt:'رقم المنح (اختياري الآن)', lg_anchor:'ثبّت الدفعة مؤقتًا', lg_merged:'دُمجت في الدفعة: ',
     law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
-    ist_new:'استمارة', ist_h:'استمارة سمة الدخول', ist_title:'استمارة طلب سمات الدخول للشركات المتعاقدة مع الوزارة',
-    ist_subj:'الموضوع', ist_company:'اسم الشركة', ist_company_nat:'جنسية الشركة', ist_addr:'عنوان الشركة داخل العراق', ist_work:'نوع العمل مع الوزارة',
-    ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'تاريخ نفاذ الجواز',
+    ist_new:'استمارة', ist_h:'استمارة سمة الدخول', ist_title:'استمارة طلب سمات الدخول للشركات المتعاقدة مع الدولة',
+    ist_company:'اسم الشركة', ist_company_nat:'جنسية الشركة', ist_addr:'عنوان الشركة داخل العراق', ist_purpose:'الغاية من الدخول', ist_stay:'مدة البقاء المتوقعة في العراق', ist_visatype:'نوع السمة',
+    ist_undertaking_pre:'اني المخول (', ist_undertaking_post:') اتعهد بعدم التصرف بأوراق الشركة دون علمها أو إضافة أو تغيير او تعديل بيانات المعلومات وبخلاف ذلك أتحمل كافة التبعات القانونية وعدم إخفاء أي معلومات عن مديرية شؤون الإقامة',
+    ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
@@ -137,9 +138,10 @@ const I18N={
     lg_saved_prov:'Provisional batch saved ✓ ', lg_adopt:(n,b)=>`Grant ${n} completes: ${b}`, lg_adopt_do:'Complete this batch with the grant',
     lg_adopted:'Batch completed with its grant number ✓ ', lg_adopt_amb:'Grant matches more than one batch — pick the right one:', lg_manh_opt:'Grant number (optional now)', lg_anchor:'Anchor provisionally', lg_merged:'Merged into batch: ',
     law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
-    ist_new:'Entry form', ist_h:'Entry-visa form', ist_title:'Application form for entry visas — companies contracted with the Ministry',
-    ist_subj:'Subject', ist_company:'Company name', ist_company_nat:'Company nationality', ist_addr:'Address in Iraq', ist_work:'Work / contract type',
-    ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport expiry',
+    ist_new:'Entry form', ist_h:'Entry-visa form', ist_title:'Application form for entry visas — companies contracted with the State',
+    ist_company:'Company name', ist_company_nat:'Company nationality', ist_addr:'Address in Iraq', ist_purpose:'Purpose of entry', ist_stay:'Expected stay in Iraq', ist_visatype:'Visa type',
+    ist_undertaking_pre:'I, the authorized (', ist_undertaking_post:'), undertake not to dispose of the company documents without its knowledge, nor add/alter/modify the data; otherwise I bear all legal consequences and will not conceal any information from the Residence Directorate.',
+    ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
@@ -1843,12 +1845,14 @@ function legalClose(){ $('#legalform').classList.remove('on'); document.body.sty
    header fields land live into the draft, the photo embeds. The table is fed by the OCR line (S3),
    and export (PDF/Excel/Word) is S4. Nothing here touches the registry / OCR-commit path. ═══ */
 let _IST=null;   // the draft: {header:{...}, photo:dataURL|null, rows:[{name,nationality,passport_no,passport_expiry}]}
-function istFresh(){ return {header:{company:'',company_nat:'',addr:'',work:''}, photo:null, rows:[]}; }
-const IST_FIELDS=[
+function istFresh(){ return {header:{company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:''}, photo:null, rows:[]}; }
+const IST_FIELDS=[   // exact labels + order from the official Word استمارة (landscape)
   {k:'company',     lab:'ist_company',     ph:'ist_company_ph'},
   {k:'company_nat', lab:'ist_company_nat'},
   {k:'addr',        lab:'ist_addr'},
-  {k:'work',        lab:'ist_work'},
+  {k:'purpose',     lab:'ist_purpose'},
+  {k:'stay',        lab:'ist_stay'},
+  {k:'visatype',    lab:'ist_visatype'},
 ];
 function istimaraOpen(){
   if(!_IST) _IST=istFresh();
@@ -1867,8 +1871,8 @@ function istimaraOpen(){
                        :`<span class="ist-ph-hint">${t('ist_photo')}<br>＋</span>`}
         </div>
         <div class="ist-title">${t('ist_title')}</div>
-        <div class="ist-subj">${t('ist_subj')}: <b>${t('ist_h')}</b></div>
         <div class="ist-fields">${IST_FIELDS.map(frow).join('')}</div>
+        <div class="ist-undertaking">${t('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${esc(H.authorized||'')}"> ${t('ist_undertaking_post')}</div>
         <table class="ist-table">
           <colgroup><col class="c-ser"><col class="c-name"><col class="c-nat"><col><col class="c-exp"></colgroup>
           <thead><tr><th>${t('ist_c_ser')}</th><th>${t('ist_c_name')}</th><th>${t('ist_c_nat')}</th><th>${t('ist_c_pass')}</th><th>${t('ist_c_exp')}</th></tr></thead>
@@ -2774,6 +2778,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v104';
+window.__APP_VER = 'v105';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
