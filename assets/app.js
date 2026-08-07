@@ -1824,25 +1824,37 @@ async function legalCommit(){
 /* the employee's LEGAL FILE card in the dossier — his batches + each paper's honest status.
    A paper is PRESENT when its scan OR its confirmed stamp is on file; TRUSTED (green ✓) only
    when the required stamp(s) passed; PRESENT-without-stamp shows ⚑; absent shows a gray –. */
-function legalHistCard(legal){   // expired batches = his past legal presences (muted history), clickable to the batch
+function _personHasAnchor(legal){   // does he have a batch tied to a CURRENT (non-expired) visa? (active or expiring)
+  return (legal||[]).some(m=>{ const id=(m.batch&&m.batch.batch_id)||m.batch_id; const l=_LBL[id];
+    return !!(l && l.connected && (l.status==='active'||l.status==='expiring')); });
+}
+function legalHistCard(legal){   // PAST presences: expired batches — plus static ones WHEN a current anchor exists (they can't be a coming visa)
+  const anchored=_personHasAnchor(legal);
   const seen={}, items=[];
   (legal||[]).slice().sort((a,b)=>String((b.batch&&b.batch.manh_date)||'').localeCompare(String((a.batch&&a.batch.manh_date)||''))).forEach(m=>{
-    const b=m.batch||{}, id=b.batch_id||m.batch_id, l=_LBL[id];
-    if(seen[id]||!(l&&l.connected&&l.status==='expired'))return; seen[id]=1; items.push({m,b,id,l}); });
+    const b=m.batch||{}, id=b.batch_id||m.batch_id, l=_LBL[id]; const st=l?l.status:'static';
+    const isPast=(l&&l.connected&&st==='expired') || (st==='static'&&anchored);
+    if(seen[id]||!isPast)return; seen[id]=1; items.push({m,b,id,l,st}); });
   if(!items.length) return '';
-  const rows=items.map(({m,b,id,l})=>`<div class="hx-row hx-open" data-lawgo="${esc(id)}" role="button" tabindex="0" style="cursor:pointer" title="${LANG==='ar'?'افتح الدفعة':'open batch'}">
+  const rows=items.map(({m,b,id,l,st})=>`<div class="hx-row hx-open" data-lawgo="${esc(id)}" role="button" tabindex="0" style="cursor:pointer" title="${LANG==='ar'?'افتح الدفعة':'open batch'}">
       <span class="hx-tp">⚖ ${esc(id)}</span>
       <span class="hx-no">${esc(t('lg_serial'))} ${esc(m.serial??'—')}</span>
-      <span class="hx-dt" dir="ltr">${esc(b.manh_date||'—')}${l.batch_expiry?' → '+esc(l.batch_expiry):''}</span>
-      <span class="hx-tag">${LANG==='ar'?'منتهٍ':'expired'}</span></div>`).join('');
+      <span class="hx-dt" dir="ltr">${esc(b.manh_date||'—')}${(st==='expired'&&l&&l.batch_expiry)?' → '+esc(l.batch_expiry):''}</span>
+      <span class="hx-tag">${st==='expired'?(LANG==='ar'?'منتهٍ':'expired'):(LANG==='ar'?'غير مرتبط':'not linked')}</span></div>`).join('');
   return `<div class="doc hx-card"><div class="doc-h"><span class="doc-t">${LANG==='ar'?'سجل الملف القانوني':'Legal history'}</span><span class="hx-count">${items.length}</span></div>${rows}</div>`;
 }
 function legalCard(legal){
   if(!legal||!legal.length) return `<div class="doc empty2">${t('lg_none')}</div>`;
+  const anchored=_personHasAnchor(legal);   // a current (active/expiring) batch tied to his live visa
   const seen={}, items=[];
-  // newest legal presence first (by منح date) — so the most recent grant leads; expired ones live in the history card
+  // newest legal presence first (by منح date). Expired → history. A static batch also → history WHEN he has a
+  // current anchor: with a live visa, any OTHER batch is 100% past — it can't be a coming visa.
   legal.slice().sort((a,b)=>String((b.batch&&b.batch.manh_date)||'').localeCompare(String((a.batch&&a.batch.manh_date)||''))).forEach(m=>{
-    const b=m.batch||{}; const id=b.batch_id||m.batch_id; if(seen[id])return; if(_LBL[id]&&_LBL[id].status==='expired')return; seen[id]=1; items.push({m,b}); });
+    const b=m.batch||{}; const id=b.batch_id||m.batch_id; if(seen[id])return;
+    const st=_LBL[id]?_LBL[id].status:'static';
+    if(st==='expired') return;                 // expired → history card
+    if(st==='static' && anchored) return;      // static + current anchor ⇒ past → history card
+    seen[id]=1; items.push({m,b}); });
   if(!items.length) return '';
   const paper=(present,trusted)=> !present ? `<span class="lg-miss">–</span>`
     : (trusted?`<span class="lg-ok">✓</span>`:`<span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
@@ -2562,6 +2574,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v77';
+window.__APP_VER = 'v78';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
