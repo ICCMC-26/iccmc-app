@@ -73,6 +73,7 @@ const I18N={
     ist_new:'استمارة', ist_h:'استمارة سمة الدخول', ist_title:'استمارة طلب سمات الدخول للشركات المتعاقدة مع الدولة',
     ist_company:'اسم الشركة', ist_company_nat:'جنسية الشركة', ist_addr:'عنوان الشركة داخل العراق', ist_purpose:'الغاية من الدخول', ist_stay:'مدة البقاء المتوقعة في العراق', ist_visatype:'نوع السمة',
     ist_undertaking_pre:'اني المخول (', ist_undertaking_post:') اتعهد بعدم التصرف بأوراق الشركة دون علمها أو إضافة أو تغيير او تعديل بيانات المعلومات وبخلاف ذلك أتحمل كافة التبعات القانونية وعدم إخفاء أي معلومات عن مديرية شؤون الإقامة',
+    ist_sig_mgr:'اسم وختم وتوقيع مدير الشركة', ist_sig_mgr_title:'المهندس', ist_sig_auth:'اسم وتوقيع مخول الشركة',
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
@@ -141,6 +142,7 @@ const I18N={
     ist_new:'Entry form', ist_h:'Entry-visa form', ist_title:'Application form for entry visas — companies contracted with the State',
     ist_company:'Company name', ist_company_nat:'Company nationality', ist_addr:'Address in Iraq', ist_purpose:'Purpose of entry', ist_stay:'Expected stay in Iraq', ist_visatype:'Visa type',
     ist_undertaking_pre:'I, the authorized (', ist_undertaking_post:'), undertake not to dispose of the company documents without its knowledge, nor add/alter/modify the data; otherwise I bear all legal consequences and will not conceal any information from the Residence Directorate.',
+    ist_sig_mgr:'Company manager — name, seal & signature', ist_sig_mgr_title:'Eng.', ist_sig_auth:'Company authorized rep — name & signature',
     ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
@@ -1845,7 +1847,7 @@ function legalClose(){ $('#legalform').classList.remove('on'); document.body.sty
    header fields land live into the draft, the photo embeds. The table is fed by the OCR line (S3),
    and export (PDF/Excel/Word) is S4. Nothing here touches the registry / OCR-commit path. ═══ */
 let _IST=null;   // the draft: {header:{...}, photo:dataURL|null, rows:[{name,nationality,passport_no,passport_expiry}]}
-function istFresh(){ return {header:{company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:''}, photo:null, rows:[]}; }
+function istFresh(){ return {header:{company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:'',manager:''}, photo:null, rows:[]}; }
 const IST_FIELDS=[   // exact labels + order from the official Word استمارة (landscape)
   {k:'company',     lab:'ist_company',     ph:'ist_company_ph'},
   {k:'company_nat', lab:'ist_company_nat'},
@@ -1872,17 +1874,26 @@ function istimaraOpen(){
         </div>
         <div class="ist-title">${t('ist_title')}</div>
         <div class="ist-fields">${IST_FIELDS.map(frow).join('')}</div>
-        <div class="ist-undertaking">${t('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${esc(H.authorized||'')}"> ${t('ist_undertaking_post')}</div>
         <table class="ist-table">
           <colgroup><col class="c-ser"><col class="c-name"><col class="c-nat"><col><col class="c-exp"></colgroup>
           <thead><tr><th>${t('ist_c_ser')}</th><th>${t('ist_c_name')}</th><th>${t('ist_c_nat')}</th><th>${t('ist_c_pass')}</th><th>${t('ist_c_exp')}</th></tr></thead>
           <tbody id="ist-tbody"></tbody>
         </table>
-        <div class="ist-add"><button class="ist-btn primary" id="ist-add-pc">＋ ${t('ist_add_pc')}</button></div>
+        <div class="ist-undertaking">${t('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${esc(H.authorized||'')}"> ${t('ist_undertaking_post')}</div>
+        <div class="ist-foot">
+          <div class="ist-sig"><div class="ist-sig-lbl">${t('ist_sig_mgr')}</div><div class="ist-sig-sub">${t('ist_sig_mgr_title')}</div>
+            <input class="ist-in ist-in-name ist-sig-name" data-h="manager" value="${esc(H.manager||'')}"></div>
+          <div class="ist-sig"><div class="ist-sig-lbl">${t('ist_sig_auth')}</div>
+            <input class="ist-in ist-in-name ist-sig-name" data-h="authorized" value="${esc(H.authorized||'')}"></div>
+        </div>
       </div></div>
+      <div class="ist-add"><button class="ist-btn primary" id="ist-add-pc">＋ ${t('ist_add_pc')}</button></div>
     </div>`;
   istRenderRows();
-  $('#istimara').querySelectorAll('.ist-in[data-h]').forEach(inp=>inp.addEventListener('input',()=>{ _IST.header[inp.dataset.h]=inp.value; }));
+  $('#istimara').querySelectorAll('.ist-in[data-h]').forEach(inp=>inp.addEventListener('input',()=>{
+    const k=inp.dataset.h; _IST.header[k]=inp.value;
+    $('#istimara').querySelectorAll('.ist-in[data-h="'+k+'"]').forEach(o=>{ if(o!==inp) o.value=inp.value; });  // sync twins (المخول shows in the undertaking AND the footer)
+  }));
   $('#ist-close').onclick=istimaraClose;
   istWirePhoto();
   const pc=$('#ist-add-pc'); if(pc) pc.onclick=()=>toast(t('ist_add_pc')+' — '+t('ist_soon'));   // S3 wires the real OCR-line upload here
@@ -2778,6 +2789,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v105';
+window.__APP_VER = 'v106';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
