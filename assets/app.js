@@ -84,8 +84,9 @@ const I18N={
     ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
     mk_ist:'إنشاء استمارة', mk_ist_s:'استمارة سمة الدخول', mk_taa:'إنشاء تعهد', mk_taa_s:'تعهد الشركة بالموظفين',
     mk_batch:'تسجيل دفعة يدوياً', mk_batch_s:'إدخال معاملة موجودة',
-    taa_h:'تعهد الشركة', taa_title:'م / تعهد', taa_project:'المشروع', taa_project_ph:'مثال: الدورات المركبة للمحطات (كربلاء – النجف)',
-    taa_body:'تتعهد الشركة بعدم تسرب الموظفين خارج موقع العمل وتتحمل الشركة تكاليف السفر في حالة مغادرتهم البلاد في الوقت المحدد.',
+    taa_h:'تعهد الشركة', taa_title:'م/ تعهد', taa_to:'الى مديرية شؤون الاقامة',
+    taa_intro:'نحن مجموعة شنغهاي الصينية للكهرباء المتعاقدة مع وزارة الكهرباء في تنفيذ مشروع الدورات المركبة للمحطات (كربلاء – النجف – الحلة -الديوانية – المنصورية -الهارثة )',
+    taa_body:'تتعهد الشركة بعدم تسرب الموظفين خارج موقع العمل وتتحمل الشركة تكاليف السفر في حالة مغادرتهم البلاد في الوقت المحدد .',
     taa_c_ser:'العدد',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
@@ -164,7 +165,8 @@ const I18N={
     ist_not_passport:'A legal paper — not a passport. This table is passports only; handle it in the Procedures section.', ist_remove:'Remove',
     mk_ist:'New entry form', mk_ist_s:'Entry-visa form (استمارة)', mk_taa:'New undertaking', mk_taa_s:'Company undertaking (تعهد)',
     mk_batch:'Record a batch by hand', mk_batch_s:'Log an existing procedure',
-    taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_project:'Project', taa_project_ph:'e.g. combined-cycle stations (Karbala – Najaf)',
+    taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_to:'To the Directorate of Residence Affairs',
+    taa_intro:'We, Shanghai Electric Group (China), contracted with the Ministry of Electricity for the combined-cycle stations project (Karbala – Najaf – Hilla – Diwaniyah – Mansuriya – Hartha)',
     taa_body:'The company undertakes that no employee will leave the work site, and bears travel costs should they leave the country at the set time.',
     taa_c_ser:'No.',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
@@ -1898,8 +1900,10 @@ const IST_PAPERS={
           {k:'passport_no',lab:'ist_c_pass'},{k:'passport_expiry',lab:'ist_c_exp'},
           {k:'addr_iraq',lab:'ist_c_addr',hand:1},{k:'border',lab:'ist_c_border',hand:1},{k:'profession',lab:'ist_c_prof',hand:1},
           {k:'res_country',lab:'ist_c_country',hand:1},{k:'visited',lab:'ist_c_visited',hand:1}] },
+  // تعهد — the WHOLE form is STATIC (letterhead logo, the «الى…»/«م/ تعهد» heads, the «نحن…»
+  // sentence, the undertaking body, the manager signature). ONLY THE TABLE IS BUILT.
   taahud:{ h:'taa_h', title:'taa_title', photo:false, land:false,
-    fields:[{k:'company',lab:'ist_company',ph:'ist_company_ph'},{k:'project',lab:'taa_project',ph:'taa_project_ph'}],
+    fields:[], head:'taa_to', statics:['taa_intro','taa_body'],
     cols:[{k:'_ser',lab:'taa_c_ser'},{k:'name',lab:'ist_c_name'},{k:'passport_no',lab:'ist_c_pass'}] },
 };
 function istPaper(){ return IST_PAPERS[(_IST&&_IST.paper)||'istimara']||IST_PAPERS.istimara; }
@@ -1915,8 +1919,8 @@ function istimaraOpen(paper){
         </div>` : '';
   // the استمارة carries its undertaking + a 2-name signature block; the تعهد's body text and
   // signature are STATIC in the Word template, so the editor shows the manager block only.
-  const undertaking = _IST.paper==='taahud'
-    ? `<div class="ist-undertaking">${t('taa_body')}</div>`
+  // the تعهد's body text sits ABOVE its table (a static line, see P.statics) → nothing after the table
+  const undertaking = _IST.paper==='taahud' ? ''
     : `<div class="ist-undertaking">${t('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${esc(H.authorized||'')}"> ${t('ist_undertaking_post')}</div>`;
   const authSig = _IST.paper==='taahud' ? '' :
     `<div class="ist-sig"><div class="ist-sig-lbl">${t('ist_sig_auth')}</div>
@@ -1933,8 +1937,10 @@ function istimaraOpen(paper){
       <div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="ist-page">
         <div class="ist-body">
         ${photoBox}
+        ${P.head?`<div class="ist-static to">${t(P.head)}</div>`:''}
         <div class="ist-title">${t(P.title)}</div>
-        <div class="ist-fields">${P.fields.map(frow).join('')}</div>
+        ${P.fields.length?`<div class="ist-fields">${P.fields.map(frow).join('')}</div>`:''}
+        ${(P.statics||[]).map(k=>`<div class="ist-static">${t(k)}</div>`).join('')}
         <table class="ist-table ${_IST.paper}">
           <colgroup>${cgroup}</colgroup>
           <thead><tr>${heads}</tr></thead>
@@ -3061,6 +3067,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v131';
+window.__APP_VER = 'v132';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

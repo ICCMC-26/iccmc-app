@@ -772,6 +772,10 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* match the official Word doc: Arial (cs font) for Arabic + Calibri for Latin, and the WHOLE form is BOLD */
 /* the تعهد is PORTRAIT (its doc is 215.9×279.4mm with 25.4/31.8mm margins) */
 .ist-page.portrait{width:215.9mm;min-height:279.4mm;padding:25.4mm 31.8mm}
+/* a STATIC line of the form (the تعهد's whole body is static — only its table is built).
+   Shown so the user sees the paper he is building; it is never editable. */
+.ist-static{font-size:11pt;line-height:1.9;text-align:justify;color:#000;margin:10px 0}
+.ist-static.to{text-align:start;margin-bottom:26px}
 .ist-page{background:#fff;color:#000;width:297mm;min-height:210mm;flex:none;padding:7.5mm 12.7mm 12.7mm;box-sizing:border-box;
   direction:rtl;font-family:Arial,Calibri,'Segoe UI',Tahoma,sans-serif;font-weight:700;
   box-shadow:0 6px 30px rgba(0,0,0,.45);border-radius:2px;
