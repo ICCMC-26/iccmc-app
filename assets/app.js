@@ -2124,15 +2124,17 @@ async function istIngest(file,row){
     xhr.onload=()=>(xhr.status>=200&&xhr.status<300)?res():rej(new Error('HTTP '+xhr.status));
     xhr.onerror=()=>rej(new Error('network')); xhr.send(file); });
   row._status='processing'; row._stage=''; istRenderRows();
-  // PATIENT like the real line. The worker reads ONE document per instance (max 6), so dropping 20
-  // passports at once means most of them QUEUE. The old 60s deadline then marked perfectly good
-  // scans "refused" while the OCR line was still happily working through them — which is exactly
-  // why the workspaces choked on a big batch and the drop box didn't. Wait up to 15 minutes, easing
-  // the poll interval as we go, and if it still hasn't landed say "still reading", never "refused".
-  const t0=Date.now(), WINDOW=15*60*1000;
-  while(Date.now()-t0 < WINDOW){
+  // NO DEADLINE — exactly like the drop box. The main line never times a scan out: it keeps a
+  // pending map + realtime + a reconcile poll and waits until the DB says done. A per-file clock was
+  // this workspace's own invention, and it was the whole reason a big batch "failed" here while the
+  // line coped: the worker reads ONE document per instance, so most of a 20-file drop simply QUEUES.
+  // We now watch until the row resolves, is removed (✕), or the workspace is closed/replaced — and
+  // we idle while the tab is hidden, easing the interval so a long queue costs almost nothing.
+  const t0=Date.now();
+  while(_IST && _IST.rows.indexOf(row)>=0){
     const waited=Date.now()-t0;
     await new Promise(r=>setTimeout(r, waited<30000?2000 : waited<180000?4000 : 8000));
+    if(document.hidden) continue;                     // tab in the background → skip this tick
     let j; try{ const {data}=await sb.from('scan_jobs').select('job_id,status,fields,doc_type,image_path,field_conf,flagged,error_msg')
       .eq('image_hash',hash).order('created_at',{ascending:false}).limit(1); j=data&&data[0]; }catch(_){ continue; }
     if(!j) continue;
@@ -2157,9 +2159,7 @@ async function istIngest(file,row){
       istRenderRows(); return;
     }
   }
-  // 15 minutes and still nothing: the OCR line is simply behind, NOT a failure. Say so honestly and
-  // keep the row (and its ✕) — the scan is on the board and will finish; re-open to see it landed.
-  row._status='refused'; row._err=t('ist_still_reading'); istRenderRows();
+  // we only get here if the row was removed or the workspace closed — nothing to report.
 }
 /* S4 — export the استمارة to PDF. The `.ist-page` on screen is ALREADY the pixel-faithful A4 form
    (Arial bold, 14pt title, 58mm label column, black table borders — matched to the official Word doc),
@@ -3116,6 +3116,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v138';
+window.__APP_VER = 'v139';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
