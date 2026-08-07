@@ -1875,7 +1875,7 @@ function istimaraOpen(){
         <div class="ist-title">${t('ist_title')}</div>
         <div class="ist-fields">${IST_FIELDS.map(frow).join('')}</div>
         <table class="ist-table">
-          <colgroup><col class="c-ser"><col class="c-name"><col class="c-nat"><col><col class="c-exp"></colgroup>
+          <colgroup><col class="c-ser"><col class="c-name"><col class="c-nat"><col class="c-pass"><col class="c-exp"></colgroup>
           <thead><tr><th>${t('ist_c_ser')}</th><th>${t('ist_c_name')}</th><th>${t('ist_c_nat')}</th><th>${t('ist_c_pass')}</th><th>${t('ist_c_exp')}</th></tr></thead>
           <tbody id="ist-tbody"></tbody>
         </table>
@@ -2791,6 +2791,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v108';
+window.__APP_VER = 'v109';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
