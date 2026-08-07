@@ -76,6 +76,7 @@ const I18N={
     ist_sig_mgr:'اسم وختم وتوقيع مدير الشركة', ist_sig_mgr_title:'المهندس', ist_mgr_name:'احمد عبد اللطيف جاسم', ist_mgr_role:'المدير الإقليمي', ist_sig_auth:'اسم وتوقيع مخول الشركة',
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
+    ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -145,6 +146,7 @@ const I18N={
     ist_sig_mgr:'Company manager — name, seal & signature', ist_sig_mgr_title:'المهندس', ist_mgr_name:'احمد عبد اللطيف جاسم', ist_mgr_role:'المدير الإقليمي', ist_sig_auth:'Company authorized rep — name & signature',
     ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
+    ist_reading:'… reading', ist_read_fail:'Could not read — try again',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -1898,16 +1900,63 @@ function istimaraOpen(){
   }));
   $('#ist-close').onclick=istimaraClose;
   istWirePhoto();
-  const pc=$('#ist-add-pc'); if(pc) pc.onclick=()=>toast(t('ist_add_pc')+' — '+t('ist_soon'));   // S3 wires the real OCR-line upload here
+  const pc=$('#ist-add-pc'); if(pc) pc.onclick=()=>{   // S3: open the SAME file picker as the OCR line → passports flow through the OCR, rows auto-fill
+    const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
+    inp.onchange=()=>{ if(inp.files&&inp.files.length) istAddFromPC(inp.files); }; inp.click(); };
   $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
 }
 function istimaraClose(){ $('#istimara').classList.remove('on'); document.body.style.overflow=''; }
 function istRenderRows(){
   const tb=$('#ist-tbody'); if(!tb)return;
   if(!_IST.rows.length){ tb.innerHTML=`<tr class="ist-tbody-empty"><td colspan="5">${t('ist_empty')}</td></tr>`; return; }
-  tb.innerHTML=_IST.rows.map((r,i)=>`<tr>
-      <td>${i+1}</td><td>${esc(r.name||'—')}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
-      <td>${esc(r.passport_no||'—')}</td><td>${esc(r.passport_expiry||'—')}</td></tr>`).join('');
+  tb.innerHTML=_IST.rows.map((r,i)=>{
+    if(r._status==='reading') return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="4">${t('ist_reading')}</td></tr>`;
+    if(r._status==='error')   return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('t_close')}">✕</button></td></tr>`;
+    return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
+      <td>${esc(r.passport_no||'—')}</td><td>${esc(r.passport_expiry||'—')}</td></tr>`;
+  }).join('');
+  tb.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=()=>{ _IST.rows.splice(+b.dataset.rmrow,1); istRenderRows(); });   // remove a failed row
+}
+/* S3 — the PC feeder (the heart): the SAME OCR line, second door. Each passport is uploaded, the worker
+   reads it, we pull the parsed fields and drop a row — then DELETE the scan_jobs so the intake sweep never
+   commits it (EXTRACT-ONLY, registry untouched). Serial auto-numbers from the row order. */
+function istAddFromPC(files){
+  const arr=Array.from(files).filter(f=> (IK_OK.test(f.type)||/\.pdf$/i.test(f.name)) && f.size<=IK_MAX);
+  for(const file of arr){
+    const row={name:'',nationality:'',passport_no:'',passport_expiry:'',_status:'reading',_err:''};
+    _IST.rows.push(row); istRenderRows();
+    istExtract(file).then(fx=>{ Object.assign(row,fx); row._status='done'; })
+      .catch(e=>{ row._status='error'; row._err=(e&&e.message)||t('ist_read_fail'); })
+      .finally(()=> istRenderRows());
+  }
+}
+async function istExtract(file){
+  const hash=await sha256(file); if(!hash) throw new Error('hash');
+  const {data:{session}}=await sb.auth.getSession(); if(!session) throw new Error(t('ik_auth'));
+  const safe=file.name.replace(/[^\w.\-]+/g,'_');
+  const path=`${Date.now().toString(36)}-ist-${safe}`;   // plain passport name (NO istimara-/taahud- marker — that would make the worker treat it as a legal FORM)
+  await new Promise((res,rej)=>{ const xhr=new XMLHttpRequest();
+    xhr.open('POST',`${SUPA_URL}/storage/v1/object/${IK_BUCKET}/${encodeURIComponent(path)}`);
+    xhr.setRequestHeader('apikey',SUPA_KEY); xhr.setRequestHeader('Authorization',`Bearer ${session.access_token}`);
+    xhr.setRequestHeader('x-upsert','true'); if(file.type)xhr.setRequestHeader('Content-Type',file.type);
+    xhr.onload=()=>(xhr.status>=200&&xhr.status<300)?res():rej(new Error('HTTP '+xhr.status));
+    xhr.onerror=()=>rej(new Error('network')); xhr.send(file); });
+  const cleanup=async(jobId)=>{ try{ if(jobId)await sb.from('scan_jobs').delete().eq('job_id',jobId); }catch(_){}
+                                try{ await sb.storage.from(IK_BUCKET).remove([path]); }catch(_){} };
+  const t0=Date.now();
+  while(Date.now()-t0 < 45000){
+    await new Promise(r=>setTimeout(r,2500));
+    let j; try{ const {data}=await sb.from('scan_jobs').select('job_id,status,fields,image_path,error_msg')
+      .eq('image_hash',hash).order('created_at',{ascending:false}).limit(1); j=data&&data[0]; }catch(_){ continue; }
+    if(!j) continue;
+    if(j.status==='failed'){ await cleanup(j.image_path===path?j.job_id:null); throw new Error(j.error_msg||t('ist_read_fail')); }
+    const f=j.fields||{};
+    if(f.passport_no||f.name_latin){                       // parsed → take the 5-column data, then remove the job (extract-only)
+      await cleanup(j.image_path===path?j.job_id:null);    // only delete the job if it's MINE (not a deduped prior intake)
+      return {name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''};
+    }
+  }
+  await cleanup(null); throw new Error(t('ist_reading'));   // timed out — still scanning
 }
 function istWirePhoto(){
   const box=$('#ist-photo'); if(!box)return;
@@ -2791,6 +2840,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v113';
+window.__APP_VER = 'v114';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

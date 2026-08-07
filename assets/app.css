@@ -772,6 +772,10 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* real relative widths of the 5 visible cols (from the doc grid: ت 12.9 · اسم 42.1 · جنسية 20 · جواز 35 · نفاذية 25 mm) */
 .ist-table col.c-ser{width:9.5%} .ist-table col.c-name{width:31%} .ist-table col.c-nat{width:14.7%} .ist-table col.c-pass{width:25.8%} .ist-table col.c-exp{width:19%}
 .ist-tbody-empty td{padding:22px 8px;color:#999;font-size:12.5px;border-style:dashed}
+/* S3 row states while a passport is read through the OCR line */
+.ist-row-busy td{color:var(--copper);font-weight:700}
+.ist-row-err td{color:#b3261e}
+.ist-rowx{border:none;background:transparent;color:#b3261e;cursor:pointer;font-size:13px;font-weight:700;padding:0 4px}
 /* toolbar buttons */
 .ist-btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:8px 14px;cursor:pointer;
   font-family:var(--sans);font-size:13px;font-weight:600;border:1px solid var(--copper);
