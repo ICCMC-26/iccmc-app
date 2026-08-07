@@ -26,6 +26,9 @@
 !assets/docx-preview.min.js
 # The ICCMC logo mark (SVG), shown in the login + the app header. Image only — no code/keys.
 !assets/logo.svg
+# The تعهد letterhead logo (Shanghai Electric), shown in the builder workspace so it mirrors the
+# exported PDF (the PDF gets its own copy from the Word template). Image only — no code/keys.
+!assets/taahud-logo.jpg
 # GitHub Pages: serve every file verbatim (skip Jekyll processing).
 !.nojekyll
 # The repo map — explains which file is the app's source of truth (for contributors + a fresh Claude).

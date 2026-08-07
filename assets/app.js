@@ -1905,7 +1905,7 @@ const IST_PAPERS={
   // Its wording is the DEFAULT and stays CHANGEABLE — `texts` are editable lines (copper = editable,
   // our standing affordance) pre-filled with the original sentences; only the logo, «م/ تعهد» and the
   // manager signature are truly fixed. Empty → the worker restores the original wording.
-  taahud:{ h:'taa_h', title:'taa_title', photo:false, land:false,
+  taahud:{ h:'taa_h', title:'taa_title', photo:false, land:false, logo:'assets/taahud-logo.jpg',
     fields:[], texts:[{k:'to_line',d:'taa_to',cls:'to'},{k:'intro',d:'taa_intro'},{k:'body',d:'taa_body'}],
     cols:[{k:'_ser',lab:'taa_c_ser'},{k:'name',lab:'ist_c_name'},{k:'passport_no',lab:'ist_c_pass'}] },
 };
@@ -1946,6 +1946,7 @@ function istimaraOpen(paper){
       <div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="ist-page">
         <div class="ist-body">
         ${photoBox}
+        ${P.logo?`<img class="ist-logo" src="${P.logo}" alt="">`:''}
         ${txt(0)}
         <div class="ist-title">${t(P.title)}</div>
         ${P.fields.length?`<div class="ist-fields">${P.fields.map(frow).join('')}</div>`:''}
@@ -3080,6 +3081,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v133';
+window.__APP_VER = 'v134';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
