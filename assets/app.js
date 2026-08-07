@@ -2358,7 +2358,8 @@ function _lrToolsHtml(){
 // shared interaction: rotate · buttons · Ctrl-wheel zoom-to-cursor · grab-pan · pinch. api={zoomAt(cx,cy,f),reset()}.
 function _lrWire(box, paper, api){
   const pan=box.querySelector('.lr-pan'); if(!pan)return;
-  const rb=box.querySelector('#lr-rot'); if(rb)rb.onclick=()=>{ _lrRot[paper.type]=((_lrRot[paper.type]||0)+90)%360; lrPaintScan(paper); };
+  const rb=box.querySelector('#lr-rot'); if(rb)rb.onclick=()=>{ if(api&&api.rotate){ api.rotate(); return; }   // instant css-rotate path
+    _lrRot[paper.type]=((_lrRot[paper.type]||0)+90)%360; lrPaintScan(paper); };                                 // fallback: re-render (office no-PDF)
   box.querySelectorAll('[data-lz]').forEach(b=>b.onclick=()=>{ const a=b.dataset.lz, r=pan.getBoundingClientRect();
     if(a==='in')api.zoomAt(r.width/2,r.height/2,1.25); else if(a==='out')api.zoomAt(r.width/2,r.height/2,1/1.25); else api.reset(); });
   pan.addEventListener('wheel',e=>{ if(!(e.ctrlKey||e.metaKey))return;      // plain wheel SCROLLS (slider); Ctrl/⌘-wheel zooms
@@ -2410,15 +2411,25 @@ async function _lrPdfView(box, url, rot, paper){        // sharp: re-renders eac
   if(paper.type==='manh') requestAnimationFrame(()=>{ pan.scrollLeft=pan.scrollWidth; });   // open on the top-right العدد (RTL)
   return true;
 }
-function _lrImgView(box, urls, paper){                   // a raw image scan → scroll + css-zoom (a photo has no vector detail)
-  box.innerHTML=`<div class="lr-pan imgv"><div class="lr-stage">${urls.map(u=>`<img class="lr-page" src="${esc(u)}" alt="scan">`).join('')}</div></div>${_lrToolsHtml()}`;
-  const pan=box.querySelector('.lr-pan'), lbl=box.querySelector('.lz-lbl'), imgs=[...box.querySelectorAll('.lr-stage img')];
+function _lrImgView(box, urls, paper){                   // rasterized pages → scroll + css-zoom + INSTANT css-rotate
+  box.innerHTML=`<div class="lr-pan imgv"><div class="lr-stage">${urls.map(u=>`<div class="lr-cell"><img class="lr-page" src="${esc(u)}" alt="scan"></div>`).join('')}</div></div>${_lrToolsHtml()}`;
+  const pan=box.querySelector('.lr-pan'), lbl=box.querySelector('.lz-lbl'), cells=[...box.querySelectorAll('.lr-cell')];
   const base=paper.type==='manh'?1.5:1; let z=base;
-  const apply=()=>{ const w=pan.clientWidth*z; imgs.forEach(im=>im.style.width=w+'px'); if(lbl)lbl.textContent=Math.round(z*100)+'%'; _lrZoom=z; };
+  let rot=(((+_lrRot[paper.type]||0)%360)+360)%360;      // the saved manual turn (persists across paper switches)
+  // size each page so its POST-rotation width fills the pane, rotate the (already-sharp) bitmap via CSS,
+  // and give the cell the rotated bounding box so stacked pages never overlap — all instant, no re-raster.
+  const apply=()=>{ const W=pan.clientWidth*z, swap=(rot===90||rot===270);
+    cells.forEach(cell=>{ const im=cell.querySelector('img'), nw=im.naturalWidth||1, nh=im.naturalHeight||1, ar=nh/nw;
+      let dw,dh; if(swap){ dh=W; dw=W/ar; } else { dw=W; dh=W*ar; }
+      im.style.width=dw+'px'; im.style.height=dh+'px'; im.style.transform=rot?`rotate(${rot}deg)`:'';
+      cell.style.width=(swap?dh:dw)+'px'; cell.style.height=(swap?dw:dh)+'px'; });
+    if(lbl)lbl.textContent=Math.round(z*100)+'%'; _lrZoom=z; };
+  cells.forEach(cell=>{ const im=cell.querySelector('img'); if(!im.complete) im.addEventListener('load',apply,{once:true}); });  // re-fit once natural size is known
   function zoomTo(nz,cx,cy){ nz=Math.min(LR_ZMAX,Math.max(LR_ZMIN,nz)); if(Math.abs(nz-z)<1e-3)return;
     const r=nz/z, l=pan.scrollLeft, tp=pan.scrollTop; z=nz; apply(); pan.scrollLeft=(l+cx)*r-cx; pan.scrollTop=(tp+cy)*r-cy; }
   _lrWire(box, paper, { zoomAt:(cx,cy,f)=>zoomTo(z*f,cx,cy),
-    reset:()=>{ z=base; apply(); pan.scrollTop=0; pan.scrollLeft=paper.type==='manh'?pan.scrollWidth:0; } });
+    reset:()=>{ z=base; apply(); pan.scrollTop=0; pan.scrollLeft=paper.type==='manh'?pan.scrollWidth:0; },
+    rotate:()=>{ rot=(rot+90)%360; _lrRot[paper.type]=rot; apply(); pan.scrollTop=0; pan.scrollLeft=0; } });  // ⟳ = instant flip
   apply();
   if(paper.type==='manh') requestAnimationFrame(()=>{ pan.scrollLeft=pan.scrollWidth; });
 }
@@ -2547,8 +2558,10 @@ async function lrPaintScan(paper){
   // the print uses — scanImagesAll → page images (renders Word AND Excel faithfully) — then wrap it in the
   // scroll + zoom viewer. This replaces the pdf.js canvas re-render, which mis-rendered the text (spaced /
   // disconnected glyphs, EN + AR). scanImagesAll rasterizes a PDF and passes a raw image scan straight through.
-  const src=isOffice ? _printPath(paper.scan_path) : paper.scan_path, rot=_lrRot[paper.type]||0;
-  const imgs = src ? await scanImagesAll(src, rot, 6) : [];   // 6× DPI for the review → deeper sharp zoom (a big roster's cells)
+  const src=isOffice ? _printPath(paper.scan_path) : paper.scan_path;
+  // raster ONCE at rot=0 — the user's manual turn is applied as an INSTANT css transform inside _lrImgView
+  // (no pdf.js re-render per press → the flip is immediate; print still bakes the saved rot independently).
+  const imgs = src ? await scanImagesAll(src, 0, 6) : [];   // 6× DPI for the review → deeper sharp zoom (a big roster's cells)
   if(imgs.length){ _lrImgView(box, imgs, paper); return; }
   // FALLBACK — no PDF sibling yet (or an .xlsx that didn't render): the in-app docx-preview, now wrapped in
   // the SAME grab-pan + zoom viewer as the image path so the review is never a dead pane. Only if the doc
@@ -2651,6 +2664,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v98';
+window.__APP_VER = 'v99';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

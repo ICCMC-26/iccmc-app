@@ -466,6 +466,10 @@
   .lr-pan::-webkit-scrollbar-thumb:hover{filter:brightness(1.08)}
   .lr-stage{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;width:max-content;min-width:100%;box-sizing:border-box;margin:0 auto}
   .lr-page{display:block;max-width:none;max-height:none;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.16);-webkit-user-drag:none;user-select:none}
+  /* #16 (v99) instant rotate: each page sits in a cell sized to its rotated bounding box; the page bitmap is
+     turned with a CSS transform (no pdf.js re-render). overflow:hidden clips the pre-rotation layout overflow. */
+  .lr-cell{display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;box-shadow:0 1px 5px rgba(0,0,0,.16)}
+  .lr-cell .lr-page{box-shadow:none}
   /* Word/Excel rendered in-app (docx-preview / SheetJS) inside the scan pane */
   .lr-pan.office{background:#eceae4}
   .lr-pan .docx-wrapper{background:transparent;padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:14px}
