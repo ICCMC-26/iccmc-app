@@ -1962,9 +1962,9 @@ function istPickFiles(){ const inp=document.createElement('input'); inp.type='fi
 // ikDoAdd writes the corrected data back into this استمارة row (via _rvJob._istRow) and flips it to done.
 function istOpenReview(i){
   const row=_IST.rows[i]; if(!row||!row._job){ toast(t('ist_read_fail')); return; }
-  _rvJob={ id:'ist-'+i, job:row._job, file:row._file||{name:(row.name||row.passport_no||'passport')}, _scanUrl:null, _istRow:row,
-    _fields:['name_latin','name_native','nationality','passport_no','passport_expiry'],   // review only the استمارة columns
-    _req:['name_latin','passport_no'] }; _rvShowAll=false;                                 // require just the identity; the rest commits from the OCR
+  // FULL review, exactly like the regular OCR line: fill ALL the important passport data (place of birth, dob, sex, …)
+  // so the registry record is complete — even the fields the استمارة table doesn't show. (No _fields/_req override.)
+  _rvJob={ id:'ist-'+i, job:row._job, file:row._file||{name:(row.name||row.passport_no||'passport')}, _scanUrl:null, _istRow:row }; _rvShowAll=false;
   ikBuildReview(); $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
 }
 // the استمارة date format: day/month/year, zero-padded (dd/mm/yyyy). Handles ISO (yyyy-mm-dd) or an
@@ -2914,6 +2914,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v120';
+window.__APP_VER = 'v121';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
