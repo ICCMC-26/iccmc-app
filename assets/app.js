@@ -80,7 +80,7 @@ const I18N={
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
-    ist_export:'تصدير PDF', ist_export_tip:'ينزّل ملف PDF (عرضي) إلى جهازك — افتحه واطبعه لاحقاً إن رغبت', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل ملف الـ PDF ✓', ist_pdf_fail:'تعذّر إنشاء ملف الـ PDF — أعِد المحاولة',
+    ist_export:'تصدير PDF', ist_export_tip:'ينزّل ملف PDF (عرضي) إلى جهازك — افتحه واطبعه لاحقاً إن رغبت', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل ملف الـ PDF ✓', ist_pdf_fail:'تعذّر إنشاء ملف الـ PDF — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء ملف الـ PDF…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
     ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
     mk_ist:'إنشاء استمارة', mk_ist_s:'استمارة سمة الدخول', mk_taa:'إنشاء تعهد', mk_taa_s:'تعهد الشركة بالموظفين',
     mk_batch:'تسجيل دفعة يدوياً', mk_batch_s:'إدخال معاملة موجودة',
@@ -161,7 +161,7 @@ const I18N={
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
-    ist_export:'Export PDF', ist_export_tip:'Downloads a PDF file (landscape) to your device — open & print it later if you want', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'PDF downloaded ✓', ist_pdf_fail:'Could not create the PDF — try again',
+    ist_export:'Export PDF', ist_export_tip:'Downloads a PDF file (landscape) to your device — open & print it later if you want', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'PDF downloaded ✓', ist_pdf_fail:'Could not create the PDF — try again', ist_pdf_working:'Building your PDF…', ist_pdf_step1:'Preparing the data', ist_pdf_step2:'Building the official paper', ist_pdf_step3:'Waking the renderer — the first export takes a moment', ist_pdf_step4:'Downloading…',
     ist_not_passport:'A legal paper — not a passport. This table is passports only; handle it in the Procedures section.', ist_remove:'Remove',
     mk_ist:'New entry form', mk_ist_s:'Entry-visa form (استمارة)', mk_taa:'New undertaking', mk_taa_s:'Company undertaking (تعهد)',
     mk_batch:'Record a batch by hand', mk_batch_s:'Log an existing procedure',
@@ -1976,7 +1976,8 @@ function istimaraOpen(paper){
   $('#istimara').querySelectorAll('.ist-tx[data-h]').forEach(el=>el.addEventListener('input',()=>{
     _IST.header[el.dataset.h]=el.textContent; _IST._dirty=true; }));
   $('#ist-close').onclick=istRequestClose;   // guard unsaved work
-  { const ex=$('#ist-export'); if(ex) ex.onclick=istExport; }   // S4 — print / save as PDF (landscape, clean)
+  { const ex=$('#ist-export'); if(ex) ex.onclick=istExport; }   // S4 — build the PDF on the worker + download
+  istWarmWorker();      // wake the renderer NOW, so it is warm by the time Export is pressed
   istWirePhoto();
   $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
 }
@@ -2163,11 +2164,30 @@ async function istIngest(file,row){
 // on export we send its data to the worker, which fills the ORIGINAL استمارة Word file (docxtpl —
 // every font/border/margin kept) and renders it to PDF with LibreOffice, then we download it.
 // Flow: insert an istimara_renders row → a DB trigger wakes the worker → poll the row → download.
+/* The renderer is a SCALE-TO-ZERO worker: it sleeps (costing nothing) until something wakes it, and
+   that cold start — not the rendering — is most of the wait on the first export. So we WAKE IT EARLY:
+   opening the workspace pings its health endpoint, and it boots while the user is still filling the
+   form. By the time Export is pressed it is usually already warm. Cheap (the same instance the export
+   would have started anyway), and never blocks the UI. */
+const IST_WORKER='https://iccmc-ocr-597451901566.europe-west1.run.app/';
+let _istWarmed=0;
+function istWarmWorker(){
+  if(Date.now()-_istWarmed < 240000) return;          // already warmed recently — the instance lives ~a few min
+  _istWarmed=Date.now();
+  try{ fetch(IST_WORKER,{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
+}
 async function istExport(){
   if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no||r.name)){ toast(t('ist_export_empty')); return; }
   if(!sb){ toast(t('ist_pdf_fail')); return; }
   const btn=document.getElementById('ist-export'), old=btn?btn.innerHTML:'';
-  if(btn){ btn.disabled=true; btn.textContent='… '+t('ist_export'); }
+  // a real spinner + a staged, honest message — a silent 20s button looks broken
+  const ov=document.createElement('div'); ov.className='ist-wait';
+  ov.innerHTML=`<div class="ist-wait-box"><div class="ist-spin"></div>
+    <div class="ist-wait-t">${esc(t('ist_pdf_working'))}</div>
+    <div class="ist-wait-s" id="ist-wait-s">${esc(t('ist_pdf_step1'))}</div></div>`;
+  $('#istimara').appendChild(ov);
+  const step=k=>{ const e=document.getElementById('ist-wait-s'); if(e)e.textContent=t(k); };
+  if(btn){ btn.disabled=true; btn.innerHTML=`<span class="ist-spin sm"></span> ${t('ist_export')}`; }
   try{
     const H=_IST.header;
     const data={ paper:_IST.paper||'istimara',                              // picks the Word template on the worker
@@ -2182,22 +2202,25 @@ async function istExport(){
     const {data:ins,error:ie}=await sb.from('istimara_renders').insert({data}).select('id').single();
     if(ie||!ins) throw new Error((ie&&ie.message)||'insert');
     const id=ins.id;
-    let row=null;                                        // the worker cold-starts + renders (~10-50s) → poll
-    for(let i=0;i<40;i++){
-      await new Promise(r=>setTimeout(r,1500));
+    step('ist_pdf_step2');
+    let row=null;                                        // poll: tight at first (a WARM worker answers in ~3-6s)
+    for(let i=0;i<70;i++){
+      await new Promise(r=>setTimeout(r,i<12?600:1500));
       const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,error').eq('id',id).single();
       if(r2){ row=r2; if(row.status==='done'&&row.pdf_path) break; if(row.status==='error') throw new Error(row.error||'render'); }
+      if(i===8) step('ist_pdf_step3');                   // still going → say why (the worker is waking up)
     }
     if(!(row&&row.status==='done'&&row.pdf_path)) throw new Error('timeout');
+    step('ist_pdf_step4');
     const {data:sig,error:se}=await sb.storage.from('documents').createSignedUrl(row.pdf_path,120);
     if(se||!sig) throw new Error('sign');
-    const resp=await fetch(sig.signedUrl); const blob=await resp.blob();   // download as استمارة.pdf
+    const resp=await fetch(sig.signedUrl); const blob=await resp.blob();   // download the finished file
     const url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download='استمارة.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    a.href=url; a.download=(_IST.paper==='taahud'?'تعهد':'استمارة')+'.pdf'; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),4000);
     toast(t('ist_pdf_done'));
   }catch(e){ console.warn('istExport',e); toast(t('ist_pdf_fail')); }
-  finally{ if(btn){ btn.disabled=false; btn.innerHTML=old; } }
+  finally{ ov.remove(); if(btn){ btn.disabled=false; btn.innerHTML=old; } }
 }
 function istWirePhoto(){
   const box=$('#ist-photo'); if(!box)return;
@@ -3081,6 +3104,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v134';
+window.__APP_VER = 'v135';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
