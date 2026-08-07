@@ -865,7 +865,11 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-table col.c-addr_iraq{width:16.4%} .ist-table col.c-border{width:9.2%} .ist-table col.c-profession{width:8.2%}
 .ist-table col.c-res_country{width:9.1%} .ist-table col.c-visited{width:8%}
 /* تعهد — its doc's 3-col grid (العدد 10.9 · الاسم 91.4 · رقم الجواز 32.5 mm) */
-.ist-table.taahud col.c-_ser{width:8%} .ist-table.taahud col.c-name{width:68%} .ist-table.taahud col.c-passport_no{width:24%}
+/* widened to the FULL text width like the استمارة's table (was 134.8mm on a 152.4mm page, and العدد
+   was so narrow its own header wrapped). New grid: العدد 18mm · الاسم 88mm · رقم الجواز 46.4mm. */
+.ist-table.taahud col.c-_ser{width:11.8%} .ist-table.taahud col.c-name{width:57.7%} .ist-table.taahud col.c-passport_no{width:30.4%}
+.ist-table.taahud th,.ist-table.taahud td{padding:7px 6px}       /* roomier rows — matches the taller Word rows */
+.ist-table.taahud th{white-space:nowrap}                          /* a header never wraps again */
 .ist-table th.ist-hcol{line-height:1.2}                    /* the 5 hand headers are longer → they wrap (same 11pt as the doc) */
 /* a HAND-TYPED cell: an editable input + a fill-down button; a faint copper tint marks the "fill these in" columns */
 .ist-table td.ist-hcell{position:relative;padding:0;background:rgba(197,149,107,.05)}
