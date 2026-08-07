@@ -24,6 +24,11 @@
 # vendored docx-preview (Apache-2.0) — renders Word/Excel legal papers in-app for the review + print,
 # so no server/LibreOffice is needed. Self-contained JS, no external calls. Explicit entry only.
 !assets/docx-preview.min.js
+# vendored html2canvas (MIT) + jsPDF (MIT) — the استمارة "Export PDF" downloads a real PDF
+# file (snapshot the form → landscape A4) instead of the browser print dialog (which stamps its
+# own date/title/URL header). Self-contained JS, no external calls. Explicit entries only.
+!assets/html2canvas.min.js
+!assets/jspdf.umd.min.js
 # The ICCMC logo mark (SVG), shown in the login + the app header. Image only — no code/keys.
 !assets/logo.svg
 # GitHub Pages: serve every file verbatim (skip Jekyll processing).

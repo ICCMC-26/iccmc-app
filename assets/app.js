@@ -80,7 +80,7 @@ const I18N={
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
-    ist_export:'تصدير PDF', ist_export_tip:'طباعة أو حفظ كـ PDF (بمقاس عرضي) — ثم يُختم ويُوقّع ويُمسح ضوئياً', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير',
+    ist_export:'تصدير PDF', ist_export_tip:'ينزّل ملف PDF (عرضي) إلى جهازك — افتحه واطبعه لاحقاً إن رغبت', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل ملف الـ PDF ✓', ist_pdf_fail:'تعذّر إنشاء ملف الـ PDF — أعِد المحاولة',
     ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
@@ -155,7 +155,7 @@ const I18N={
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
-    ist_export:'Export PDF', ist_export_tip:'Print or save as PDF (landscape) — then stamp, sign & scan', ist_export_empty:'Add at least one employee before exporting',
+    ist_export:'Export PDF', ist_export_tip:'Downloads a PDF file (landscape) to your device — open & print it later if you want', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'PDF downloaded ✓', ist_pdf_fail:'Could not create the PDF — try again',
     ist_not_passport:'A legal paper — not a passport. This table is passports only; handle it in the Procedures section.', ist_remove:'Remove',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
@@ -2084,21 +2084,45 @@ async function istIngest(file,row){
    `body.ist-print` class flips the print CSS: show the form, strip every screen-only cue (the copper
    underlines, the upload drop-zone, the ⚑ review badges, the empty photo hint) and lay it on a LANDSCAPE
    A4 page. The user prints → then physically stamps + signs → scans → submits. */
-function istExport(){
+// Export = download a real PDF FILE (not the browser print dialog, which stamps its own date/title/URL
+// header). We snapshot the live .ist-page (already a pixel-faithful landscape A4, footer at the bottom)
+// with html2canvas, strip the screen-only cues on the CLONE (onclone — the live form is untouched), and
+// place the image on a landscape A4 via jsPDF (slicing onto more pages if a long roster overflows). The
+// user then opens/prints the downloaded file himself.
+async function istExport(){
   if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no||r.name)){ toast(t('ist_export_empty')); return; }
-  // Force LANDSCAPE for THIS print job only. Chrome ignores the size/orientation of a NAMED @page,
-  // so we inject a GLOBAL `@page{landscape}` just for the duration of the export (the dossier isn't
-  // being printed at this moment) and remove it on afterprint — so the dossier's portrait print is
-  // untouched. This is what stops the استمارة spilling onto a blank portrait second sheet.
-  let st=document.getElementById('ist-page-orient');
-  if(!st){ st=document.createElement('style'); st.id='ist-page-orient';
-    st.textContent='@media print{@page{size:A4 landscape;margin:0}}'; document.head.appendChild(st); }
-  document.body.classList.add('ist-print');
-  const done=()=>{ document.body.classList.remove('ist-print');
-    const s=document.getElementById('ist-page-orient'); if(s)s.remove();
-    window.removeEventListener('afterprint',done); };
-  window.addEventListener('afterprint',done);
-  setTimeout(()=>{ try{ window.print(); }catch(_){ done(); } }, 40);   // let the print CSS settle first
+  if(!(window.html2canvas && window.jspdf && window.jspdf.jsPDF)){ toast(t('ist_pdf_fail')); return; }
+  const page=document.querySelector('.ist-page'); if(!page){ toast(t('ist_pdf_fail')); return; }
+  const btn=document.getElementById('ist-export'), old=btn?btn.innerHTML:'';
+  if(btn){ btn.disabled=true; btn.textContent='… '+t('ist_export'); }
+  try{
+    const canvas=await window.html2canvas(page,{
+      scale:Math.min(3,(window.devicePixelRatio||1)*2), backgroundColor:'#ffffff', useCORS:true, logging:false,
+      onclone:(doc)=>{                                   // clean the CLONE only — strip every screen-only cue
+        const p=doc.querySelector('.ist-page'); if(p){ p.style.boxShadow='none'; p.style.borderRadius='0'; p.style.margin='0'; }
+        doc.querySelectorAll('.ist-bar,.ist-fill,.ist-addrow,.ist-ph-hint,.ist-ph-x,.ist-review,.ist-rowx').forEach(e=>e.style.display='none');
+        doc.querySelectorAll('.ist-in,.ist-hin').forEach(e=>{ e.style.border='none'; e.style.background='transparent'; });
+        doc.querySelectorAll('.ist-hcell').forEach(e=>{ e.style.background='#fff'; });
+        doc.querySelectorAll('.ist-photo').forEach(e=>{ if(!e.classList.contains('has-img')) e.style.border='none'; e.style.background='#fff'; });
+      }
+    });
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape', unit:'mm', format:'a4', compress:true});
+    const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();   // 297 × 210
+    const pxPerMm=canvas.width/pw, pagePx=Math.floor(ph*pxPerMm);                       // canvas px that fit one A4 page
+    let y=0, first=true;
+    while(y<canvas.height){
+      const sliceH=Math.min(pagePx, canvas.height-y);
+      const c=document.createElement('canvas'); c.width=canvas.width; c.height=sliceH;
+      c.getContext('2d').drawImage(canvas,0,y,canvas.width,sliceH,0,0,canvas.width,sliceH);
+      if(!first) pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg',0.94),'JPEG',0,0,pw,sliceH/pxPerMm);
+      y+=sliceH; first=false;
+    }
+    pdf.save('استمارة.pdf');
+    toast(t('ist_pdf_done'));
+  }catch(e){ console.warn('istExport',e); toast(t('ist_pdf_fail')); }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML=old; } }
 }
 function istWirePhoto(){
   const box=$('#ist-photo'); if(!box)return;
@@ -2982,6 +3006,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v127';
+window.__APP_VER = 'v128';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
