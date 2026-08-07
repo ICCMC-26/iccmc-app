@@ -153,7 +153,7 @@ function applyLang(){
   $('#dz-t').textContent=t('dz_t'); $('#dz-s').textContent=t('dz_s');
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
   paintSort();                                            // re-label the sort control for the new language
-  if($('#stats')&&$('#stats').classList.contains('on'))openStats();   // re-render insights in the new language
+  if($('#insights')&&$('#insights').children.length)renderInsights();   // re-render insights in the new language
   if(LAWMODE)renderLaw(LAWLAST); else render(LAST);       // re-label result chrome (law or employees)
 }
 function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang',LANG)}catch(_){}applyLang()}
@@ -215,7 +215,7 @@ async function signIn(){
   }catch(e){gerr((e&&e.message)||e)}
   finally{b.disabled=false;b.textContent=t('signin')}
 }
-function enterApp(){$('#gate').style.display='none';$('#app').style.display='block';applyLang();$('#q').focus();search('');subscribeLive()}
+function enterApp(){$('#gate').style.display='none';$('#app').style.display='block';applyLang();$('#q').focus();search('');subscribeLive();renderInsights()}
 
 /* live-sync: when an OCR'd employee is committed to persons/visas, re-run the
    current search so the search page updates itself — no manual refresh. RLS still
@@ -223,7 +223,7 @@ function enterApp(){$('#gate').style.display='none';$('#app').style.display='blo
 let _liveCh=null, _liveTimer=null;
 function subscribeLive(){
   if(_liveCh)return;
-  const bump=()=>{clearTimeout(_liveTimer);_liveTimer=setTimeout(()=>search($('#q').value),500)};
+  const bump=()=>{clearTimeout(_liveTimer);_liveTimer=setTimeout(()=>{search($('#q').value);refreshInsights();},500)};   // live: list + insights
   _liveCh=sb.channel('iccmc_live')
     .on('postgres_changes',{event:'*',schema:'public',table:'persons'},bump)
     .on('postgres_changes',{event:'*',schema:'public',table:'visas'},bump)
@@ -574,49 +574,29 @@ function _countUp(el,to,ms){ to=+to||0;
     el.textContent=Math.round(to*e); if(p<1)requestAnimationFrame(tick); else el.textContent=to; };
   requestAnimationFrame(tick);
 }
-async function openStats(){
-  const box=$('#stats'); if(!box)return; box.classList.add('on'); document.body.style.overflow='hidden';
-  box.innerHTML=`<div class="st-scroll"><div class="st-sheet">
-    <div class="st-head"><span class="st-title">${LANG==='ar'?'الإحصاءات':'Insights'}</span>
-      <button class="b-exit st-close">✕ ${t('t_close')}</button></div>
-    <div class="st-body"><div class="empty">…</div></div></div></div>`;
-  box.querySelector('.st-close').onclick=closeStats;
-  let d; try{ const r=await sb.rpc('employee_stats'); d=r.data&&r.data[0]; }catch(_){}
-  if(box.dataset.closed==='1'){ box.dataset.closed=''; return; }
-  if(!d){ const b=box.querySelector('.st-body'); if(b)b.innerHTML=`<div class="empty">—</div>`; return; }
-  renderStats(d);
-}
-function closeStats(){ const box=$('#stats'); if(!box)return; box.dataset.closed='1'; box.classList.remove('on'); document.body.style.overflow=''; }
-function renderStats(d){
-  const box=$('#stats'); const T=Math.max(1,+d.total||0);
-  const tiles=[
-    {n:d.total,      lab:LANG==='ar'?'إجمالي الموظفين':'Total employees', cls:'',       f:'all'},
-    {n:d.valid,      lab:LANG==='ar'?'ساري':'Valid',                       cls:'k-valid',f:'valid'},
-    {n:d.expiring,   lab:LANG==='ar'?'قرب الانتهاء (٩٠ يوم)':'Expiring (90d)',cls:'k-soon',f:'expiring'},
-    {n:d.expired,    lab:LANG==='ar'?'منتهية':'Expired',                    cls:'k-exp',  f:'expired'},
-    {n:d.incomplete, lab:LANG==='ar'?'غير مكتمل':'Incomplete',              cls:'k-inc',  f:'incomplete'},
-  ];
-  const kpis=tiles.map(x=>`<button class="kpi ${x.cls}" data-sfilter="${x.f}">
-      <span class="kpi-num" data-to="${+x.n||0}">0</span><span class="kpi-lbl">${x.lab}</span></button>`).join('');
-  const segs=[['valid',+d.valid||0],['soon',+d.expiring||0],['exp',+d.expired||0],['inc',+d.incomplete||0]];
-  const bar=segs.map(([c,v])=>v>0?`<span class="st-seg seg-${c}" style="flex-basis:${(v/T*100).toFixed(2)}%" title="${v}"></span>`:'').join('');
-  const nat=(d.nationalities||[]).map(x=>`<span class="nat-item"><b>${+x.n||0}</b> ${esc(tv(x.nat))}</span>`).join('');
-  box.querySelector('.st-body').innerHTML=`
-    <div class="kpis">${kpis}</div>
-    <div class="st-barwrap"><div class="st-bar">${bar}</div></div>
-    ${nat?`<div class="st-nat"><span class="st-nat-h">${LANG==='ar'?'الجنسيات':'Nationalities'}</span>${nat}</div>`:''}`;
-  // motion: count-up the numbers, grow the bar segments from zero — once, on open
-  const nums=box.querySelectorAll('.kpi-num'), segsEls=box.querySelectorAll('.st-seg');
-  if(_reduceMotion){                                        // instant final values (no motion, no rAF dependency)
-    nums.forEach(el=>el.textContent=+el.getAttribute('data-to'));
-    segsEls.forEach(el=>el.style.transform='scaleX(1)');
-  } else requestAnimationFrame(()=>{                         // count-up + grow-from-zero, staggered
-    nums.forEach((el,i)=>setTimeout(()=>_countUp(el,+el.getAttribute('data-to'),550), i*60));
-    segsEls.forEach((el,i)=>setTimeout(()=>{ el.style.transform='scaleX(1)'; }, 120+i*70));
-  });
-  // drill-down: a KPI opens the search list filtered to those people
-  box.querySelectorAll('[data-sfilter]').forEach(b=>b.onclick=()=>{ const f=b.getAttribute('data-sfilter');
-    closeStats(); if(LAWMODE)setLaw(false); FILTER=f; render(LAST); });
+let _insTimer=null;
+function refreshInsights(){ clearTimeout(_insTimer); _insTimer=setTimeout(renderInsights,400); }   // debounced live refresh
+async function renderInsights(){
+  const box=$('#insights'); if(!box)return;
+  let d; try{ const r=await Promise.race([ sb.rpc('employee_stats'),
+      new Promise((_,rej)=>setTimeout(()=>rej(0),7000)) ]); d=r&&r.data&&r.data[0]; }catch(_){}
+  if(!d){ box.innerHTML=''; return; }                       // unavailable → silent; never blocks the app
+  const T=Math.max(1,+d.total||0);
+  const kpi=(n,lab,cls,f)=>`<button class="ins-kpi ${cls}" data-sfilter="${f}"><b class="ins-num" data-to="${+n||0}">0</b>${lab}</button>`;
+  const bar=[['valid',+d.valid||0],['soon',+d.expiring||0],['exp',+d.expired||0],['inc',+d.incomplete||0]]
+    .map(([c,v])=>v>0?`<span class="ins-seg seg-${c}" style="flex-basis:${(v/T*100).toFixed(2)}%" title="${v}"></span>`:'').join('');
+  box.innerHTML=`<div class="ins-row">
+      ${kpi(d.total,     LANG==='ar'?'إجمالي':'Total','','all')}
+      ${kpi(d.valid,     LANG==='ar'?'ساري':'Valid','k-valid','valid')}
+      ${kpi(d.expiring,  LANG==='ar'?'قرب الانتهاء':'Expiring','k-soon','expiring')}
+      ${kpi(d.expired,   LANG==='ar'?'منتهية':'Expired','k-exp','expired')}
+      ${kpi(d.incomplete,LANG==='ar'?'غير مكتمل':'Incomplete','k-inc','incomplete')}
+    </div><div class="ins-bar">${bar}</div>`;
+  const nums=box.querySelectorAll('.ins-num'), segEls=box.querySelectorAll('.ins-seg');
+  if(_reduceMotion){ nums.forEach(el=>el.textContent=+el.getAttribute('data-to')); segEls.forEach(el=>el.style.transform='scaleX(1)'); }
+  else requestAnimationFrame(()=>{ nums.forEach((el,i)=>setTimeout(()=>_countUp(el,+el.getAttribute('data-to'),550),i*50));
+    segEls.forEach((el,i)=>setTimeout(()=>{ el.style.transform='scaleX(1)'; },120+i*60)); });
+  box.querySelectorAll('[data-sfilter]').forEach(b=>b.onclick=()=>{ if(LAWMODE)setLaw(false); FILTER=b.getAttribute('data-sfilter'); render(LAST); });
 }
 function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
   const bar=$('#filters'); if(!bar) return;
@@ -1520,8 +1500,6 @@ $('#glang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 $('#tlang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 paintSort();   // render the sort control once; delegated click (survives repaints)
 { const _sb=$('#sortbar'); if(_sb)_sb.addEventListener('click',e=>{const b=e.target.closest('[data-sort]');if(b)setSort(b.dataset.sort);}); }
-{ const _bs=$('#bstats'); if(_bs)_bs.addEventListener('click',openStats); }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('#stats')&&$('#stats').classList.contains('on'))closeStats(); });
 $('#ttheme').addEventListener('click',toggleTheme);
 $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.auth.signOut();location.reload()}});
 $('#add').addEventListener('click',openIntake);
@@ -2705,6 +2683,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v94';
+window.__APP_VER = 'v95';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
