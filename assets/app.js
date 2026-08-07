@@ -1910,28 +1910,37 @@ function istRenderRows(){
   const tb=$('#ist-tbody'); if(!tb)return;
   if(!_IST.rows.length){ tb.innerHTML=`<tr class="ist-tbody-empty"><td colspan="5">${t('ist_empty')}</td></tr>`; return; }
   tb.innerHTML=_IST.rows.map((r,i)=>{
-    if(r._status==='reading') return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="4">${t('ist_reading')}</td></tr>`;
-    if(r._status==='error')   return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('t_close')}">✕</button></td></tr>`;
-    return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
+    if(r._status==='uploading'||r._status==='processing'||r._status==='committing')   // busy → the OCR-line stage text (same as the drop box)
+      return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="4">${esc(istRowStatusTxt(r))}</td></tr>`;
+    if(r._status==='refused')
+      return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('t_close')}">✕</button></td></tr>`;
+    const badge = r._status==='review'?` <span class="ist-review" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_lg_rev'))}</span>`:'';   // pending human review (resolve it in the OCR board)
+    return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}${badge}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
       <td>${esc(r.passport_no||'—')}</td><td>${esc(r.passport_expiry||'—')}</td></tr>`;
   }).join('');
-  tb.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=()=>{ _IST.rows.splice(+b.dataset.rmrow,1); istRenderRows(); });   // remove a failed row
+  tb.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=()=>{ _IST.rows.splice(+b.dataset.rmrow,1); istRenderRows(); });   // drop a failed row
 }
-/* S3 — the PC feeder (the heart): the SAME OCR line, second door. Each passport is uploaded, the worker
-   reads it, we pull the parsed fields and drop a row — then DELETE the scan_jobs so the intake sweep never
-   commits it (EXTRACT-ONLY, registry untouched). Serial auto-numbers from the row order. */
+// the SAME status texting the OCR drop box uses (ikStageTxt / ik_* keys)
+function istRowStatusTxt(r){
+  if(r._status==='uploading')  return (r._pct||0)+'%';
+  if(r._status==='committing') return t('ik_processing');
+  if(r._status==='processing') return r._stage?ikStageTxt(r._stage):t('ik_processing');
+  return '';
+}
+/* S3 — the PC feeder (the heart): a SECOND DOOR to the OCR line. Each passport goes through the exact same
+   pipeline — uploaded → worker reads it → the fields fill a row → and it's COMMITTED to the registry via the
+   intake's own commit (ikCommitSerial). If the scan needs a human (defer / pending-review) the row PENDS for
+   review (⚑), same as the drop box; the person is finalised when it's reviewed in the OCR board. */
 function istAddFromPC(files){
   const arr=Array.from(files).filter(f=> (IK_OK.test(f.type)||/\.pdf$/i.test(f.name)) && f.size<=IK_MAX);
   for(const file of arr){
-    const row={name:'',nationality:'',passport_no:'',passport_expiry:'',_status:'reading',_err:''};
+    const row={name:'',nationality:'',passport_no:'',passport_expiry:'',_status:'uploading',_pct:0,_stage:'',_err:''};
     _IST.rows.push(row); istRenderRows();
-    istExtract(file).then(fx=>{ Object.assign(row,fx); row._status='done'; })
-      .catch(e=>{ row._status='error'; row._err=(e&&e.message)||t('ist_read_fail'); })
-      .finally(()=> istRenderRows());
+    istIngest(file,row).catch(e=>{ row._status='refused'; row._err=(e&&e.message)||t('ist_read_fail'); istRenderRows(); });
   }
 }
-async function istExtract(file){
-  const hash=await sha256(file); if(!hash) throw new Error('hash');
+async function istIngest(file,row){
+  const hash=await sha256(file); if(!hash) throw new Error('hash'); row._hash=hash;
   const {data:{session}}=await sb.auth.getSession(); if(!session) throw new Error(t('ik_auth'));
   const safe=file.name.replace(/[^\w.\-]+/g,'_');
   const path=`${Date.now().toString(36)}-ist-${safe}`;   // plain passport name (NO istimara-/taahud- marker — that would make the worker treat it as a legal FORM)
@@ -1939,24 +1948,30 @@ async function istExtract(file){
     xhr.open('POST',`${SUPA_URL}/storage/v1/object/${IK_BUCKET}/${encodeURIComponent(path)}`);
     xhr.setRequestHeader('apikey',SUPA_KEY); xhr.setRequestHeader('Authorization',`Bearer ${session.access_token}`);
     xhr.setRequestHeader('x-upsert','true'); if(file.type)xhr.setRequestHeader('Content-Type',file.type);
+    xhr.upload.onprogress=e=>{ if(e.lengthComputable){ row._pct=Math.round(e.loaded/e.total*100); istRenderRows(); } };
     xhr.onload=()=>(xhr.status>=200&&xhr.status<300)?res():rej(new Error('HTTP '+xhr.status));
     xhr.onerror=()=>rej(new Error('network')); xhr.send(file); });
-  const cleanup=async(jobId)=>{ try{ if(jobId)await sb.from('scan_jobs').delete().eq('job_id',jobId); }catch(_){}
-                                try{ await sb.storage.from(IK_BUCKET).remove([path]); }catch(_){} };
+  row._status='processing'; row._stage=''; istRenderRows();
   const t0=Date.now();
-  while(Date.now()-t0 < 45000){
+  while(Date.now()-t0 < 60000){
     await new Promise(r=>setTimeout(r,2500));
-    let j; try{ const {data}=await sb.from('scan_jobs').select('job_id,status,fields,image_path,error_msg')
+    let j; try{ const {data}=await sb.from('scan_jobs').select('job_id,status,fields,doc_type,image_path,field_conf,flagged,error_msg')
       .eq('image_hash',hash).order('created_at',{ascending:false}).limit(1); j=data&&data[0]; }catch(_){ continue; }
     if(!j) continue;
-    if(j.status==='failed'){ await cleanup(j.image_path===path?j.job_id:null); throw new Error(j.error_msg||t('ist_read_fail')); }
+    if(row._status==='processing'){ row._stage=j.status; istRenderRows(); }   // reflect the OCR-line stage live
+    if(j.status==='failed'){ row._status='refused'; row._err=j.error_msg||t('ist_read_fail'); istRenderRows(); return; }
     const f=j.fields||{};
-    if(f.passport_no||f.name_latin){                       // parsed → take the 5-column data, then remove the job (extract-only)
-      await cleanup(j.image_path===path?j.job_id:null);    // only delete the job if it's MINE (not a deduped prior intake)
-      return {name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''};
+    if(f.passport_no||f.name_latin){
+      Object.assign(row,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''});
+      if(j.status==='pending-review'||j.status==='needs-linking'){ row._status='review'; istRenderRows(); return; }   // the worker itself parked it → pend for review
+      row._status='committing'; istRenderRows();
+      try{ const res=await ikCommitSerial(j,{...f});           // register in the registry — the same commit the drop box uses
+           row._status=(res&&res.defer)?'review':'landed'; }   // defer = needs a human → pend for review
+      catch(_){ row._status='landed'; }                        // the data still shows; a later intake sweep retries the commit
+      istRenderRows(); return;
     }
   }
-  await cleanup(null); throw new Error(t('ist_reading'));   // timed out — still scanning
+  row._status='refused'; row._err=t('ist_read_fail'); istRenderRows();   // timed out
 }
 function istWirePhoto(){
   const box=$('#ist-photo'); if(!box)return;
@@ -2840,6 +2855,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v114';
+window.__APP_VER = 'v115';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
