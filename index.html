@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=43">
+<link rel="stylesheet" href="assets/app.css?v=44">
 </head>
 <body>
 
@@ -36,6 +36,7 @@
     <span class="spacer"></span>
     <button class="add" id="add"><span style="font-size:17px">＋</span> <span id="addtxt">موظف جديد</span></button>
     <button class="icon" id="blaw" title="القانون / Law — batches + manual add">⚖</button>
+    <button class="icon" id="bstats" title="الإحصاءات / Insights">▦</button>
     <button class="icon" id="tlang" title="EN / ع">ع</button>
     <button class="icon" id="ttheme" title="فاتح / داكن">◐</button>
     <button class="icon" id="tout" title="خروج">⏻</button>
@@ -52,6 +53,7 @@
 </div>
 
 <div id="detail"></div>
+<div id="stats"></div>
 <div id="lightbox"></div>
 <div id="print"></div>
 
@@ -85,6 +87,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=93"></script>
+<script src="assets/app.js?v=94"></script>
 </body>
 </html>

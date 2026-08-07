@@ -153,6 +153,7 @@ function applyLang(){
   $('#dz-t').textContent=t('dz_t'); $('#dz-s').textContent=t('dz_s');
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
   paintSort();                                            // re-label the sort control for the new language
+  if($('#stats')&&$('#stats').classList.contains('on'))openStats();   // re-render insights in the new language
   if(LAWMODE)renderLaw(LAWLAST); else render(LAST);       // re-label result chrome (law or employees)
 }
 function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang',LANG)}catch(_){}applyLang()}
@@ -564,6 +565,59 @@ function paintSort(){ const bar=$('#sortbar'); if(!bar)return;
     +SORT_OPTS.map(o=>`<button class="sort-opt${SORT===o.k?' on':''}" data-sort="${o.k}">${LANG==='ar'?o.ar:o.en}</button>`).join(''); }
 function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; try{localStorage.setItem('iccmc_sort',k)}catch(_){}
   paintSort(); LAST=sortRows(LAST); render(LAST); }
+/* ── Insights (KPI) view — one aggregate call, count-up + grow-from-zero, reduced-motion-safe ── */
+const _reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+function _countUp(el,to,ms){ to=+to||0;
+  if(_reduceMotion || !window.requestAnimationFrame){ el.textContent=to; return; }
+  const t0=performance.now();
+  const tick=n=>{ const p=Math.min(1,(n-t0)/ms); const e=1-Math.pow(1-p,3);   // easeOutCubic
+    el.textContent=Math.round(to*e); if(p<1)requestAnimationFrame(tick); else el.textContent=to; };
+  requestAnimationFrame(tick);
+}
+async function openStats(){
+  const box=$('#stats'); if(!box)return; box.classList.add('on'); document.body.style.overflow='hidden';
+  box.innerHTML=`<div class="st-scroll"><div class="st-sheet">
+    <div class="st-head"><span class="st-title">${LANG==='ar'?'الإحصاءات':'Insights'}</span>
+      <button class="b-exit st-close">✕ ${t('t_close')}</button></div>
+    <div class="st-body"><div class="empty">…</div></div></div></div>`;
+  box.querySelector('.st-close').onclick=closeStats;
+  let d; try{ const r=await sb.rpc('employee_stats'); d=r.data&&r.data[0]; }catch(_){}
+  if(box.dataset.closed==='1'){ box.dataset.closed=''; return; }
+  if(!d){ const b=box.querySelector('.st-body'); if(b)b.innerHTML=`<div class="empty">—</div>`; return; }
+  renderStats(d);
+}
+function closeStats(){ const box=$('#stats'); if(!box)return; box.dataset.closed='1'; box.classList.remove('on'); document.body.style.overflow=''; }
+function renderStats(d){
+  const box=$('#stats'); const T=Math.max(1,+d.total||0);
+  const tiles=[
+    {n:d.total,      lab:LANG==='ar'?'إجمالي الموظفين':'Total employees', cls:'',       f:'all'},
+    {n:d.valid,      lab:LANG==='ar'?'ساري':'Valid',                       cls:'k-valid',f:'valid'},
+    {n:d.expiring,   lab:LANG==='ar'?'قرب الانتهاء (٩٠ يوم)':'Expiring (90d)',cls:'k-soon',f:'expiring'},
+    {n:d.expired,    lab:LANG==='ar'?'منتهية':'Expired',                    cls:'k-exp',  f:'expired'},
+    {n:d.incomplete, lab:LANG==='ar'?'غير مكتمل':'Incomplete',              cls:'k-inc',  f:'incomplete'},
+  ];
+  const kpis=tiles.map(x=>`<button class="kpi ${x.cls}" data-sfilter="${x.f}">
+      <span class="kpi-num" data-to="${+x.n||0}">0</span><span class="kpi-lbl">${x.lab}</span></button>`).join('');
+  const segs=[['valid',+d.valid||0],['soon',+d.expiring||0],['exp',+d.expired||0],['inc',+d.incomplete||0]];
+  const bar=segs.map(([c,v])=>v>0?`<span class="st-seg seg-${c}" style="flex-basis:${(v/T*100).toFixed(2)}%" title="${v}"></span>`:'').join('');
+  const nat=(d.nationalities||[]).map(x=>`<span class="nat-item"><b>${+x.n||0}</b> ${esc(tv(x.nat))}</span>`).join('');
+  box.querySelector('.st-body').innerHTML=`
+    <div class="kpis">${kpis}</div>
+    <div class="st-barwrap"><div class="st-bar">${bar}</div></div>
+    ${nat?`<div class="st-nat"><span class="st-nat-h">${LANG==='ar'?'الجنسيات':'Nationalities'}</span>${nat}</div>`:''}`;
+  // motion: count-up the numbers, grow the bar segments from zero — once, on open
+  const nums=box.querySelectorAll('.kpi-num'), segsEls=box.querySelectorAll('.st-seg');
+  if(_reduceMotion){                                        // instant final values (no motion, no rAF dependency)
+    nums.forEach(el=>el.textContent=+el.getAttribute('data-to'));
+    segsEls.forEach(el=>el.style.transform='scaleX(1)');
+  } else requestAnimationFrame(()=>{                         // count-up + grow-from-zero, staggered
+    nums.forEach((el,i)=>setTimeout(()=>_countUp(el,+el.getAttribute('data-to'),550), i*60));
+    segsEls.forEach((el,i)=>setTimeout(()=>{ el.style.transform='scaleX(1)'; }, 120+i*70));
+  });
+  // drill-down: a KPI opens the search list filtered to those people
+  box.querySelectorAll('[data-sfilter]').forEach(b=>b.onclick=()=>{ const f=b.getAttribute('data-sfilter');
+    closeStats(); if(LAWMODE)setLaw(false); FILTER=f; render(LAST); });
+}
 function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
   const bar=$('#filters'); if(!bar) return;
   bar.innerHTML=FILTERS.map(f=>{
@@ -1466,6 +1520,8 @@ $('#glang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 $('#tlang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 paintSort();   // render the sort control once; delegated click (survives repaints)
 { const _sb=$('#sortbar'); if(_sb)_sb.addEventListener('click',e=>{const b=e.target.closest('[data-sort]');if(b)setSort(b.dataset.sort);}); }
+{ const _bs=$('#bstats'); if(_bs)_bs.addEventListener('click',openStats); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('#stats')&&$('#stats').classList.contains('on'))closeStats(); });
 $('#ttheme').addEventListener('click',toggleTheme);
 $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.auth.signOut();location.reload()}});
 $('#add').addEventListener('click',openIntake);
@@ -2649,6 +2705,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v93';
+window.__APP_VER = 'v94';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
