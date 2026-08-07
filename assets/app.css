@@ -802,7 +802,10 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-table.taahud th{font-weight:400}                       /* the headers are REGULAR in the original */
 .ist-table.taahud td{font-weight:700}
 .ist-table.taahud col.c-name,.ist-table.taahud col.c-passport_no{font-family:Calibri,'Segoe UI',sans-serif}
-.ist-page.portrait .ist-foot{margin-top:18mm}
+/* the تعهد's signature block sits on the physical LEFT of the paper (measured on the original:
+   x₀=90 of a 612pt page) — the page is RTL, so flex-end is that left edge. Text left-aligned too. */
+.ist-page.portrait .ist-foot{margin-top:18mm;justify-content:flex-end}
+.ist-page.portrait .ist-sig{align-items:flex-start;text-align:start;min-width:0}
 .ist-page.portrait .ist-sig-lbl,.ist-page.portrait .ist-sig-sub{font-size:14pt;font-weight:700;line-height:1.6}
 /* an EDITABLE TEXT LINE of the form — the paper's original wording is the DEFAULT, and it stays
    changeable. It wears the SAME copper affordance as every other editable spot (a fill-in underline

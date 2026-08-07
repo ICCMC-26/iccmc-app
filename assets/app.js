@@ -87,7 +87,7 @@ const I18N={
     taa_h:'تعهد الشركة', taa_title:'م/ تعهد', taa_to:'الى مديرية شؤون الاقامة',
     taa_intro:'نحن مجموعة شنغهاي الصينية للكهرباء المتعاقدة مع وزارة الكهرباء في تنفيذ مشروع الدورات المركبة للمحطات (كربلاء – النجف – الحلة -الديوانية – المنصورية -الهارثة )',
     taa_body:'تتعهد الشركة بعدم تسرب الموظفين خارج موقع العمل وتتحمل الشركة تكاليف السفر في حالة مغادرتهم البلاد في الوقت المحدد .',
-    taa_c_ser:'العدد', taa_editable:'نص افتراضي — يمكنك تعديله',
+    taa_c_ser:'العدد', taa_mgr_name:'احمدعبداللطيف جاسم', taa_editable:'نص افتراضي — يمكنك تعديله',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -168,7 +168,7 @@ const I18N={
     taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_to:'To the Directorate of Residence Affairs',
     taa_intro:'We, Shanghai Electric Group (China), contracted with the Ministry of Electricity for the combined-cycle stations project (Karbala – Najaf – Hilla – Diwaniyah – Mansuriya – Hartha)',
     taa_body:'The company undertakes that no employee will leave the work site, and bears travel costs should they leave the country at the set time.',
-    taa_c_ser:'No.', taa_editable:'Default text — you can edit it',
+    taa_c_ser:'No.', taa_mgr_name:'احمدعبداللطيف جاسم', taa_editable:'Default text — you can edit it',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -1959,9 +1959,9 @@ function istimaraOpen(paper){
         ${undertaking}
         </div><!-- /ist-body : content grows to push the signature footer to the page bottom -->
         <div class="ist-foot">
-          <div class="ist-sig"><div class="ist-sig-lbl">${t('ist_sig_mgr')}</div>
+          <div class="ist-sig">${_IST.paper==='taahud'?'':`<div class="ist-sig-lbl">${t('ist_sig_mgr')}</div>`}
             <div class="ist-sig-sub">${t('ist_sig_mgr_title')}</div>
-            <div class="ist-sig-sub ist-sig-name-static">${t('ist_mgr_name')}</div>
+            <div class="ist-sig-sub ist-sig-name-static">${t(_IST.paper==='taahud'?'taa_mgr_name':'ist_mgr_name')}</div>
             <div class="ist-sig-sub">${t('ist_mgr_role')}</div></div>
           ${authSig}
         </div>
@@ -3104,6 +3104,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v136';
+window.__APP_VER = 'v137';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
