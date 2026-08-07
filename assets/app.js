@@ -1911,7 +1911,7 @@ function istRenderRows(){
       return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('t_close')}">✕</button></td></tr>`;
     const badge = r._status==='review'?` <span class="ist-review" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_lg_rev'))}</span>`:'';   // pending human review (resolve it in the OCR board)
     return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}${badge}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
-      <td>${esc(r.passport_no||'—')}</td><td>${esc(r.passport_expiry||'—')}</td></tr>`;
+      <td>${esc(r.passport_no||'—')}</td><td>${esc(istFmtDate(r.passport_expiry)||'—')}</td></tr>`;
   }).join('');
   // the add-zone IS the table body — a clickable + droppable box, like the OCR upload box. No separate button.
   const drop = _IST.rows.length
@@ -1928,6 +1928,17 @@ function istRenderRows(){
 }
 function istPickFiles(){ const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
   inp.onchange=()=>{ if(inp.files&&inp.files.length) istAddFromPC(inp.files); }; inp.click(); }
+// the استمارة date format: day/month/year, zero-padded (dd/mm/yyyy). Handles ISO (yyyy-mm-dd) or an
+// already d/m/y value; anything else is shown as-is (never guessed).
+function istFmtDate(s){
+  s=String(s||'').trim(); if(!s) return '';
+  let d,m,y, iso=s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if(iso){ y=iso[1]; m=iso[2]; d=iso[3]; }
+  else{ const p=s.split(/[-/.]/); if(p.length!==3||!/^\d{1,2}$/.test(p[0])) return s; d=p[0]; m=p[1]; y=p[2]; }
+  if(!(+d&&+m&&y)) return s;
+  const pad=x=>String(+x).padStart(2,'0');
+  return `${pad(d)}/${pad(m)}/${y.length===2?'20'+y:y}`;
+}
 // the SAME status texting the OCR drop box uses (ikStageTxt / ik_* keys)
 function istRowStatusTxt(r){
   if(r._status==='uploading')  return (r._pct||0)+'%';
@@ -2863,6 +2874,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v116';
+window.__APP_VER = 'v117';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
