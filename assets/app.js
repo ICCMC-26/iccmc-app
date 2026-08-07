@@ -78,6 +78,7 @@ const I18N={
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
+    ist_export:'تصدير PDF', ist_export_tip:'طباعة أو حفظ كـ PDF (بمقاس عرضي) — ثم يُختم ويُوقّع ويُمسح ضوئياً', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -149,6 +150,7 @@ const I18N={
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
+    ist_export:'Export PDF', ist_export_tip:'Print or save as PDF (landscape) — then stamp, sign & scan', ist_export_empty:'Add at least one employee before exporting',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -1871,6 +1873,7 @@ function istimaraOpen(){
       <div class="ist-bar">
         <button class="icon" id="ist-close" title="${t('t_close')}">✕</button>
         <span class="ist-t">📄 ${t('ist_h')}</span><span class="spacer"></span>
+        <button class="ist-exp" id="ist-export" title="${esc(t('ist_export_tip'))}">🖨 ${t('ist_export')}</button>
       </div>
       <div class="ist-stage"><div class="ist-page" id="ist-page">
         <div class="ist-photo${_IST.photo?' has-img':''}" id="ist-photo">
@@ -1901,6 +1904,7 @@ function istimaraOpen(){
     $('#istimara').querySelectorAll('.ist-in[data-h="'+k+'"]').forEach(o=>{ if(o!==inp) o.value=inp.value; });  // sync twins (المخول shows in the undertaking AND the footer)
   }));
   $('#ist-close').onclick=istRequestClose;   // guard unsaved work
+  { const ex=$('#ist-export'); if(ex) ex.onclick=istExport; }   // S4 — print / save as PDF (landscape, clean)
   istWirePhoto();
   $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
 }
@@ -2031,6 +2035,19 @@ async function istIngest(file,row){
     }
   }
   row._status='refused'; row._err=t('ist_read_fail'); istRenderRows();   // timed out
+}
+/* S4 — export the استمارة to PDF. The `.ist-page` on screen is ALREADY the pixel-faithful A4 form
+   (Arial bold, 14pt title, 58mm label column, black table borders — matched to the official Word doc),
+   so we print IT directly (WYSIWYG) rather than rebuilding a static mirror that could drift. A
+   `body.ist-print` class flips the print CSS: show the form, strip every screen-only cue (the copper
+   underlines, the upload drop-zone, the ⚑ review badges, the empty photo hint) and lay it on a LANDSCAPE
+   A4 page. The user prints → then physically stamps + signs → scans → submits. */
+function istExport(){
+  if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no||r.name)){ toast(t('ist_export_empty')); return; }
+  document.body.classList.add('ist-print');
+  const done=()=>{ document.body.classList.remove('ist-print'); window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>{ try{ window.print(); }catch(_){ done(); } }, 40);   // let the print CSS settle first
 }
 function istWirePhoto(){
   const box=$('#ist-photo'); if(!box)return;
@@ -2914,6 +2931,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v121';
+window.__APP_VER = 'v122';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

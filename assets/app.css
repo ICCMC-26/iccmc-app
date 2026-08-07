@@ -664,6 +664,24 @@
     #print .lb-print td{color:#111;font-family:var(--mono);font-variant-numeric:tabular-nums}
     #print .lb-print tr{break-inside:avoid}
   }
+  /* ── S4 · استمارة EXPORT — print the LIVE .ist-page (WYSIWYG) on a LANDSCAPE A4, cues stripped.
+     Set by istExport() adding `body.ist-print`; wins over the dossier print rules by specificity. ── */
+  @media print{
+    @page ist{size:A4 landscape;margin:0}
+    body.ist-print{background:#fff}
+    body.ist-print #print{display:none!important}                       /* the dossier container: unused here */
+    body.ist-print #istimara{display:block!important;position:static;background:#fff;overflow:visible;z-index:auto}
+    body.ist-print .ist-wrap{max-width:none;margin:0;padding:0}
+    body.ist-print .ist-stage{display:block;overflow:visible}
+    body.ist-print .ist-page{page:ist;width:auto;min-height:auto;margin:0;box-shadow:none}
+    body.ist-print .ist-bar{display:none!important}                     /* toolbar off the paper */
+    body.ist-print .ist-in{border:none!important}                       /* copper fill-in underline → clean text */
+    body.ist-print .ist-addrow,body.ist-print .ist-review,
+    body.ist-print .ist-row-busy,body.ist-print .ist-row-err,
+    body.ist-print .ist-ph-hint,body.ist-print .ist-ph-x{display:none!important}   /* upload box · ⚑ badges · busy rows · photo hint/✕ */
+    body.ist-print .ist-photo{background:#fff}
+    body.ist-print .ist-photo:not(.has-img){border:none}                /* no empty dashed box in the PDF */
+  }
   #toast{position:fixed;inset-inline:0;bottom:26px;margin:auto;width:max-content;max-width:90%;
     background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 18px;
     color:var(--ink);font-size:14px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:200}
@@ -725,6 +743,9 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   background:linear-gradient(rgba(8,12,11,.92),rgba(8,12,11,.6) 70%,transparent)}
 .ist-bar .ist-t{font-weight:700;color:var(--ink);font-size:15px;display:flex;align-items:center;gap:8px}
 .ist-bar .spacer{flex:1}
+.ist-exp{font-family:inherit;font-size:13px;font-weight:700;color:#fff;background:var(--copper);
+  border:none;border-radius:9px;padding:8px 16px;cursor:pointer;white-space:nowrap;height:38px}
+.ist-exp:hover{filter:brightness(1.08)}
 /* the A4 sheet — real mm so print is faithful; scaled to fit the viewport on screen via a wrapper */
 .ist-stage{display:flex;justify-content:center}
 /* the official form is A4 LANDSCAPE (297×210mm) — the sheet matches so print/export stay faithful */
