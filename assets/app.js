@@ -75,7 +75,7 @@ const I18N={
     ist_undertaking_pre:'اني المخول (', ist_undertaking_post:') اتعهد بعدم التصرف بأوراق الشركة دون علمها أو إضافة أو تغيير او تعديل بيانات المعلومات وبخلاف ذلك أتحمل كافة التبعات القانونية وعدم إخفاء أي معلومات عن مديرية شؤون الإقامة',
     ist_sig_mgr:'اسم وختم وتوقيع مدير الشركة', ist_sig_mgr_title:'المهندس', ist_mgr_name:'احمد عبد اللطيف جاسم', ist_mgr_role:'المدير الإقليمي', ist_sig_auth:'اسم وتوقيع مخول الشركة',
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
-    ist_c_addr:'العنوان الكامل للإقامة داخل العراق', ist_c_border:'اسم المنفذ الحدودي', ist_c_prof:'المهنة', ist_c_country:'بلد الإقامة الحالي', ist_c_visited:'هل سبق زيارة العراق',
+    ist_c_addr:'العنوان الكامل للأقامة داخل العراق', ist_c_border:'اسم المنفذ الحدودي', ist_c_prof:'المهنة', ist_c_country:'بلد الاقامة الحالي', ist_c_visited:'هل سبق زيارة العراق',
     ist_filldown:'تعبئة للأسفل — نسخ هذه القيمة إلى كل الصفوف تحتها', ist_hand_hint:'تُكتب باليد (لا تأتي من قراءة الجواز)',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
@@ -2982,6 +2982,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v126';
+window.__APP_VER = 'v127';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

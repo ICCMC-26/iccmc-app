@@ -685,7 +685,7 @@
     body.ist-print .ist-ph-hint,body.ist-print .ist-ph-x,
     body.ist-print .ist-fill{display:none!important}   /* upload box · ⚑ badges · busy rows · photo hint/✕ · fill-down ⤓ */
     body.ist-print .ist-hcell{background:#fff!important}                 /* hand cells print clean (no copper tint) */
-    body.ist-print .ist-hin{background:transparent!important;font-size:9pt}
+    body.ist-print .ist-hin{background:transparent!important;font-size:11pt}
     body.ist-print .ist-photo{background:#fff}
     body.ist-print .ist-photo:not(.has-img){border:none}                /* no empty dashed box in the PDF */
   }
@@ -796,17 +796,19 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-in:focus{outline:none;border-bottom-color:var(--copper);border-bottom-width:2.2px}
 .ist-in::placeholder{color:#bbb}
 /* the roster table */
-.ist-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:10pt;table-layout:fixed}
-.ist-table th,.ist-table td{border:1px solid #000;padding:5px 4px;text-align:center;word-break:break-word;font-weight:700}
-.ist-table th{background:#eee}
+/* table styling = the official Word doc (source of truth): 11pt, ALL cells bold, Arial/Calibri (inherited),
+   #D9D9D9 header fill, centered, thin black grid. Row spacing tuned to the doc (~5.7mm data rows). */
+.ist-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:11pt;table-layout:fixed}
+.ist-table th,.ist-table td{border:1px solid #000;padding:3px 4px;text-align:center;word-break:break-word;font-weight:700}
+.ist-table th{background:#D9D9D9}
 /* real relative widths of the 5 visible cols (from the doc grid: ت 12.9 · اسم 42.1 · جنسية 20 · جواز 35 · نفاذية 25 mm) */
 /* 10-col grid from the doc (5 OCR + 5 hand-typed) */
 .ist-table col.c-ser{width:4.7%} .ist-table col.c-name{width:15.3%} .ist-table col.c-nat{width:7.3%} .ist-table col.c-pass{width:12.7%} .ist-table col.c-exp{width:9.1%}
 .ist-table col.c-addr{width:16.4%} .ist-table col.c-border{width:9.2%} .ist-table col.c-prof{width:8.2%} .ist-table col.c-country{width:9.1%} .ist-table col.c-visited{width:8%}
-.ist-table th.ist-hcol{font-size:8pt;line-height:1.25}                    /* the 5 hand headers are longer → a touch smaller so they fit */
+.ist-table th.ist-hcol{line-height:1.2}                    /* the 5 hand headers are longer → they wrap (same 11pt as the doc) */
 /* a HAND-TYPED cell: an editable input + a fill-down button; a faint copper tint marks the "fill these in" columns */
 .ist-table td.ist-hcell{position:relative;padding:0;background:rgba(197,149,107,.05)}
-.ist-hin{width:100%;box-sizing:border-box;border:none;background:transparent;font:inherit;font-size:9pt;text-align:center;
+.ist-hin{width:100%;box-sizing:border-box;border:none;background:transparent;font:inherit;font-size:11pt;text-align:center;
   padding:5px 15px 5px 3px;color:#000}
 .ist-hin:hover{background:rgba(197,149,107,.09)} .ist-hin:focus{outline:none;background:rgba(197,149,107,.14)}
 .ist-fill{position:absolute;top:50%;transform:translateY(-50%);inset-inline-end:2px;width:16px;height:16px;line-height:1;
