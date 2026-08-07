@@ -558,9 +558,9 @@ function sortRows(rows){ const a=(rows||[]).slice();
   else if(SORT==='new') a.sort((x,y)=>_pidNum(y.person_id)-_pidNum(x.person_id));   // newest first (highest EMP no.)
   else a.sort((x,y)=>_pidNum(x.person_id)-_pidNum(y.person_id));                      // by number, ascending
   return a; }
-const SORT_OPTS=[{k:'num',ar:'رقم',en:'No.'},{k:'name',ar:'اسم',en:'Name'},{k:'new',ar:'الأحدث',en:'Newest'}];
+const SORT_OPTS=[{k:'num',ar:'الرقم',en:'No.'},{k:'name',ar:'الاسم',en:'Name'},{k:'new',ar:'الأحدث',en:'Newest'}];
 function paintSort(){ const bar=$('#sortbar'); if(!bar)return;
-  bar.innerHTML=`<span class="sort-lbl">${LANG==='ar'?'ترتيب':'Sort'}</span>`
+  bar.innerHTML=`<span class="sort-lbl">${LANG==='ar'?'الترتيب':'Sort'}</span>`
     +SORT_OPTS.map(o=>`<button class="sort-opt${SORT===o.k?' on':''}" data-sort="${o.k}">${LANG==='ar'?o.ar:o.en}</button>`).join(''); }
 function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; try{localStorage.setItem('iccmc_sort',k)}catch(_){}
   paintSort(); LAST=sortRows(LAST); render(LAST); }
@@ -2649,6 +2649,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v92';
+window.__APP_VER = 'v93';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
