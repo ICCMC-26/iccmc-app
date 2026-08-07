@@ -83,7 +83,6 @@ const I18N={
     ist_export:'تصدير PDF', ist_export_tip:'ينزّل ملف PDF (عرضي) إلى جهازك — افتحه واطبعه لاحقاً إن رغبت', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل ملف الـ PDF ✓', ist_pdf_fail:'تعذّر إنشاء ملف الـ PDF — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء ملف الـ PDF…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
     ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
     mk_ist:'إنشاء استمارة', mk_ist_s:'استمارة سمة الدخول', mk_taa:'إنشاء تعهد', mk_taa_s:'تعهد الشركة بالموظفين',
-    mk_batch:'تسجيل دفعة يدوياً', mk_batch_s:'إدخال معاملة موجودة',
     taa_h:'تعهد الشركة', taa_title:'م/ تعهد', taa_to:'الى مديرية شؤون الاقامة',
     taa_intro:'نحن مجموعة شنغهاي الصينية للكهرباء المتعاقدة مع وزارة الكهرباء في تنفيذ مشروع الدورات المركبة للمحطات (كربلاء – النجف – الحلة -الديوانية – المنصورية -الهارثة )',
     taa_body:'تتعهد الشركة بعدم تسرب الموظفين خارج موقع العمل وتتحمل الشركة تكاليف السفر في حالة مغادرتهم البلاد في الوقت المحدد .',
@@ -164,7 +163,6 @@ const I18N={
     ist_export:'Export PDF', ist_export_tip:'Downloads a PDF file (landscape) to your device — open & print it later if you want', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'PDF downloaded ✓', ist_pdf_fail:'Could not create the PDF — try again', ist_pdf_working:'Building your PDF…', ist_pdf_step1:'Preparing the data', ist_pdf_step2:'Building the official paper', ist_pdf_step3:'Waking the renderer — the first export takes a moment', ist_pdf_step4:'Downloading…',
     ist_not_passport:'A legal paper — not a passport. This table is passports only; handle it in the Procedures section.', ist_remove:'Remove',
     mk_ist:'New entry form', mk_ist_s:'Entry-visa form (استمارة)', mk_taa:'New undertaking', mk_taa_s:'Company undertaking (تعهد)',
-    mk_batch:'Record a batch by hand', mk_batch_s:'Log an existing procedure',
     taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_to:'To the Directorate of Residence Affairs',
     taa_intro:'We, Shanghai Electric Group (China), contracted with the Ministry of Electricity for the combined-cycle stations project (Karbala – Najaf – Hilla – Diwaniyah – Mansuriya – Hartha)',
     taa_body:'The company undertakes that no employee will leave the work site, and bears travel costs should they leave the country at the set time.',
@@ -377,7 +375,6 @@ function renderLaw(rows){
       <div class="law-menu" id="law-menu">
         <button data-new="istimara"><b>${t('mk_ist')}</b><em>${t('mk_ist_s')}</em></button>
         <button data-new="taahud"><b>${t('mk_taa')}</b><em>${t('mk_taa_s')}</em></button>
-        <button data-new="batch" class="sep"><b>${t('mk_batch')}</b><em>${t('mk_batch_s')}</em></button>
       </div></span></span></div>`;
   const _empty = LAW_FILTER==='all' ? t('law_none') : (LANG==='ar'?'لا دفعات في هذا التصنيف':'No batches in this filter');
   const body = !_shownC.length ? `<div class="empty">${_empty}</div>`
@@ -401,7 +398,7 @@ function renderLaw(rows){
   if(la&&lm){
     la.onclick=e=>{ e.stopPropagation(); lm.classList.toggle('on'); };
     lm.querySelectorAll('[data-new]').forEach(b=>b.onclick=()=>{ lm.classList.remove('on');
-      const w=b.dataset.new; if(w==='batch') legalOpen(); else { _IST=null; istimaraOpen(w); } });   // fresh sheet of that paper
+      _IST=null; istimaraOpen(b.dataset.new); });   // a fresh sheet of that paper
     document.addEventListener('click',()=>lm.classList.remove('on'));   // click anywhere else = close
   }
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
@@ -3116,6 +3113,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v139';
+window.__APP_VER = 'v140';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
