@@ -75,6 +75,8 @@ const I18N={
     ist_undertaking_pre:'اني المخول (', ist_undertaking_post:') اتعهد بعدم التصرف بأوراق الشركة دون علمها أو إضافة أو تغيير او تعديل بيانات المعلومات وبخلاف ذلك أتحمل كافة التبعات القانونية وعدم إخفاء أي معلومات عن مديرية شؤون الإقامة',
     ist_sig_mgr:'اسم وختم وتوقيع مدير الشركة', ist_sig_mgr_title:'المهندس', ist_mgr_name:'احمد عبد اللطيف جاسم', ist_mgr_role:'المدير الإقليمي', ist_sig_auth:'اسم وتوقيع مخول الشركة',
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
+    ist_c_addr:'العنوان الكامل للإقامة داخل العراق', ist_c_border:'اسم المنفذ الحدودي', ist_c_prof:'المهنة', ist_c_country:'بلد الإقامة الحالي', ist_c_visited:'هل سبق زيارة العراق',
+    ist_filldown:'تعبئة للأسفل — نسخ هذه القيمة إلى كل الصفوف تحتها', ist_hand_hint:'تُكتب باليد (لا تأتي من قراءة الجواز)',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
@@ -148,6 +150,8 @@ const I18N={
     ist_undertaking_pre:'I, the authorized (', ist_undertaking_post:'), undertake not to dispose of the company documents without its knowledge, nor add/alter/modify the data; otherwise I bear all legal consequences and will not conceal any information from the Residence Directorate.',
     ist_sig_mgr:'Company manager — name, seal & signature', ist_sig_mgr_title:'المهندس', ist_mgr_name:'احمد عبد اللطيف جاسم', ist_mgr_role:'المدير الإقليمي', ist_sig_auth:'Company authorized rep — name & signature',
     ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
+    ist_c_addr:'Full address of residence in Iraq', ist_c_border:'Border entry point', ist_c_prof:'Profession', ist_c_country:'Current country of residence', ist_c_visited:'Visited Iraq before?',
+    ist_filldown:'Fill down — copy this value to all rows below', ist_hand_hint:'Typed by hand (not read from the passport)',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
@@ -1886,8 +1890,9 @@ function istimaraOpen(){
         <div class="ist-title">${t('ist_title')}</div>
         <div class="ist-fields">${IST_FIELDS.map(frow).join('')}</div>
         <table class="ist-table">
-          <colgroup><col class="c-ser"><col class="c-name"><col class="c-nat"><col class="c-pass"><col class="c-exp"></colgroup>
-          <thead><tr><th>${t('ist_c_ser')}</th><th>${t('ist_c_name')}</th><th>${t('ist_c_nat')}</th><th>${t('ist_c_pass')}</th><th>${t('ist_c_exp')}</th></tr></thead>
+          <colgroup><col class="c-ser"><col class="c-name"><col class="c-nat"><col class="c-pass"><col class="c-exp"><col class="c-addr"><col class="c-border"><col class="c-prof"><col class="c-country"><col class="c-visited"></colgroup>
+          <thead><tr><th>${t('ist_c_ser')}</th><th>${t('ist_c_name')}</th><th>${t('ist_c_nat')}</th><th>${t('ist_c_pass')}</th><th>${t('ist_c_exp')}</th>
+            <th class="ist-hcol">${t('ist_c_addr')}</th><th class="ist-hcol">${t('ist_c_border')}</th><th class="ist-hcol">${t('ist_c_prof')}</th><th class="ist-hcol">${t('ist_c_country')}</th><th class="ist-hcol">${t('ist_c_visited')}</th></tr></thead>
           <tbody id="ist-tbody"></tbody>
         </table>
         <div class="ist-undertaking">${t('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${esc(H.authorized||'')}"> ${t('ist_undertaking_post')}</div>
@@ -1918,7 +1923,9 @@ function istimaraClose(){ $('#istimara').classList.remove('on'); document.body.s
 const IST_KEY='iccmc_istimara_draft';
 function istIsDirty(){ return !!(_IST && _IST._dirty); }
 function istSaveDraft(){
-  try{ const keep=(_IST.rows||[]).filter(r=>r.passport_no||r.name).map(r=>({name:r.name||'',nationality:r.nationality||'',passport_no:r.passport_no||'',passport_expiry:r.passport_expiry||'',_status:(r._status==='review'?'review':'landed')}));
+  try{ const keep=(_IST.rows||[]).filter(r=>r.passport_no||r.name).map(r=>({name:r.name||'',nationality:r.nationality||'',passport_no:r.passport_no||'',passport_expiry:r.passport_expiry||'',
+      addr_iraq:r.addr_iraq||'',border:r.border||'',profession:r.profession||'',res_country:r.res_country||'',visited:r.visited||'',
+      _status:(r._status==='review'?'review':'landed')}));
     localStorage.setItem(IST_KEY, JSON.stringify({header:_IST.header, photo:_IST.photo, rows:keep}));
     _IST._dirty=false; return true; }catch(_){ return false; }
 }
@@ -1943,21 +1950,30 @@ function istRenderRows(){
   const tb=$('#ist-tbody'); if(!tb)return;
   const dataHtml=_IST.rows.map((r,i)=>{
     if(r._status==='uploading'||r._status==='processing'||r._status==='committing')   // busy → the OCR-line stage text (same as the drop box)
-      return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="4">${esc(istRowStatusTxt(r))}</td></tr>`;
+      return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="9">${esc(istRowStatusTxt(r))}</td></tr>`;
     if(r._status==='refused')
-      return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('ist_remove')}">✕ ${esc(t('ist_remove'))}</button></td></tr>`;
+      return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="8">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('ist_remove')}">✕ ${esc(t('ist_remove'))}</button></td></tr>`;
     // a pending-review row: review-and-commit (⚑) OR reject it (✕) — an uncommitted item must be removable
     const badge = r._status==='review'
       ? ` <button class="ist-review" data-istreview="${i}" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_review'))}</button><button class="ist-rowx sm" data-rmrow="${i}" title="${esc(t('ist_remove'))}">✕</button>`
       : '';   // clickable → opens the OCR review pane to fix/confirm
+    // the 5 HAND-TYPED columns (NOT from the OCR line): each = an editable cell + a ⤓ fill-down button
+    // (copies this cell's value to every row below it, like Excel's fill handle).
+    const hcell=k=>`<td class="ist-hcell"><input class="ist-hin" data-ri="${i}" data-rk="${k}" value="${esc(r[k]||'')}"><button class="ist-fill" data-fi="${i}" data-fk="${k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></td>`;
     return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}${badge}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
-      <td>${esc(r.passport_no||'—')}</td><td>${esc(istFmtDate(r.passport_expiry)||'—')}</td></tr>`;
+      <td>${esc(r.passport_no||'—')}</td><td>${esc(istFmtDate(r.passport_expiry)||'—')}</td>
+      ${hcell('addr_iraq')}${hcell('border')}${hcell('profession')}${hcell('res_country')}${hcell('visited')}</tr>`;
   }).join('');
   // the add-zone IS the table body — a clickable + droppable box, like the OCR upload box. No separate button.
   const drop = _IST.rows.length
-    ? `<tr class="ist-addrow"><td colspan="5" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_pc'))}</td></tr>`
-    : `<tr class="ist-addrow"><td colspan="5" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('ist_add_pc'))}<br><em>${esc(t('ist_drop_sub'))}</em></span></td></tr>`;
+    ? `<tr class="ist-addrow"><td colspan="10" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_pc'))}</td></tr>`
+    : `<tr class="ist-addrow"><td colspan="10" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('ist_add_pc'))}<br><em>${esc(t('ist_drop_sub'))}</em></span></td></tr>`;
   tb.innerHTML=dataHtml+drop;
+  // hand columns: type into a cell (kept live in the row, no re-render → focus stays); ⤓ fills the value DOWN
+  tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri]; if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; } });
+  tb.querySelectorAll('.ist-fill').forEach(b=>b.onclick=()=>{ const i=+b.dataset.fi, k=b.dataset.fk, r0=_IST.rows[i]; if(!r0)return;
+    const v=r0[k]||''; for(let j=i+1;j<_IST.rows.length;j++){ if(_IST.rows[j]) _IST.rows[j][k]=v; }   // carry this value to every row below
+    _IST._dirty=true; istRenderRows(); });
   // remove an UNCOMMITTED row (refused / pending-review): also clear its worker scan_jobs row so nothing
   // lingers in the review queue — no leaks. (The storage blob is swept by the janitor, sweep_orphan_files,
   // which is hash-protected so it never deletes a committed document's shared scan.) A committed/landed row
@@ -2966,6 +2982,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v125';
+window.__APP_VER = 'v126';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

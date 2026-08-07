@@ -682,7 +682,10 @@
     body.ist-print .ist-in{border:none!important}                       /* copper fill-in underline → clean text */
     body.ist-print .ist-addrow,body.ist-print .ist-review,
     body.ist-print .ist-row-busy,body.ist-print .ist-row-err,
-    body.ist-print .ist-ph-hint,body.ist-print .ist-ph-x{display:none!important}   /* upload box · ⚑ badges · busy rows · photo hint/✕ */
+    body.ist-print .ist-ph-hint,body.ist-print .ist-ph-x,
+    body.ist-print .ist-fill{display:none!important}   /* upload box · ⚑ badges · busy rows · photo hint/✕ · fill-down ⤓ */
+    body.ist-print .ist-hcell{background:#fff!important}                 /* hand cells print clean (no copper tint) */
+    body.ist-print .ist-hin{background:transparent!important;font-size:9pt}
     body.ist-print .ist-photo{background:#fff}
     body.ist-print .ist-photo:not(.has-img){border:none}                /* no empty dashed box in the PDF */
   }
@@ -797,7 +800,19 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-table th,.ist-table td{border:1px solid #000;padding:5px 4px;text-align:center;word-break:break-word;font-weight:700}
 .ist-table th{background:#eee}
 /* real relative widths of the 5 visible cols (from the doc grid: ت 12.9 · اسم 42.1 · جنسية 20 · جواز 35 · نفاذية 25 mm) */
-.ist-table col.c-ser{width:9.5%} .ist-table col.c-name{width:31%} .ist-table col.c-nat{width:14.7%} .ist-table col.c-pass{width:25.8%} .ist-table col.c-exp{width:19%}
+/* 10-col grid from the doc (5 OCR + 5 hand-typed) */
+.ist-table col.c-ser{width:4.7%} .ist-table col.c-name{width:15.3%} .ist-table col.c-nat{width:7.3%} .ist-table col.c-pass{width:12.7%} .ist-table col.c-exp{width:9.1%}
+.ist-table col.c-addr{width:16.4%} .ist-table col.c-border{width:9.2%} .ist-table col.c-prof{width:8.2%} .ist-table col.c-country{width:9.1%} .ist-table col.c-visited{width:8%}
+.ist-table th.ist-hcol{font-size:8pt;line-height:1.25}                    /* the 5 hand headers are longer → a touch smaller so they fit */
+/* a HAND-TYPED cell: an editable input + a fill-down button; a faint copper tint marks the "fill these in" columns */
+.ist-table td.ist-hcell{position:relative;padding:0;background:rgba(197,149,107,.05)}
+.ist-hin{width:100%;box-sizing:border-box;border:none;background:transparent;font:inherit;font-size:9pt;text-align:center;
+  padding:5px 15px 5px 3px;color:#000}
+.ist-hin:hover{background:rgba(197,149,107,.09)} .ist-hin:focus{outline:none;background:rgba(197,149,107,.14)}
+.ist-fill{position:absolute;top:50%;transform:translateY(-50%);inset-inline-end:2px;width:16px;height:16px;line-height:1;
+  border:none;border-radius:3px;background:var(--copper);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .1s;padding:0}
+.ist-hcell:hover .ist-fill,.ist-hin:focus + .ist-fill{opacity:1}                /* the ⤓ shows on hover / when the cell is focused */
+.ist-fill:hover{filter:brightness(1.08)}
 /* the add-zone IS the table body — clickable + droppable like the OCR upload box (screen-only; S4/print strips it).
    `.ist-table td.ist-drop` beats the table's own `.ist-table td` solid-black border rule. */
 .ist-table td.ist-drop{cursor:pointer;text-align:center;color:var(--copper);border:2.5px dashed var(--copper);
