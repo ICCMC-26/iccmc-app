@@ -77,6 +77,7 @@ const I18N={
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
+    ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -147,6 +148,7 @@ const I18N={
     ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
+    ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -1783,6 +1785,7 @@ async function ikDoAdd(forcePid){
     const r=await ikCommitSerial(j,f,fpid);
     if(r.defer){ toast(t('rv_defer')); const b=$('#rvw-add'); if(b){b.disabled=false;b.textContent=t('rv_add');} return; }
     const _kidJid=(jk._kid&&jk.job)?jk.job.job_id:null;     // capture BEFORE jk.job is cleared
+    if(jk._istRow){ Object.assign(jk._istRow,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||'', _status:'landed', _job:null}); if(typeof istRenderRows==='function')istRenderRows(); }  // corrected data → back into the استمارة row
     jk.state='landed'; jk.job=null; if(jk.hash)delete _ikPending[jk.hash];
     toast(t('rv_added')+(r.pid||'')); closeIkReview(); ikRender();
     if(_kidJid){                                            // a packet child was reviewed → flip it to ✓ NOW + re-confirm from DB
@@ -1849,7 +1852,7 @@ function legalClose(){ $('#legalform').classList.remove('on'); document.body.sty
    header fields land live into the draft, the photo embeds. The table is fed by the OCR line (S3),
    and export (PDF/Excel/Word) is S4. Nothing here touches the registry / OCR-commit path. ═══ */
 let _IST=null;   // the draft: {header:{...}, photo:dataURL|null, rows:[{name,nationality,passport_no,passport_expiry}]}
-function istFresh(){ return {header:{company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:''}, photo:null, rows:[]}; }
+function istFresh(){ return {header:{company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:''}, photo:null, rows:[], _dirty:false}; }
 const IST_FIELDS=[   // exact labels + order from the official Word استمارة (landscape)
   {k:'company',     lab:'ist_company',     ph:'ist_company_ph'},
   {k:'company_nat', lab:'ist_company_nat'},
@@ -1859,7 +1862,7 @@ const IST_FIELDS=[   // exact labels + order from the official Word استمار
   {k:'visatype',    lab:'ist_visatype'},
 ];
 function istimaraOpen(){
-  if(!_IST) _IST=istFresh();
+  if(!_IST) _IST=istLoadDraft()||istFresh();   // restore a saved draft so the user sees his work again
   const H=_IST.header;
   const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
     +`<input class="ist-in" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}"></div>`;
@@ -1894,14 +1897,40 @@ function istimaraOpen(){
     </div>`;
   istRenderRows();
   $('#istimara').querySelectorAll('.ist-in[data-h]').forEach(inp=>inp.addEventListener('input',()=>{
-    const k=inp.dataset.h; _IST.header[k]=inp.value;
+    const k=inp.dataset.h; _IST.header[k]=inp.value; _IST._dirty=true;
     $('#istimara').querySelectorAll('.ist-in[data-h="'+k+'"]').forEach(o=>{ if(o!==inp) o.value=inp.value; });  // sync twins (المخول shows in the undertaking AND the footer)
   }));
-  $('#ist-close').onclick=istimaraClose;
+  $('#ist-close').onclick=istRequestClose;   // guard unsaved work
   istWirePhoto();
   $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
 }
 function istimaraClose(){ $('#istimara').classList.remove('on'); document.body.style.overflow=''; }
+/* ── unsaved-work guard: closing with edits asks Save / Discard / Cancel. Save → localStorage draft,
+   restored on re-open (see his work again, even before exporting). Discard → wipe it. ── */
+const IST_KEY='iccmc_istimara_draft';
+function istIsDirty(){ return !!(_IST && _IST._dirty); }
+function istSaveDraft(){
+  try{ const keep=(_IST.rows||[]).filter(r=>r.passport_no||r.name).map(r=>({name:r.name||'',nationality:r.nationality||'',passport_no:r.passport_no||'',passport_expiry:r.passport_expiry||'',_status:(r._status==='review'?'review':'landed')}));
+    localStorage.setItem(IST_KEY, JSON.stringify({header:_IST.header, photo:_IST.photo, rows:keep}));
+    _IST._dirty=false; return true; }catch(_){ return false; }
+}
+function istLoadDraft(){ try{ const s=localStorage.getItem(IST_KEY); if(!s)return null; const d=JSON.parse(s);
+  d.rows=d.rows||[]; d._dirty=false; return d; }catch(_){ return null; } }
+function istClearDraft(){ try{ localStorage.removeItem(IST_KEY); }catch(_){} _IST=null; }
+function istRequestClose(){
+  if(!istIsDirty()){ istimaraClose(); return; }         // nothing new → just close
+  const dlg=document.createElement('div'); dlg.className='ist-dlg-wrap';
+  dlg.innerHTML=`<div class="ist-dlg"><div class="ist-dlg-t">${esc(t('ist_close_q'))}</div>
+    <div class="ist-dlg-btns"><button class="ist-btn primary" data-a="save">${esc(t('ist_save'))}</button>
+      <button class="ist-btn" data-a="discard">${esc(t('ist_discard'))}</button>
+      <button class="ist-btn ghost" data-a="cancel">${esc(t('ist_cancel'))}</button></div></div>`;
+  $('#istimara').appendChild(dlg);
+  const done=()=>dlg.remove();
+  dlg.querySelector('[data-a="save"]').onclick=()=>{ if(istSaveDraft()){ done(); istimaraClose(); toast(t('ist_saved')); } else toast(t('ist_read_fail')); };
+  dlg.querySelector('[data-a="discard"]').onclick=()=>{ istClearDraft(); done(); istimaraClose(); };
+  dlg.querySelector('[data-a="cancel"]').onclick=done;
+  dlg.onclick=e=>{ if(e.target===dlg) done(); };        // click backdrop = cancel (safest)
+}
 function istRenderRows(){
   const tb=$('#ist-tbody'); if(!tb)return;
   const dataHtml=_IST.rows.map((r,i)=>{
@@ -1909,7 +1938,7 @@ function istRenderRows(){
       return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="4">${esc(istRowStatusTxt(r))}</td></tr>`;
     if(r._status==='refused')
       return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('t_close')}">✕</button></td></tr>`;
-    const badge = r._status==='review'?` <span class="ist-review" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_lg_rev'))}</span>`:'';   // pending human review (resolve it in the OCR board)
+    const badge = r._status==='review'?` <button class="ist-review" data-istreview="${i}" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_review'))}</button>`:'';   // clickable → opens the OCR review pane to fix/confirm
     return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}${badge}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
       <td>${esc(r.passport_no||'—')}</td><td>${esc(istFmtDate(r.passport_expiry)||'—')}</td></tr>`;
   }).join('');
@@ -1918,7 +1947,8 @@ function istRenderRows(){
     ? `<tr class="ist-addrow"><td colspan="5" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_pc'))}</td></tr>`
     : `<tr class="ist-addrow"><td colspan="5" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('ist_add_pc'))}<br><em>${esc(t('ist_drop_sub'))}</em></span></td></tr>`;
   tb.innerHTML=dataHtml+drop;
-  tb.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=()=>{ _IST.rows.splice(+b.dataset.rmrow,1); istRenderRows(); });   // drop a failed row
+  tb.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=()=>{ _IST.rows.splice(+b.dataset.rmrow,1); _IST._dirty=true; istRenderRows(); });   // drop a failed row
+  tb.querySelectorAll('[data-istreview]').forEach(b=>b.onclick=()=>istOpenReview(+b.dataset.istreview));   // ⚑ → open the OCR review pane
   const dz=$('#ist-drop'); if(dz){
     dz.onclick=istPickFiles;
     dz.ondragover=e=>{ e.preventDefault(); dz.classList.add('over'); };
@@ -1928,6 +1958,13 @@ function istRenderRows(){
 }
 function istPickFiles(){ const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
   inp.onchange=()=>{ if(inp.files&&inp.files.length) istAddFromPC(inp.files); }; inp.click(); }
+// ⚑ مراجعة → open the SAME OCR review pane on this scan (see the passport, fix the number, confirm). On commit,
+// ikDoAdd writes the corrected data back into this استمارة row (via _rvJob._istRow) and flips it to done.
+function istOpenReview(i){
+  const row=_IST.rows[i]; if(!row||!row._job){ toast(t('ist_read_fail')); return; }
+  _rvJob={ id:'ist-'+i, job:row._job, file:row._file||{name:(row.name||row.passport_no||'passport')}, _scanUrl:null, _istRow:row }; _rvShowAll=false;
+  ikBuildReview(); $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
+}
 // the استمارة date format: day/month/year, zero-padded (dd/mm/yyyy). Handles ISO (yyyy-mm-dd) or an
 // already d/m/y value; anything else is shown as-is (never guessed).
 function istFmtDate(s){
@@ -1952,6 +1989,7 @@ function istRowStatusTxt(r){
    review (⚑), same as the drop box; the person is finalised when it's reviewed in the OCR board. */
 function istAddFromPC(files){
   const arr=Array.from(files).filter(f=> (IK_OK.test(f.type)||/\.pdf$/i.test(f.name)) && f.size<=IK_MAX);
+  if(arr.length) _IST._dirty=true;
   for(const file of arr){
     const row={name:'',nationality:'',passport_no:'',passport_expiry:'',_status:'uploading',_pct:0,_stage:'',_err:''};
     _IST.rows.push(row); istRenderRows();
@@ -1959,7 +1997,7 @@ function istAddFromPC(files){
   }
 }
 async function istIngest(file,row){
-  const hash=await sha256(file); if(!hash) throw new Error('hash'); row._hash=hash;
+  const hash=await sha256(file); if(!hash) throw new Error('hash'); row._hash=hash; row._file=file;   // keep the file so the review header can name it
   const {data:{session}}=await sb.auth.getSession(); if(!session) throw new Error(t('ik_auth'));
   const safe=file.name.replace(/[^\w.\-]+/g,'_');
   const path=`${Date.now().toString(36)}-ist-${safe}`;   // plain passport name (NO istimara-/taahud- marker — that would make the worker treat it as a legal FORM)
@@ -1982,10 +2020,10 @@ async function istIngest(file,row){
     const f=j.fields||{};
     if(f.passport_no||f.name_latin){
       Object.assign(row,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''});
-      if(j.status==='pending-review'||j.status==='needs-linking'){ row._status='review'; istRenderRows(); return; }   // the worker itself parked it → pend for review
+      if(j.status==='pending-review'||j.status==='needs-linking'){ row._status='review'; row._job=j; istRenderRows(); return; }   // worker parked it → pend for review
       row._status='committing'; istRenderRows();
-      try{ const res=await ikCommitSerial(j,{...f});           // register in the registry — the same commit the drop box uses
-           row._status=(res&&res.defer)?'review':'landed'; }   // defer = needs a human → pend for review
+      try{ const res=await ikCommitSerial(j,{...f});            // register in the registry — the same commit the drop box uses
+           if(res&&res.defer){ row._status='review'; row._job=j; } else row._status='landed'; }   // defer = needs a human → pend, keep the job so ⚑ opens the review
       catch(_){ row._status='landed'; }                        // the data still shows; a later intake sweep retries the commit
       istRenderRows(); return;
     }
@@ -1994,10 +2032,10 @@ async function istIngest(file,row){
 }
 function istWirePhoto(){
   const box=$('#ist-photo'); if(!box)return;
-  const x=$('#ist-ph-x'); if(x) x.onclick=e=>{ e.stopPropagation(); _IST.photo=null; istimaraOpen(); };  // remove → rebuild
+  const x=$('#ist-ph-x'); if(x) x.onclick=e=>{ e.stopPropagation(); _IST.photo=null; _IST._dirty=true; istimaraOpen(); };  // remove → rebuild
   box.onclick=()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
     inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f)return;
-      const rd=new FileReader(); rd.onload=()=>{ _IST.photo=rd.result; istimaraOpen(); }; rd.readAsDataURL(f); };
+      const rd=new FileReader(); rd.onload=()=>{ _IST.photo=rd.result; _IST._dirty=true; istimaraOpen(); }; rd.readAsDataURL(f); };
     inp.click(); };
 }
 /* ONE commit path — used by BOTH the manual composer AND the OCR assembler. Writes the clean,
@@ -2859,7 +2897,7 @@ $('#detail').addEventListener('click',e=>{const _lg=e.target.closest('[data-lawg
 $('#lightbox').addEventListener('click',()=>$('#lightbox').classList.remove('on'));
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
   if($('#lightbox').classList.contains('on'))$('#lightbox').classList.remove('on');
-  else if($('#istimara').classList.contains('on'))istimaraClose();
+  else if($('#istimara').classList.contains('on'))istRequestClose();
   else if($('#legalform').classList.contains('on'))legalClose();
   else if($('#ikreview').classList.contains('on'))closeIkReview();
   else if($('#detail').classList.contains('on'))closeEmployee();
@@ -2874,6 +2912,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v117';
+window.__APP_VER = 'v118';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
