@@ -1975,6 +1975,8 @@ function istimaraOpen(paper){
   $('#ist-close').onclick=istRequestClose;   // guard unsaved work
   { const ex=$('#ist-export'); if(ex) ex.onclick=istExport; }   // S4 — build the PDF on the worker + download
   istWarmWorker();      // wake the renderer NOW, so it is warm by the time Export is pressed
+  // HEAL: rows saved while the line was still reading (workspace closed, tab reloaded) catch up now.
+  if(istPending().length){ istEnsureWatch(); istReconcile().catch(()=>{}); }
   istWirePhoto();
   $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
 }
@@ -2098,14 +2100,28 @@ function istRowStatusTxt(r){
 // Accept EXACTLY what the OCR drop box accepts — a passport the line would read must never be turned
 // away here. A file outside those limits still gets a ROW with the reason (it used to vanish silently).
 function istAddFromPC(files){
-  const all=Array.from(files); if(all.length) _IST._dirty=true;
+  const all=Array.from(files), queue=[]; if(all.length) _IST._dirty=true;
   for(const file of all){
     const okType=IK_OK.test(file.type)||/\.pdf$/i.test(file.name), okSize=file.size<=IK_MAX;
     const row={name:'',nationality:'',passport_no:'',passport_expiry:'',_status:'uploading',_pct:0,_stage:'',_err:''};
     _IST.rows.push(row);
     if(!okType||!okSize){ row._status='refused'; row._err=okSize?t('ik_bad'):t('ik_big'); istRenderRows(); continue; }
-    istRenderRows();
-    istIngest(file,row).catch(e=>{ row._status='refused'; row._err=(e&&e.message)||t('ist_read_fail'); istRenderRows(); });
+    queue.push([file,row]);
+  }
+  istRenderRows();
+  istDrainUploads(queue);
+}
+// Upload a few at a time, not all at once. Firing 20 simultaneous uploads only floods storage and
+// the worker's webhook — the queue behind them is the same length either way, and a steadier stream
+// is far less likely to have its webhooks dropped. (The watchdog covers any that still are.)
+let _istUp=0;
+async function istDrainUploads(queue){
+  while(queue.length){
+    while(_istUp>=4) await new Promise(r=>setTimeout(r,250));
+    const [file,row]=queue.shift(); _istUp++;
+    istIngest(file,row)
+      .catch(e=>{ row._status='refused'; row._err=(e&&e.message)||t('ist_read_fail'); istRenderRows(); })
+      .finally(()=>{ _istUp--; });
   }
 }
 async function istIngest(file,row){
@@ -2121,42 +2137,67 @@ async function istIngest(file,row){
     xhr.onload=()=>(xhr.status>=200&&xhr.status<300)?res():rej(new Error('HTTP '+xhr.status));
     xhr.onerror=()=>rej(new Error('network')); xhr.send(file); });
   row._status='processing'; row._stage=''; istRenderRows();
-  // NO DEADLINE — exactly like the drop box. The main line never times a scan out: it keeps a
-  // pending map + realtime + a reconcile poll and waits until the DB says done. A per-file clock was
-  // this workspace's own invention, and it was the whole reason a big batch "failed" here while the
-  // line coped: the worker reads ONE document per instance, so most of a 20-file drop simply QUEUES.
-  // We now watch until the row resolves, is removed (✕), or the workspace is closed/replaced — and
-  // we idle while the tab is hidden, easing the interval so a long queue costs almost nothing.
+  istEnsureWatch();          // hand this row to the ONE shared reconciler (see below)
+}
+/* ── ONE reconciler for the whole table (the drop box's design) ─────────────────────────────────
+   Pumping 20 passports used to mean 20 independent pollers, each hitting the database every couple
+   of seconds — a thundering herd for exactly the case that is already slow. Now a SINGLE timer asks
+   once for ALL pending hashes and hands each answer to its row. It also runs on OPEN, so rows saved
+   in a draft heal themselves even if the workspace was closed while the line was still reading. */
+let _istWatch=null;
+function istPending(){ return ((_IST&&_IST.rows)||[]).filter(r=>r._hash && r._status==='processing'); }
+function istEnsureWatch(){
+  if(_istWatch) return;
   const t0=Date.now();
-  while(_IST && _IST.rows.indexOf(row)>=0){
+  _istWatch=setInterval(async ()=>{
+    if(!_IST || !istPending().length){ clearInterval(_istWatch); _istWatch=null; return; }
+    if(document.hidden) return;                                   // idle while the tab is away
     const waited=Date.now()-t0;
-    await new Promise(r=>setTimeout(r, waited<30000?2000 : waited<180000?4000 : 8000));
-    if(document.hidden) continue;                     // tab in the background → skip this tick
-    let j; try{ const {data}=await sb.from('scan_jobs').select('job_id,status,fields,doc_type,image_path,field_conf,flagged,error_msg')
-      .eq('image_hash',hash).order('created_at',{ascending:false}).limit(1); j=data&&data[0]; }catch(_){ continue; }
-    if(!j) continue;
-    if(row._status==='processing'){ row._stage=j.status; istRenderRows(); }   // reflect the OCR-line stage live
-    if(j.status==='failed'){ row._status='refused'; row._err=j.error_msg||t('ist_read_fail'); istRenderRows(); return; }
-    // this door is for PASSPORTS ONLY. If the OCR line read the file as a LEGAL paper (تعهد/منح/استمارة),
-    // refuse it instantly & clearly instead of waiting 60s for a passport number that will never come — and
-    // BEFORE the name check below, so a legal roster's names never slip into a passport commit. (The paper is
-    // still captured by the legal pipeline; it simply doesn't belong in this table — handle it in المعاملات.)
-    if(j.status==='legal-review' || String(j.doc_type||'').startsWith('legal')){
-      row._status='refused'; row._err=t('ist_not_passport'); row._job=j;   // keep the job so ✕ can purge it (no leak)
-      istRenderRows(); return;
-    }
-    const f=j.fields||{};
-    if(f.passport_no||f.name_latin){
-      Object.assign(row,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''});
-      if(j.status==='pending-review'||j.status==='needs-linking'){ row._status='review'; row._job=j; istRenderRows(); return; }   // worker parked it → pend for review
-      row._status='committing'; istRenderRows();
-      try{ const res=await ikCommitSerial(j,{...f});            // register in the registry — the same commit the drop box uses
-           if(res&&res.defer){ row._status='review'; row._job=j; } else row._status='landed'; }   // defer = needs a human → pend, keep the job so ⚑ opens the review
-      catch(_){ row._status='landed'; }                        // the data still shows; a later intake sweep retries the commit
-      istRenderRows(); return;
-    }
+    if(waited>180000 && (waited/2500)%3>=1) return;                // ease off on a long queue
+    try{ await istReconcile(); }catch(_){}
+  }, 2500);
+}
+async function istReconcile(){
+  const pend=istPending(); if(!pend.length) return;
+  const hashes=[...new Set(pend.map(r=>r._hash))];
+  let jobs=[];
+  try{ const {data}=await sb.from('scan_jobs')
+        .select('job_id,status,fields,doc_type,image_path,field_conf,flagged,error_msg,image_hash')
+        .in('image_hash',hashes).order('created_at',{ascending:false}); jobs=data||[]; }catch(_){ return; }
+  const byHash={}; for(const j of jobs) if(!byHash[j.image_hash]) byHash[j.image_hash]=j;   // newest per hash
+  let dirty=false;
+  for(const row of pend){
+    const j=byHash[row._hash]; if(!j) continue;
+    if(await istApply(row,j)) dirty=true;
   }
-  // we only get here if the row was removed or the workspace closed — nothing to report.
+  if(dirty) istRenderRows();
+}
+// Decide what ONE row's job means. Returns true if the row changed. (Same rules as before — this is
+// only a move from a per-file loop to the shared pass.)
+async function istApply(row,j){
+  if(row._stage!==j.status){ row._stage=j.status; }
+  if(j.status==='failed'){ row._status='refused'; row._err=j.error_msg||t('ist_read_fail'); return true; }
+  // this door is for PASSPORTS ONLY. If the OCR line read the file as a LEGAL paper (تعهد/منح/استمارة),
+  // refuse it clearly instead of waiting for a passport number that will never come — and BEFORE the
+  // name check below, so a legal roster's names never slip into a passport commit. (The paper is still
+  // captured by the legal pipeline; it simply doesn't belong in this table — handle it in المعاملات.)
+  if(j.status==='legal-review' || String(j.doc_type||'').startsWith('legal')){
+    row._status='refused'; row._err=t('ist_not_passport'); row._job=j;   // keep the job so ✕ can purge it (no leak)
+    return true;
+  }
+  const f=j.fields||{};
+  if(f.passport_no||f.name_latin){
+    Object.assign(row,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''});
+    if(j.status==='pending-review'||j.status==='needs-linking'){ row._status='review'; row._job=j; return true; }   // worker parked it → pend for review
+    if(row._committing) return true;                           // a commit is already in flight for this row
+    row._committing=true; row._status='committing'; istRenderRows();
+    try{ const res=await ikCommitSerial(j,{...f});              // register in the registry — the same commit the drop box uses
+         if(res&&res.defer){ row._status='review'; row._job=j; } else row._status='landed'; }   // defer = needs a human → pend, keep the job so ⚑ opens the review
+    catch(_){ row._status='landed'; }                          // the data still shows; a later intake sweep retries the commit
+    row._committing=false;
+    return true;
+  }
+  return true;      // still reading — the stage text moved, so repaint
 }
 /* S4 — export the استمارة to PDF. The `.ist-page` on screen is ALREADY the pixel-faithful A4 form
    (Arial bold, 14pt title, 58mm label column, black table borders — matched to the official Word doc),
@@ -3113,6 +3154,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v140';
+window.__APP_VER = 'v141';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
