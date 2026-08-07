@@ -783,8 +783,10 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-row-busy td{color:var(--copper);font-weight:700}
 .ist-row-err td{color:#b3261e}
 .ist-rowx{border:none;background:transparent;color:#b3261e;cursor:pointer;font-size:13px;font-weight:700;padding:0 4px}
-.ist-review{display:inline-block;font-family:inherit;font-size:9.5px;font-weight:700;color:#9a6a00;background:rgba(197,149,107,.18);border:1px solid rgba(197,149,107,.55);border-radius:6px;padding:2px 8px;margin-inline-start:6px;cursor:pointer;transition:background .12s}
-.ist-review:hover{background:rgba(197,149,107,.34)}
+.ist-review{display:inline-flex;align-items:center;gap:3px;font-family:inherit;font-size:12px;font-weight:800;color:#fff;
+  background:#c9861e;border:none;border-radius:8px;padding:5px 13px;margin-inline-start:10px;cursor:pointer;
+  white-space:nowrap;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:filter .12s}
+.ist-review:hover{filter:brightness(1.08)}
 /* unsaved-work dialog */
 .ist-dlg-wrap{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(8,12,11,.55)}
 .ist-dlg{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 22px 18px;max-width:380px;width:calc(100% - 40px);box-shadow:0 18px 50px rgba(0,0,0,.5)}
