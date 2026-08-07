@@ -2101,7 +2101,7 @@ async function istExport(){
   try{
     const H=_IST.header;
     const data={ company:H.company||'', company_nat:H.company_nat||'', addr:H.addr||'', purpose:H.purpose||'',
-      stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'',
+      stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'', photo:_IST.photo||'',   // user's photo → replaces the template default
       rows:(_IST.rows||[]).filter(r=>r.passport_no||r.name).map(r=>({    // the DISPLAY values, exactly as the table shows
         name:r.name||'', nationality:r.nationality?tv(r.nationality):'', passport_no:r.passport_no||'',
         passport_expiry:istFmtDate(r.passport_expiry)||'', addr_iraq:r.addr_iraq||'', border:r.border||'',
@@ -3008,6 +3008,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v129';
+window.__APP_VER = 'v130';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
