@@ -670,7 +670,9 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 42%,transparent);white-space:nowrap;cursor:help}
 /* #11 (v80) Review filter toggle in the legal section */
 .law-review.on{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--ink)}
-/* #12 (v82) header logo — the real ICCMC mark (same as the login), theme-aware */
-.top-logo{height:30px;width:auto;display:block;flex:none;align-self:center}
-:root[data-theme="light"] .top-logo{filter:invert(1)}   /* white mark → dark on the light theme */
-@media(max-width:520px){ .top-logo{height:24px} }
+/* #12 (v83) header logo — the real ICCMC mark as a theme-tinted mask (no broken-icon; adapts to theme) */
+.top-logo{display:block;flex:none;align-self:center;height:32px;width:62px;
+  background:var(--ink);
+  -webkit-mask:url(logo.svg) left center/contain no-repeat;
+          mask:url(logo.svg) left center/contain no-repeat}
+@media(max-width:520px){ .top-logo{height:26px;width:50px} }

@@ -327,17 +327,17 @@ function renderLaw(rows){
     if(f.k!=='all' && !n) return '';
     return `<button class="fchip${LAW_FILTER===f.k?' on':''}" data-lf="${f.k}">${LANG==='ar'?f.ar:f.en}<span class="fc">${n}</span></button>`; }).join('');
   const F=LAW_FILTERS.find(f=>f.k===LAW_FILTER)||LAW_FILTERS[0];
-  const _shown=cased.filter(x=>F.match(x.c)).map(x=>x.b);
-  $('#count').textContent=_shown.length?t('n_res',_shown.length):'';
+  const _shownC=cased.filter(x=>F.match(x.c));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
+  $('#count').textContent=_shownC.length?t('n_res',_shownC.length):'';
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
     <span class="law-actR"><button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
   const _empty = LAW_FILTER==='all' ? t('law_none') : (LANG==='ar'?'لا دفعات في هذا التصنيف':'No batches in this filter');
-  const body = !_shown.length ? `<div class="empty">${_empty}</div>`
-    : _shown.map(b=>{ const s=lawPaperStatus(b);
+  const body = !_shownC.length ? `<div class="empty">${_empty}</div>`
+    : _shownC.map(({b,c})=>{ const s=lawPaperStatus(b);
     // the OLD ⚑ (law-flag) = a batch that can't connect to a منح (endpoint name missing); distinct from the timing flag below
     const _epGap=(b.interval_from==null||b.interval_to==null)||(!b.first_name&&!b.last_name);
-    // timing flag: a static batch sitting near/after a member's active visa (the Review pile); else its normal chip/await
-    const _mark=_batchFlagged(b)
+    // timing flag (reuses the precomputed case c → no double _batchFlagged): static batch near/after a member's active visa
+    const _mark=(c==='flag')
       ? `<span class="lg-flag2" title="${LANG==='ar'?'دفعة غير مرتبطة قرب فيزا سارية — راجعها':'unlinked batch near a valid visa — review'}">⚑ ${LANG==='ar'?'راجع':'review'}</span>`
       : legalChipOrAwait(b.batch_id);
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
@@ -2631,6 +2631,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v82';
+window.__APP_VER = 'v83';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
