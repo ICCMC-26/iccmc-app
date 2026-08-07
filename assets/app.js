@@ -591,15 +591,17 @@ function paintFilters(items){    // repaint ONLY the filter chips (counts) — n
     if(f.k!=='all'&&!n) return '';
     return `<button class="fchip${FILTER===f.k?' on':''}" data-f="${f.k}">${t(f.lab)}<span class="fc">${n}</span></button>`;
   }).join('');
-  // second level: «غير مكتمل» active → reveal الكل · الجواز · الفيزا (counts within the incomplete set only)
+  // second level: «غير مكتمل» active → a tinted bracket that NAMES its parent, so it clearly belongs to that
+  // chip (not the row). Counts are within the incomplete set only.
   if(FILTER==='incomplete'){
     const incF=FILTERS.find(f=>f.k==='incomplete');
     const inc=items.filter(x=>incF.match(x.s,x.r)).map(x=>x.r);
-    html+=`<div class="subfilter" role="group">`+INC_SIDES.map(sd=>{
-      const n=inc.filter(sd.match).length;
+    const opts=INC_SIDES.map(sd=>{ const n=inc.filter(sd.match).length;
       if(sd.k!=='all'&&!n) return '';
       return `<button class="subchip${INC_SIDE===sd.k?' on':''}" data-inc="${sd.k}">${t(sd.lab)}<span class="fc">${n}</span></button>`;
-    }).join('')+`</div>`;
+    }).join('');
+    html+=`<div class="subfilter"><div class="sf-box" role="group" aria-label="${esc(t('incomplete'))}">`
+      +`<span class="sf-parent">${t('incomplete')}</span><span class="sf-div"></span>${opts}</div></div>`;
   }
   bar.innerHTML=html;
 }
@@ -2698,6 +2700,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v101';
+window.__APP_VER = 'v102';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
