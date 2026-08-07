@@ -668,3 +668,5 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .lg-flag2{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:700;
   color:var(--warn);background:color-mix(in srgb,var(--warn) 15%,transparent);
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 42%,transparent);white-space:nowrap;cursor:help}
+/* #11 (v80) Review filter toggle in the legal section */
+.law-review.on{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--ink)}

@@ -250,9 +250,9 @@ async function search(q){
    The write side is review-in-place; this is the read side. Same "search IS the app" pattern applied
    to the legal domain: one box finds a batch by its منح number OR by any employee's name/passport in it.
    Click a batch → its papers (view links) + the full roster, each member linking to his employee dossier. */
-let LAWMODE=false, LAWLAST=[], _lawBatch=null, LAW_ARCHIVE=false;
+let LAWMODE=false, LAWLAST=[], _lawBatch=null, LAW_VIEW='live';   // 'live' | 'archive' | 'review'
 function setLaw(on){
-  LAWMODE=!!on; _lawBatch=null; LAW_ARCHIVE=false;   // always enter the legal section on the LIVE view, not the archive
+  LAWMODE=!!on; _lawBatch=null; LAW_VIEW='live';   // always enter the legal section on the LIVE view
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
   const q=$('#q'); if(q){ q.placeholder=LAWMODE?t('law_ph'):t('ph'); q.value=''; }
   $('#filters').innerHTML=''; $('#count').textContent='';
@@ -265,6 +265,11 @@ async function searchLegalBatches(q){
   const byB={}; (mr.data||[]).forEach(m=>{ (byB[m.batch_id]=byB[m.batch_id]||[]).push(m); });
   let rows=(br.data||[]).map(b=>({...b, members:(byB[b.batch_id]||[]).sort((a,c)=>(a.serial||0)-(c.serial||0))}));
   await loadLegalLinks(rows.map(b=>b.batch_id));
+  // #Review: current visas of all members → flag a static batch sitting near a member's ACTIVE visa
+  const _pids=[...new Set(rows.flatMap(b=>(b.members||[]).map(m=>m.person_id)).filter(Boolean))];
+  _LVISA={};
+  if(_pids.length){ try{ const {data}=await sb.from('visas').select('person_id,visa_issue_d,visa_valid_floor,visa_valid_ceiling').eq('is_current',true).in('person_id',_pids);
+    (data||[]).forEach(v=>{ if(!_LVISA[v.person_id]) _LVISA[v.person_id]=v; }); }catch(_){} }
   const ql=String(q||'').trim().toLowerCase();
   if(ql) rows=rows.filter(b=> String(b.batch_id).toLowerCase().includes(ql)
     || b.members.some(m=>String(m.passport_no||'').toLowerCase().includes(ql)||String(m.name_as_written||'').toLowerCase().includes(ql)));
@@ -273,6 +278,7 @@ async function searchLegalBatches(q){
 function lawPaperStatus(b){   // registry-driven: {key → '–'|'✓'|'⚑'} for every paper type
   const o={}; ptKeys().forEach(k=>{ const x=batchPaper(b,k); o[k]= !x.present?'–':(x.trusted?'✓':'⚑'); }); return o; }
 let _LBL={};   // #Phase2: batch_id -> v_legal_batch_link row (connection + status)
+let _LVISA={};   // #Review: person_id -> their current visa row (to flag static batches near an active visa)
 async function loadLegalLinks(ids){
   ids=[...new Set((ids||[]).filter(Boolean))]; if(!ids.length) return;
   try{ const {data}=await sb.from('v_legal_batch_link').select('batch_id,connected,batch_expiry,status,expiry_variants,connected_visa_id').in('batch_id',ids);
@@ -298,25 +304,30 @@ function legalChipOrAwait(id){ return legalStatusChip(id) || awaitingLabel(id); 
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
   rows=rows||LAWLAST; const box=$('#results'); $('#filters').innerHTML='';
-  // live vs archived: an EXPIRED batch (its connected visa lapsed) leaves the live list for the ARCHIVE — never deleted
+  // three views: LIVE (default) · ARCHIVE (expired batches) · REVIEW (static batches flagged near a member's active visa)
   const _isExp=b=>{ const l=_LBL[b.batch_id]; return !!(l && l.status==='expired'); };
-  const _archived=rows.filter(_isExp), _shown=LAW_ARCHIVE?_archived:rows.filter(b=>!_isExp(b));
+  const _archived=rows.filter(_isExp);
+  const _flagged=rows.filter(b=>!_isExp(b) && _batchFlagged(b));
+  const _shown = LAW_VIEW==='archive'?_archived : LAW_VIEW==='review'?_flagged : rows.filter(b=>!_isExp(b));
   $('#count').textContent=_shown.length?t('n_res',_shown.length):'';
-  const _archBtn=_archived.length?(LAW_ARCHIVE
-      ? `<button class="law-arch on" id="law-arch">↩ ${LANG==='ar'?'العودة للحالية':'Back to current'}</button>`
-      : `<button class="law-arch" id="law-arch">🗄 ${LANG==='ar'?'الأرشيف':'Archive'} (${_archived.length})</button>`):'';
+  const _revBtn=_flagged.length?`<button class="law-arch law-review${LAW_VIEW==='review'?' on':''}" id="law-review">🚩 ${LANG==='ar'?'مراجعة':'Review'} (${_flagged.length})</button>`:'';
+  const _archBtn=_archived.length?`<button class="law-arch${LAW_VIEW==='archive'?' on':''}" id="law-arch">🗄 ${LANG==='ar'?'الأرشيف':'Archive'} (${_archived.length})</button>`:'';
+  const _liveBtn=(LAW_VIEW!=='live')?`<button class="law-arch" id="law-live">↩ ${LANG==='ar'?'الحالية':'Current'}</button>`:'';
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
-    <span class="law-actR">${_archBtn}<button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
-  const body = !_shown.length ? `<div class="empty">${LAW_ARCHIVE?(LANG==='ar'?'لا دفعات مؤرشفة':'No archived batches'):t('law_none')}</div>`
+    <span class="law-actR">${_liveBtn}${_revBtn}${_archBtn}<button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
+  const _empty = LAW_VIEW==='archive'?(LANG==='ar'?'لا دفعات مؤرشفة':'No archived batches')
+              : LAW_VIEW==='review'?(LANG==='ar'?'لا دفعات للمراجعة':'Nothing to review'):t('law_none');
+  const body = !_shown.length ? `<div class="empty">${_empty}</div>`
     : _shown.map(b=>{ const s=lawPaperStatus(b);
-    // Flag ONLY when the batch can't CONNECT to a منح. The منح is narrow — just the two endpoints
-    // (first & last: name + serial). Connectable = has the serial INTERVAL + at least ONE endpoint name
-    // (the منح matches on serials + a % name symmetry, tolerant of one weak end). A single blank/imperfect
-    // endpoint name is therefore NOT flagged; only a genuinely-unmatchable batch is.
+    // the OLD ⚑ (law-flag) = a batch that can't connect to a منح (endpoint name missing); distinct from the timing flag below
     const _epGap=(b.interval_from==null||b.interval_to==null)||(!b.first_name&&!b.last_name);
+    // timing flag: a static batch sitting near/after a member's active visa (the Review pile); else its normal chip/await
+    const _mark=_batchFlagged(b)
+      ? `<span class="lg-flag2" title="${LANG==='ar'?'دفعة غير مرتبطة قرب فيزا سارية — راجعها':'unlinked batch near a valid visa — review'}">⚑ ${LANG==='ar'?'راجع':'review'}</span>`
+      : legalChipOrAwait(b.batch_id);
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
       <div class="ava law-ava">⚖</div>
-      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${legalChipOrAwait(b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
+      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${_mark}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
         <div class="sub">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}</div></div>
       <div class="val law-pp">${ptKeys().map(k=>`<span class="lp-ok">${ptLabel(k)} ${s[k]}</span>`).join('')}</div>
       <button class="law-cardprint" data-lawprint="${esc(b.batch_id)}" title="${t('t_print')}"><span style="font-size:15px">⎙</span></button>
@@ -324,7 +335,9 @@ function renderLaw(rows){
   box.innerHTML=addBtn+body;
   const la=$('#law-add'); if(la)la.onclick=()=>legalOpen();       // manual-batch composer, folded into Law
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
-  const ah=$('#law-arch'); if(ah)ah.onclick=()=>{ LAW_ARCHIVE=!LAW_ARCHIVE; renderLaw(rows); };   // toggle live ⇄ archive
+  const ah=$('#law-arch'); if(ah)ah.onclick=()=>{ LAW_VIEW = LAW_VIEW==='archive'?'live':'archive'; renderLaw(rows); };
+  const rh=$('#law-review'); if(rh)rh.onclick=()=>{ LAW_VIEW = LAW_VIEW==='review'?'live':'review'; renderLaw(rows); };
+  const lv=$('#law-live'); if(lv)lv.onclick=()=>{ LAW_VIEW='live'; renderLaw(rows); };
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
 async function gotoLawBatch(id){ closeEmployee(); setLaw(true); await search(''); openLawBatch(id); }
@@ -1827,24 +1840,35 @@ async function legalCommit(){
 /* ── batch classification: given his CURRENT visa, place each batch — live | past | awaiting | flag ──
    connected+expired → past ; connected+active/expiring → live ; static → judged by منح-vs-current-visa-issue. */
 function _daysBetween(aIso,bIso){ return Math.round((new Date(aIso+'T00:00:00') - new Date(bIso+'T00:00:00'))/864e5); }
-function _curVisaRef(){   // his current visa: {phase, issue} — phase active|expiring|expired, or null if he has none
-  const v=(CURRENT_VS||[]).filter(x=>x.is_current!==false)
-    .sort((a,b)=>String(b.visa_issue_d||'').localeCompare(String(a.visa_issue_d||'')))[0];
+function _visaRef(v){   // a visa row → {phase, issue}; phase active|expiring|expired, or null
   if(!v) return null;
   const fl=v.visa_valid_floor, ce=v.visa_valid_ceiling;
   let phase=null; if(fl&&ce){ const dF=daysTo(fl), dC=daysTo(ce); phase = dF>0?'active':(dC>=0?'expiring':'expired'); }
   return {phase, issue:v.visa_issue_d||null};
 }
+function _curVisaRef(){   // HIS current visa (from the open employee's CURRENT_VS)
+  const v=(CURRENT_VS||[]).filter(x=>x.is_current!==false)
+    .sort((a,b)=>String(b.visa_issue_d||'').localeCompare(String(a.visa_issue_d||'')))[0];
+  return _visaRef(v);
+}
 const BATCH_WINDOW=60;   // منح→visa window with slack (nominal 45, tolerate up to 60)
-function _batchClass(id,b){
-  const l=_LBL[id];
-  if(l && l.connected) return l.status==='expired' ? 'past' : 'live';        // has its own visa
-  const cv=_curVisaRef();                                                     // static → judge vs the CURRENT visa
+function _classVsVisa(b,cv){   // classify a STATIC batch against a given current-visa ref
   if(!cv || !cv.phase || cv.phase==='expired' || !cv.issue || !b || !b.manh_date) return 'awaiting';   // no live anchor → wait
   const gap=_daysBetween(cv.issue, b.manh_date);   // issue − منح  (positive = منح before the visa)
   if(gap > BATCH_WINDOW) return 'past';            // منح well older than the current visa's window → past
   if(gap >= 0) return 'flag';                      // sits inside/near the window yet didn't connect → illogical
   return cv.phase==='expiring' ? 'awaiting' : 'flag';   // منح newer than issue: expiring→coming renewal; active→too early→flag
+}
+function _batchClass(id,b){
+  const l=_LBL[id];
+  if(l && l.connected) return l.status==='expired' ? 'past' : 'live';   // has its own visa
+  return _classVsVisa(b, _curVisaRef());                                // static → judge vs HIS current visa
+}
+function _batchFlagged(b){   // Review: a static batch that is illogical vs SOME member's ACTIVE visa (uses _LVISA)
+  if(!b) return false;
+  const l=_LBL[b.batch_id]; if(l && l.connected) return false;          // connected → not a flag
+  return (b.members||[]).some(m=>{ if(!m.person_id) return false;
+    return _classVsVisa(b, _visaRef(_LVISA[m.person_id]))==='flag'; });
 }
 function batchMarker(id,b,cls){
   if(cls==='live') return legalStatusChip(id);
@@ -2594,6 +2618,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v79';
+window.__APP_VER = 'v80';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
