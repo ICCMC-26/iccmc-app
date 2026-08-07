@@ -684,3 +684,6 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .sort-opt{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:8px;cursor:pointer;transition:color .12s,background .12s}
 .sort-opt:hover{color:var(--ink)}
 .sort-opt.on{color:var(--ink);background:color-mix(in srgb,var(--copper) 15%,transparent)}
+/* #15 (v97) عرض button on passport/visa cards — opens the original scan; copper = obviously clickable */
+.doc-view{margin-inline-start:auto;background:color-mix(in srgb,var(--copper) 14%,transparent);border:1px solid var(--copper);color:var(--ink);border-radius:8px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;white-space:nowrap;transition:background .12s}
+.doc-view:hover{background:color-mix(in srgb,var(--copper) 26%,transparent)}

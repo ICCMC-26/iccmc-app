@@ -714,10 +714,10 @@ function renderDetail(p,vs,legal,hist){
   const P=['passport_no','passport_type','passport_issue','passport_expiry','dob','sex','nationality','place_of_birth','issuing_country','issuing_authority','national_id_no'];
   const V=['visa_no','visa_type','visa_country','visa_issue','visa_expiry','visa_entry_days','visa_stay_days'];
   const passportCard = P.some(k=>p[k]) ? `<div class="doc">
-      <div class="doc-h"><span class="doc-t">${t('t_passport')}</span>${badge(p.passport_expiry)}</div>
+      <div class="doc-h"><span class="doc-t">${t('t_passport')}</span>${badge(p.passport_expiry)}${docViewBtn(p.passport_scan||p.id_scan)}</div>
       <div class="grid">${P.map(k=>cell(k,p[k])).join('')}</div></div>` : '';
   const visaCards = curVisas.length ? curVisas.map(v=>`<div class="doc">
-      <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${visaPhase(v)}</div>
+      <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${visaPhase(v)}${docViewBtn(v.visa_scan)}</div>
       <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div>${visaLegalCover(v)}</div>`).join('')
     : `<div class="doc empty2">${t('t_novisa')}</div>`;
   $('#detail').innerHTML=`
@@ -734,9 +734,10 @@ function renderDetail(p,vs,legal,hist){
       </div>
       ${passportCard}${visaCards}${legalCard(legal)}${histCard(hist)}${visaHistCard(histVisas)}${legalHistCard(legal)}
     </div></div>`;
-  // a retired document is tappable → opens its stored scan in a new tab
-  $('#detail').querySelectorAll('.hx-row[data-scan]').forEach(el=>el.onclick=()=>openDocScan(el.getAttribute('data-scan')));
+  // عرض buttons (passport/visa cards) + retired-doc history rows → open the original scan in a new tab
+  $('#detail').querySelectorAll('[data-scan]').forEach(el=>el.onclick=()=>openDocScan(el.getAttribute('data-scan')));
 }
+function docViewBtn(scan){ return scan?`<button class="doc-view" data-scan="${esc(scan)}" title="${LANG==='ar'?'عرض المستند الأصلي':'View the original document'}">${t('lg_view')} ›</button>`:''; }
 async function openDocScan(path){ try{ if(!path)return; const u=await docUrl(path); if(u)window.open(u,'_blank','noopener'); }catch(_){} }
 
 /* ── print dossier: cover → contents → details report (w/ photo) → raw passport → raw visa ──
@@ -2649,6 +2650,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v96';
+window.__APP_VER = 'v97';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
