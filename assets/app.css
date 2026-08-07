@@ -739,12 +739,12 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* signature footer under the table — manager (right, RTL start) + authorized rep (left). Static labels; only the names type. */
 .ist-foot{display:flex;justify-content:space-between;gap:24px;margin-top:16px;text-align:center}
 .ist-sig{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:210px}
-.ist-sig-lbl{font-weight:700;font-size:10pt;color:#000}
+.ist-sig-lbl{font-weight:700;font-size:10pt;color:#000;margin-bottom:8px}   /* readable gap between the label and the name/signature (both blocks → consistent) */
 .ist-sig-sub{font-size:10pt;color:#000}
 .ist-sig-name-static{font-weight:700}
 .ist-sig-name{width:180px;margin-top:2px}
 /* photo box: top-left of the sheet (RTL → visual left) */
-.ist-photo{float:left;width:30mm;height:38mm;border:1px dashed var(--copper);margin:0 0 6px 4mm;display:flex;
+.ist-photo{float:left;width:30mm;height:38mm;border:1px dashed var(--copper);margin:0 7mm 10px 2mm;display:flex;   /* right gap → space between the photo and the field lines; bottom gap → smoothness below it */
   align-items:center;justify-content:center;text-align:center;cursor:pointer;color:var(--copper);font-size:11px;
   background:transparent;overflow:hidden;position:relative}
 .ist-photo:hover{background:rgba(197,149,107,.06)}
