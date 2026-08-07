@@ -70,6 +70,10 @@ const I18N={
     lg_saved_prov:'حُفظت دفعة مؤقتة ✓ ', lg_adopt:(n,b)=>`المنح ${n} يُكمل الدفعة: ${b}`, lg_adopt_do:'أكمِل الدفعة بهذا المنح',
     lg_adopted:'اكتملت الدفعة برقم المنح ✓ ', lg_adopt_amb:'منح يطابق أكثر من دفعة — اختر الصحيحة:', lg_manh_opt:'رقم المنح (اختياري الآن)', lg_anchor:'ثبّت الدفعة مؤقتًا', lg_merged:'دُمجت في الدفعة: ',
     law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
+    ist_new:'استمارة', ist_h:'استمارة سمة الدخول', ist_title:'استمارة طلب سمات الدخول للشركات المتعاقدة مع الوزارة',
+    ist_subj:'الموضوع', ist_company:'اسم الشركة', ist_company_nat:'جنسية الشركة', ist_addr:'عنوان الشركة داخل العراق', ist_work:'نوع العمل مع الوزارة',
+    ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'تاريخ نفاذ الجواز',
+    ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -133,6 +137,10 @@ const I18N={
     lg_saved_prov:'Provisional batch saved ✓ ', lg_adopt:(n,b)=>`Grant ${n} completes: ${b}`, lg_adopt_do:'Complete this batch with the grant',
     lg_adopted:'Batch completed with its grant number ✓ ', lg_adopt_amb:'Grant matches more than one batch — pick the right one:', lg_manh_opt:'Grant number (optional now)', lg_anchor:'Anchor provisionally', lg_merged:'Merged into batch: ',
     law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
+    ist_new:'Entry form', ist_h:'Entry-visa form', ist_title:'Application form for entry visas — companies contracted with the Ministry',
+    ist_subj:'Subject', ist_company:'Company name', ist_company_nat:'Company nationality', ist_addr:'Address in Iraq', ist_work:'Work / contract type',
+    ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport expiry',
+    ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -336,7 +344,7 @@ function renderLaw(rows){
   const _shownC=cased.filter(x=>F.match(x.c));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
   $('#count').textContent=_shownC.length?t('n_res',_shownC.length):'';
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
-    <span class="law-actR"><button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
+    <span class="law-actR"><button class="law-add" id="law-ist">＋ ${t('ist_new')}</button><button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
   const _empty = LAW_FILTER==='all' ? t('law_none') : (LANG==='ar'?'لا دفعات في هذا التصنيف':'No batches in this filter');
   const body = !_shownC.length ? `<div class="empty">${_empty}</div>`
     : _shownC.map(({b,c})=>{ const s=lawPaperStatus(b);
@@ -355,6 +363,7 @@ function renderLaw(rows){
     </div>`; }).join('');
   box.innerHTML=addBtn+body;
   const la=$('#law-add'); if(la)la.onclick=()=>legalOpen();       // manual-batch composer, folded into Law
+  const li=$('#law-ist'); if(li)li.onclick=()=>istimaraOpen();    // استمارة builder (WYSIWYG form workspace)
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
   if(bar) bar.querySelectorAll('[data-lf]').forEach(el=>el.onclick=()=>{ LAW_FILTER=el.getAttribute('data-lf'); renderLaw(rows); });
 }
@@ -1829,6 +1838,68 @@ async function legalOpen(){
   $('#legalform').classList.add('on'); document.body.style.overflow='hidden';
 }
 function legalClose(){ $('#legalform').classList.remove('on'); document.body.style.overflow=''; }
+
+/* ═══ استمارة BUILDER (S1+S2) — a WYSIWYG A4 government-form workspace. The page IS the editor:
+   header fields land live into the draft, the photo embeds. The table is fed by the OCR line (S3),
+   and export (PDF/Excel/Word) is S4. Nothing here touches the registry / OCR-commit path. ═══ */
+let _IST=null;   // the draft: {header:{...}, photo:dataURL|null, rows:[{name,nationality,passport_no,passport_expiry}]}
+function istFresh(){ return {header:{company:'',company_nat:'',addr:'',work:''}, photo:null, rows:[]}; }
+const IST_FIELDS=[
+  {k:'company',     lab:'ist_company',     ph:'ist_company_ph'},
+  {k:'company_nat', lab:'ist_company_nat'},
+  {k:'addr',        lab:'ist_addr'},
+  {k:'work',        lab:'ist_work'},
+];
+function istimaraOpen(){
+  if(!_IST) _IST=istFresh();
+  const H=_IST.header;
+  const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
+    +`<input class="ist-in" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}"></div>`;
+  $('#istimara').innerHTML=`
+    <div class="ist-wrap">
+      <div class="ist-bar">
+        <button class="icon" id="ist-close" title="${t('t_close')}">✕</button>
+        <span class="ist-t">📄 ${t('ist_h')}</span><span class="spacer"></span>
+      </div>
+      <div class="ist-stage"><div class="ist-page" id="ist-page">
+        <div class="ist-photo${_IST.photo?' has-img':''}" id="ist-photo">
+          ${_IST.photo?`<img src="${_IST.photo}" alt=""><button class="ist-ph-x" id="ist-ph-x" title="${t('t_close')}">✕</button>`
+                       :`<span class="ist-ph-hint">${t('ist_photo')}<br>＋</span>`}
+        </div>
+        <div class="ist-title">${t('ist_title')}</div>
+        <div class="ist-subj">${t('ist_subj')}: <b>${t('ist_h')}</b></div>
+        <div class="ist-fields">${IST_FIELDS.map(frow).join('')}</div>
+        <table class="ist-table">
+          <colgroup><col class="c-ser"><col class="c-name"><col class="c-nat"><col><col class="c-exp"></colgroup>
+          <thead><tr><th>${t('ist_c_ser')}</th><th>${t('ist_c_name')}</th><th>${t('ist_c_nat')}</th><th>${t('ist_c_pass')}</th><th>${t('ist_c_exp')}</th></tr></thead>
+          <tbody id="ist-tbody"></tbody>
+        </table>
+        <div class="ist-add"><button class="ist-btn primary" id="ist-add-pc">＋ ${t('ist_add_pc')}</button></div>
+      </div></div>
+    </div>`;
+  istRenderRows();
+  $('#istimara').querySelectorAll('.ist-in[data-h]').forEach(inp=>inp.addEventListener('input',()=>{ _IST.header[inp.dataset.h]=inp.value; }));
+  $('#ist-close').onclick=istimaraClose;
+  istWirePhoto();
+  const pc=$('#ist-add-pc'); if(pc) pc.onclick=()=>toast(t('ist_add_pc')+' — '+t('ist_soon'));   // S3 wires the real OCR-line upload here
+  $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
+}
+function istimaraClose(){ $('#istimara').classList.remove('on'); document.body.style.overflow=''; }
+function istRenderRows(){
+  const tb=$('#ist-tbody'); if(!tb)return;
+  if(!_IST.rows.length){ tb.innerHTML=`<tr class="ist-tbody-empty"><td colspan="5">${t('ist_empty')}</td></tr>`; return; }
+  tb.innerHTML=_IST.rows.map((r,i)=>`<tr>
+      <td>${i+1}</td><td>${esc(r.name||'—')}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
+      <td>${esc(r.passport_no||'—')}</td><td>${esc(r.passport_expiry||'—')}</td></tr>`).join('');
+}
+function istWirePhoto(){
+  const box=$('#ist-photo'); if(!box)return;
+  const x=$('#ist-ph-x'); if(x) x.onclick=e=>{ e.stopPropagation(); _IST.photo=null; istimaraOpen(); };  // remove → rebuild
+  box.onclick=()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+    inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f)return;
+      const rd=new FileReader(); rd.onload=()=>{ _IST.photo=rd.result; istimaraOpen(); }; rd.readAsDataURL(f); };
+    inp.click(); };
+}
 /* ONE commit path — used by BOTH the manual composer AND the OCR assembler. Writes the clean,
    self-navigable model: legal_batches (identity+stamps+scan pointers) + legal_batch_members (roster
    anchored to persons by passport) + MOVES each scan into legal/<batch_id>/<type> so Storage is
@@ -2688,6 +2759,7 @@ $('#detail').addEventListener('click',e=>{const _lg=e.target.closest('[data-lawg
 $('#lightbox').addEventListener('click',()=>$('#lightbox').classList.remove('on'));
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
   if($('#lightbox').classList.contains('on'))$('#lightbox').classList.remove('on');
+  else if($('#istimara').classList.contains('on'))istimaraClose();
   else if($('#legalform').classList.contains('on'))legalClose();
   else if($('#ikreview').classList.contains('on'))closeIkReview();
   else if($('#detail').classList.contains('on'))closeEmployee();
@@ -2702,6 +2774,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v103';
+window.__APP_VER = 'v104';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

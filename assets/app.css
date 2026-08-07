@@ -560,7 +560,7 @@
     @page{size:A4;margin:0}          /* margin:0 also suppresses Chrome's OWN header/date/URL footer */
     html,body{background:#fff;margin:0;padding:0}     /* kill the default body margin → no overflow page */
     body::before,body::after{display:none!important}  /* the ambient diamond wash never prints */
-    #app,#gate,#toast,#lightbox,#intake,#detail,#ikreview,#legalform{display:none!important}
+    #app,#gate,#toast,#lightbox,#intake,#detail,#ikreview,#legalform,#istimara{display:none!important}
     #print{display:block!important;color:#111;font-family:var(--sans)}
     #print .pg{box-sizing:border-box;min-height:283mm;padding:15mm 16mm 12mm;
       display:flex;flex-direction:column;overflow:hidden}
@@ -714,3 +714,57 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* #15 (v97) عرض button on passport/visa cards — opens the original scan; copper = obviously clickable */
 .doc-view{margin-inline-start:auto;background:color-mix(in srgb,var(--copper) 14%,transparent);border:1px solid var(--copper);color:var(--ink);border-radius:8px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;white-space:nowrap;transition:background .12s}
 .doc-view:hover{background:color-mix(in srgb,var(--copper) 26%,transparent)}
+
+/* ═══ استمارة BUILDER (v103+) — a WYSIWYG government-form workspace. The A4 page IS the editor:
+   header fields are inline inputs that land on the page as you type; the table is fed by the OCR line.
+   S1 = the mould · S2 = workspace (header fields + photo). S3 (OCR table) + S4 (export) follow. ═══ */
+#istimara{position:fixed;inset:0;display:none;z-index:70;background:rgba(8,12,11,.78);overflow:auto;-webkit-overflow-scrolling:touch}
+#istimara.on{display:block}
+.ist-wrap{max-width:920px;margin:0 auto;padding:14px 14px 60px}
+.ist-bar{position:sticky;top:0;display:flex;align-items:center;gap:10px;padding:10px 2px 14px;z-index:3;
+  background:linear-gradient(rgba(8,12,11,.92),rgba(8,12,11,.6) 70%,transparent)}
+.ist-bar .ist-t{font-weight:700;color:var(--ink);font-size:15px;display:flex;align-items:center;gap:8px}
+.ist-bar .spacer{flex:1}
+/* the A4 sheet — real mm so print is faithful; scaled to fit the viewport on screen via a wrapper */
+.ist-stage{display:flex;justify-content:center}
+.ist-page{background:#fff;color:#141414;width:210mm;min-height:297mm;padding:15mm 14mm;box-sizing:border-box;
+  direction:rtl;font-family:'Segoe UI',Tahoma,'Noto Naskh Arabic',Arial,sans-serif;
+  box-shadow:0 6px 30px rgba(0,0,0,.45);border-radius:2px}
+.ist-title{text-align:center;font-weight:800;font-size:16.5px;line-height:1.55;margin:0 0 4px}
+.ist-subj{text-align:center;font-weight:700;font-size:14.5px;margin:0 0 12px;color:#222}
+.ist-subj b{color:#000}
+/* photo box: top-left of the sheet (RTL → visual left) */
+.ist-photo{float:left;width:30mm;height:38mm;border:1px solid #444;margin:0 0 6px 4mm;display:flex;
+  align-items:center;justify-content:center;text-align:center;cursor:pointer;color:#999;font-size:11px;
+  background:#fafafa;overflow:hidden;position:relative}
+.ist-photo:hover{border-color:var(--copper);color:var(--copper)}
+.ist-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.ist-photo .ist-ph-hint{padding:4px;line-height:1.4}
+.ist-photo .ist-ph-x{position:absolute;top:2px;inset-inline-end:2px;width:18px;height:18px;border-radius:50%;
+  background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;font-size:12px;line-height:18px;display:none}
+.ist-photo.has-img:hover .ist-ph-x{display:block}
+/* header field rows — label + inline input that reads as printed text */
+.ist-fields{overflow:hidden}
+.ist-frow{display:flex;gap:6px;align-items:baseline;margin:6px 0;font-size:13.5px;line-height:1.7}
+.ist-lbl{font-weight:700;white-space:nowrap;color:#111}
+.ist-in{flex:1;min-width:40px;border:none;border-bottom:1px dotted #9a9a9a;background:transparent;
+  font:inherit;color:#111;padding:0 4px 1px}
+.ist-in:focus{outline:none;border-bottom-color:var(--copper);background:rgba(197,149,107,.07)}
+.ist-in::placeholder{color:#bbb}
+/* the roster table */
+.ist-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;table-layout:fixed}
+.ist-table th,.ist-table td{border:1px solid #333;padding:5px 4px;text-align:center;word-break:break-word}
+.ist-table th{background:#eee;font-weight:700;font-size:12px}
+.ist-table col.c-ser{width:8%} .ist-table col.c-nat{width:15%} .ist-table col.c-exp{width:18%}
+.ist-tbody-empty td{padding:22px 8px;color:#999;font-size:12.5px;border-style:dashed}
+/* toolbar buttons */
+.ist-btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:8px 14px;cursor:pointer;
+  font-family:var(--sans);font-size:13px;font-weight:600;border:1px solid var(--copper);
+  background:transparent;color:var(--ink);white-space:nowrap;transition:background .12s}
+.ist-btn:hover{background:color-mix(in srgb,var(--copper) 14%,transparent)}
+.ist-btn.primary{background:var(--copper);color:#160f08;border-color:var(--copper)}
+.ist-btn.primary:hover{filter:brightness(1.06)}
+/* the "add employees" bar under the table */
+.ist-add{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:14px 0 4px}
+/* on narrow screens the mm-wide sheet would overflow — let it scroll rather than break the layout */
+@media(max-width:900px){ .ist-stage{overflow-x:auto;justify-content:flex-start} }
