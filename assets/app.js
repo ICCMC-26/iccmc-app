@@ -87,7 +87,7 @@ const I18N={
     taa_h:'تعهد الشركة', taa_title:'م/ تعهد', taa_to:'الى مديرية شؤون الاقامة',
     taa_intro:'نحن مجموعة شنغهاي الصينية للكهرباء المتعاقدة مع وزارة الكهرباء في تنفيذ مشروع الدورات المركبة للمحطات (كربلاء – النجف – الحلة -الديوانية – المنصورية -الهارثة )',
     taa_body:'تتعهد الشركة بعدم تسرب الموظفين خارج موقع العمل وتتحمل الشركة تكاليف السفر في حالة مغادرتهم البلاد في الوقت المحدد .',
-    taa_c_ser:'العدد', taa_mgr_name:'احمدعبداللطيف جاسم', taa_editable:'نص افتراضي — يمكنك تعديله',
+    taa_c_ser:'العدد', taa_mgr_name:'احمدعبداللطيف جاسم', ist_still_reading:'ما زال قيد القراءة في خط المسح — سيظهر عند اكتماله', taa_editable:'نص افتراضي — يمكنك تعديله',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -168,7 +168,7 @@ const I18N={
     taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_to:'To the Directorate of Residence Affairs',
     taa_intro:'We, Shanghai Electric Group (China), contracted with the Ministry of Electricity for the combined-cycle stations project (Karbala – Najaf – Hilla – Diwaniyah – Mansuriya – Hartha)',
     taa_body:'The company undertakes that no employee will leave the work site, and bears travel costs should they leave the country at the set time.',
-    taa_c_ser:'No.', taa_mgr_name:'احمدعبداللطيف جاسم', taa_editable:'Default text — you can edit it',
+    taa_c_ser:'No.', taa_mgr_name:'احمدعبداللطيف جاسم', ist_still_reading:'Still being read by the scan line — it will appear when done', taa_editable:'Default text — you can edit it',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -2098,12 +2098,16 @@ function istRowStatusTxt(r){
    pipeline — uploaded → worker reads it → the fields fill a row → and it's COMMITTED to the registry via the
    intake's own commit (ikCommitSerial). If the scan needs a human (defer / pending-review) the row PENDS for
    review (⚑), same as the drop box; the person is finalised when it's reviewed in the OCR board. */
+// Accept EXACTLY what the OCR drop box accepts — a passport the line would read must never be turned
+// away here. A file outside those limits still gets a ROW with the reason (it used to vanish silently).
 function istAddFromPC(files){
-  const arr=Array.from(files).filter(f=> (IK_OK.test(f.type)||/\.pdf$/i.test(f.name)) && f.size<=IK_MAX);
-  if(arr.length) _IST._dirty=true;
-  for(const file of arr){
+  const all=Array.from(files); if(all.length) _IST._dirty=true;
+  for(const file of all){
+    const okType=IK_OK.test(file.type)||/\.pdf$/i.test(file.name), okSize=file.size<=IK_MAX;
     const row={name:'',nationality:'',passport_no:'',passport_expiry:'',_status:'uploading',_pct:0,_stage:'',_err:''};
-    _IST.rows.push(row); istRenderRows();
+    _IST.rows.push(row);
+    if(!okType||!okSize){ row._status='refused'; row._err=okSize?t('ik_bad'):t('ik_big'); istRenderRows(); continue; }
+    istRenderRows();
     istIngest(file,row).catch(e=>{ row._status='refused'; row._err=(e&&e.message)||t('ist_read_fail'); istRenderRows(); });
   }
 }
@@ -2120,9 +2124,15 @@ async function istIngest(file,row){
     xhr.onload=()=>(xhr.status>=200&&xhr.status<300)?res():rej(new Error('HTTP '+xhr.status));
     xhr.onerror=()=>rej(new Error('network')); xhr.send(file); });
   row._status='processing'; row._stage=''; istRenderRows();
-  const t0=Date.now();
-  while(Date.now()-t0 < 60000){
-    await new Promise(r=>setTimeout(r,2500));
+  // PATIENT like the real line. The worker reads ONE document per instance (max 6), so dropping 20
+  // passports at once means most of them QUEUE. The old 60s deadline then marked perfectly good
+  // scans "refused" while the OCR line was still happily working through them — which is exactly
+  // why the workspaces choked on a big batch and the drop box didn't. Wait up to 15 minutes, easing
+  // the poll interval as we go, and if it still hasn't landed say "still reading", never "refused".
+  const t0=Date.now(), WINDOW=15*60*1000;
+  while(Date.now()-t0 < WINDOW){
+    const waited=Date.now()-t0;
+    await new Promise(r=>setTimeout(r, waited<30000?2000 : waited<180000?4000 : 8000));
     let j; try{ const {data}=await sb.from('scan_jobs').select('job_id,status,fields,doc_type,image_path,field_conf,flagged,error_msg')
       .eq('image_hash',hash).order('created_at',{ascending:false}).limit(1); j=data&&data[0]; }catch(_){ continue; }
     if(!j) continue;
@@ -2147,7 +2157,9 @@ async function istIngest(file,row){
       istRenderRows(); return;
     }
   }
-  row._status='refused'; row._err=t('ist_read_fail'); istRenderRows();   // timed out
+  // 15 minutes and still nothing: the OCR line is simply behind, NOT a failure. Say so honestly and
+  // keep the row (and its ✕) — the scan is on the board and will finish; re-open to see it landed.
+  row._status='refused'; row._err=t('ist_still_reading'); istRenderRows();
 }
 /* S4 — export the استمارة to PDF. The `.ist-page` on screen is ALREADY the pixel-faithful A4 form
    (Arial bold, 14pt title, 58mm label column, black table borders — matched to the official Word doc),
@@ -3104,6 +3116,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v137';
+window.__APP_VER = 'v138';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
