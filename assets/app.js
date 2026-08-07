@@ -1692,9 +1692,9 @@ function ikBuildReview(){
   const jk=_rvJob, j=jk.job;
   const fl=(j.flagged||[]).filter(k=>k!=='doc_type' && k!=='mrz');    // what needs checking (mrz is machine-only — a human can't retype it, so never a fill field)
   const present=k=>j.fields&&j.fields[k]!=null&&String(j.fields[k]).trim()!=='';
-  const typeSet=TYPE_FIELDS[j.doc_type]||RV_ORDER;                    // every field this doc can carry
+  const typeSet=jk._fields||TYPE_FIELDS[j.doc_type]||RV_ORDER;        // every field this doc can carry (استمارة review = only its columns)
   const filled=typeSet.filter(k=>present(k)||fl.includes(k));         // what's read or flagged
-  const keys=_rvShowAll?typeSet:(fl.length?fl:filled.slice(0,5));     // show-all reveals empties too
+  const keys=jk._fields?typeSet:(_rvShowAll?typeSet:(fl.length?fl:filled.slice(0,5)));   // استمارة shows its columns; else flagged/show-all
   const hidden=typeSet.length-keys.length;
   const rows=keys.map(k=>{
     const val=(j.fields&&j.fields[k])??''; const conf=j.field_conf&&j.field_conf[k];
@@ -1773,7 +1773,7 @@ async function ikDoAdd(forcePid){
   document.querySelectorAll('#rvw-fields input').forEach(inp=>{ f[inp.dataset.k]=inp.value.trim(); });
   // MANDATORY: a field this document REQUIRES cannot be committed empty — the reviewer opened
   // this because it was missing/unsure, so a hand-typed value is required before continuing.
-  const _need=(REQ_BY_TYPE[j.doc_type]||[]).filter(k=>!String(f[k]||'').trim());
+  const _need=(jk._req||REQ_BY_TYPE[j.doc_type]||[]).filter(k=>!String(f[k]||'').trim());
   if(_need.length){ toast(t('rv_need')+' '+_need.map(fieldLabel).join('، ')); return; }
   // logical date check — refuse an impossible ordering with a clear reason, before any write
   const derr=validateDates(f); if(derr){ toast(derr); return; }
@@ -1962,7 +1962,9 @@ function istPickFiles(){ const inp=document.createElement('input'); inp.type='fi
 // ikDoAdd writes the corrected data back into this استمارة row (via _rvJob._istRow) and flips it to done.
 function istOpenReview(i){
   const row=_IST.rows[i]; if(!row||!row._job){ toast(t('ist_read_fail')); return; }
-  _rvJob={ id:'ist-'+i, job:row._job, file:row._file||{name:(row.name||row.passport_no||'passport')}, _scanUrl:null, _istRow:row }; _rvShowAll=false;
+  _rvJob={ id:'ist-'+i, job:row._job, file:row._file||{name:(row.name||row.passport_no||'passport')}, _scanUrl:null, _istRow:row,
+    _fields:['name_latin','name_native','nationality','passport_no','passport_expiry'],   // review only the استمارة columns
+    _req:['name_latin','passport_no'] }; _rvShowAll=false;                                 // require just the identity; the rest commits from the OCR
   ikBuildReview(); $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
 }
 // the استمارة date format: day/month/year, zero-padded (dd/mm/yyyy). Handles ISO (yyyy-mm-dd) or an
@@ -2912,6 +2914,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v118';
+window.__APP_VER = 'v119';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
