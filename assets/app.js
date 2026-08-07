@@ -87,7 +87,7 @@ const I18N={
     taa_h:'تعهد الشركة', taa_title:'م/ تعهد', taa_to:'الى مديرية شؤون الاقامة',
     taa_intro:'نحن مجموعة شنغهاي الصينية للكهرباء المتعاقدة مع وزارة الكهرباء في تنفيذ مشروع الدورات المركبة للمحطات (كربلاء – النجف – الحلة -الديوانية – المنصورية -الهارثة )',
     taa_body:'تتعهد الشركة بعدم تسرب الموظفين خارج موقع العمل وتتحمل الشركة تكاليف السفر في حالة مغادرتهم البلاد في الوقت المحدد .',
-    taa_c_ser:'العدد',
+    taa_c_ser:'العدد', taa_editable:'نص افتراضي — يمكنك تعديله',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -168,7 +168,7 @@ const I18N={
     taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_to:'To the Directorate of Residence Affairs',
     taa_intro:'We, Shanghai Electric Group (China), contracted with the Ministry of Electricity for the combined-cycle stations project (Karbala – Najaf – Hilla – Diwaniyah – Mansuriya – Hartha)',
     taa_body:'The company undertakes that no employee will leave the work site, and bears travel costs should they leave the country at the set time.',
-    taa_c_ser:'No.',
+    taa_c_ser:'No.', taa_editable:'Default text — you can edit it',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -1902,8 +1902,11 @@ const IST_PAPERS={
           {k:'res_country',lab:'ist_c_country',hand:1},{k:'visited',lab:'ist_c_visited',hand:1}] },
   // تعهد — the WHOLE form is STATIC (letterhead logo, the «الى…»/«م/ تعهد» heads, the «نحن…»
   // sentence, the undertaking body, the manager signature). ONLY THE TABLE IS BUILT.
+  // Its wording is the DEFAULT and stays CHANGEABLE — `texts` are editable lines (copper = editable,
+  // our standing affordance) pre-filled with the original sentences; only the logo, «م/ تعهد» and the
+  // manager signature are truly fixed. Empty → the worker restores the original wording.
   taahud:{ h:'taa_h', title:'taa_title', photo:false, land:false,
-    fields:[], head:'taa_to', statics:['taa_intro','taa_body'],
+    fields:[], texts:[{k:'to_line',d:'taa_to',cls:'to'},{k:'intro',d:'taa_intro'},{k:'body',d:'taa_body'}],
     cols:[{k:'_ser',lab:'taa_c_ser'},{k:'name',lab:'ist_c_name'},{k:'passport_no',lab:'ist_c_pass'}] },
 };
 function istPaper(){ return IST_PAPERS[(_IST&&_IST.paper)||'istimara']||IST_PAPERS.istimara; }
@@ -1913,6 +1916,12 @@ function istimaraOpen(paper){
   const P=istPaper(), H=_IST.header;
   const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
     +`<input class="ist-in" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}"></div>`;
+  // an EDITABLE text line of the form: the paper's original wording is the DEFAULT, and the copper
+  // affordance (our "you can type here" convention) says out loud that it can be changed.
+  const txt=i=>{ const x=(P.texts||[])[i]; if(!x) return '';
+    const v = (H[x.k]!=null && H[x.k]!=='') ? H[x.k] : t(x.d);
+    return `<div class="ist-tx${x.cls?' '+x.cls:''}" contenteditable="plaintext-only" data-h="${x.k}"
+      title="${esc(t('taa_editable'))}">${esc(v)}</div>`; };
   const photoBox = P.photo ? `<div class="ist-photo${_IST.photo?' has-img':''}" id="ist-photo">
           ${_IST.photo?`<img src="${_IST.photo}" alt=""><button class="ist-ph-x" id="ist-ph-x" title="${t('t_close')}">✕</button>`
                        :`<span class="ist-ph-hint">${t('ist_photo')}<br>＋</span>`}
@@ -1937,10 +1946,10 @@ function istimaraOpen(paper){
       <div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="ist-page">
         <div class="ist-body">
         ${photoBox}
-        ${P.head?`<div class="ist-static to">${t(P.head)}</div>`:''}
+        ${txt(0)}
         <div class="ist-title">${t(P.title)}</div>
         ${P.fields.length?`<div class="ist-fields">${P.fields.map(frow).join('')}</div>`:''}
-        ${(P.statics||[]).map(k=>`<div class="ist-static">${t(k)}</div>`).join('')}
+        ${(P.texts||[]).slice(1).map((x,i)=>txt(i+1)).join('')}
         <table class="ist-table ${_IST.paper}">
           <colgroup>${cgroup}</colgroup>
           <thead><tr>${heads}</tr></thead>
@@ -1962,6 +1971,9 @@ function istimaraOpen(paper){
     const k=inp.dataset.h; _IST.header[k]=inp.value; _IST._dirty=true;
     $('#istimara').querySelectorAll('.ist-in[data-h="'+k+'"]').forEach(o=>{ if(o!==inp) o.value=inp.value; });  // sync twins (المخول shows in the undertaking AND the footer)
   }));
+  // the editable TEXT lines (the تعهد's sentences) — typed text lands in the draft like any field
+  $('#istimara').querySelectorAll('.ist-tx[data-h]').forEach(el=>el.addEventListener('input',()=>{
+    _IST.header[el.dataset.h]=el.textContent; _IST._dirty=true; }));
   $('#ist-close').onclick=istRequestClose;   // guard unsaved work
   { const ex=$('#ist-export'); if(ex) ex.onclick=istExport; }   // S4 — print / save as PDF (landscape, clean)
   istWirePhoto();
@@ -2160,6 +2172,7 @@ async function istExport(){
     const data={ paper:_IST.paper||'istimara',                              // picks the Word template on the worker
       company:H.company||'', company_nat:H.company_nat||'', addr:H.addr||'', purpose:H.purpose||'',
       stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'', project:H.project||'',
+      to_line:H.to_line||'', intro:H.intro||'', body:H.body||'',   // تعهد's editable sentences (empty → worker restores the original)
       photo:_IST.photo||'',   // user's photo → replaces the template default
       rows:(_IST.rows||[]).filter(r=>r.passport_no||r.name).map(r=>({    // the DISPLAY values, exactly as the table shows
         name:r.name||'', nationality:r.nationality?tv(r.nationality):'', passport_no:r.passport_no||'',
@@ -3067,6 +3080,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v132';
+window.__APP_VER = 'v133';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
