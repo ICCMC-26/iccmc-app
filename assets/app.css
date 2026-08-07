@@ -765,9 +765,9 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-sig-name-static{font-weight:700}
 .ist-sig-name{width:180px;margin-top:2px}
 /* photo box: top-left of the sheet (RTL → visual left) */
-.ist-photo{float:left;width:30mm;height:38mm;border:1px dashed var(--copper);margin:0 7mm 10px 2mm;display:flex;   /* right gap → space between the photo and the field lines; bottom gap → smoothness below it */
-  align-items:center;justify-content:center;text-align:center;cursor:pointer;color:var(--copper);font-size:11px;
-  background:transparent;overflow:hidden;position:relative}
+.ist-photo{float:left;width:30mm;height:38mm;border:2px dashed var(--copper);margin:0 7mm 10px 2mm;display:flex;   /* right gap → space between the photo and the field lines; bottom gap → smoothness below it */
+  align-items:center;justify-content:center;text-align:center;cursor:pointer;color:var(--copper);font-size:13px;font-weight:700;
+  background:rgba(197,149,107,.06);overflow:hidden;position:relative}
 .ist-photo:hover{background:rgba(197,149,107,.06)}
 .ist-photo.has-img{border:1px solid #444;background:#fafafa}   /* once a photo is in, it's a plain frame */
 .ist-photo img{width:100%;height:100%;object-fit:cover;display:block}
@@ -781,10 +781,10 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-lbl{width:58mm;flex:none;font-weight:700;white-space:nowrap;color:#000}   /* fixed label column → all values align (the doc's spaces-to-a-column) */
 /* editable fields = a single subtle copper UNDERLINE (fill-in-the-blank), the app's minimal/pro convention —
    visible enough to find, quiet enough to read as the form. Screen-only cue; S4/print strips it (clean PDF). */
-.ist-in{flex:1;min-width:40px;border:none;border-bottom:1px solid rgba(197,149,107,.5);background:transparent;
+.ist-in{flex:1;min-width:40px;border:none;border-bottom:1.8px solid rgba(197,149,107,.9);background:transparent;
   font:inherit;color:#000;padding:0 3px 2px}
 .ist-in:hover{border-bottom-color:var(--copper)}
-.ist-in:focus{outline:none;border-bottom-color:var(--copper);border-bottom-width:1.5px}
+.ist-in:focus{outline:none;border-bottom-color:var(--copper);border-bottom-width:2.2px}
 .ist-in::placeholder{color:#bbb}
 /* the roster table */
 .ist-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:10pt;table-layout:fixed}
@@ -794,12 +794,12 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-table col.c-ser{width:9.5%} .ist-table col.c-name{width:31%} .ist-table col.c-nat{width:14.7%} .ist-table col.c-pass{width:25.8%} .ist-table col.c-exp{width:19%}
 /* the add-zone IS the table body — clickable + droppable like the OCR upload box (screen-only; S4/print strips it).
    `.ist-table td.ist-drop` beats the table's own `.ist-table td` solid-black border rule. */
-.ist-table td.ist-drop{cursor:pointer;text-align:center;color:var(--copper);border:1.5px dashed var(--copper);
-  padding:26px 8px;font-weight:700;transition:background .12s}
-.ist-table td.ist-drop.slim{padding:9px 8px}
-.ist-table td.ist-drop:hover,.ist-table td.ist-drop.over{background:rgba(197,149,107,.09)}
-.ist-drop-hint{display:inline-block;line-height:1.9;font-size:13px}
-.ist-drop-hint em{font-style:normal;font-weight:400;font-size:11px;color:#9a9a9a}
+.ist-table td.ist-drop{cursor:pointer;text-align:center;color:var(--copper);border:2.5px dashed var(--copper);
+  padding:26px 8px;font-weight:800;font-size:15px;background:rgba(197,149,107,.06);transition:background .12s}
+.ist-table td.ist-drop.slim{padding:10px 8px}
+.ist-table td.ist-drop:hover,.ist-table td.ist-drop.over{background:rgba(197,149,107,.14)}
+.ist-drop-hint{display:inline-block;line-height:1.75;font-size:17px}
+.ist-drop-hint em{font-style:normal;font-weight:600;font-size:13px;color:#7a6a55}
 /* S3 row states while a passport is read through the OCR line */
 .ist-row-busy td{color:var(--copper);font-weight:700}
 .ist-row-err td{color:#b3261e}
@@ -809,6 +809,7 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   font-size:12px;font-weight:800;line-height:1;padding:5px 11px;border-radius:8px;color:#b3261e;
   background:rgba(179,38,30,.12);border:1px solid rgba(179,38,30,.5)}
 .ist-rowx:hover{background:rgba(179,38,30,.2);border-color:#b3261e}
+.ist-rowx.sm{padding:2px 8px;font-size:13px;margin-inline-start:6px}   /* compact ✕ next to the ⚑ on a review row */
 .ist-review{display:inline-flex;align-items:center;gap:3px;font-family:inherit;font-size:12px;font-weight:800;color:#fff;
   background:#c9861e;border:none;border-radius:8px;padding:5px 13px;margin-inline-start:10px;cursor:pointer;
   white-space:nowrap;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:filter .12s}

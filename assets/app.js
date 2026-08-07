@@ -1944,7 +1944,10 @@ function istRenderRows(){
       return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="4">${esc(istRowStatusTxt(r))}</td></tr>`;
     if(r._status==='refused')
       return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('ist_remove')}">✕ ${esc(t('ist_remove'))}</button></td></tr>`;
-    const badge = r._status==='review'?` <button class="ist-review" data-istreview="${i}" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_review'))}</button>`:'';   // clickable → opens the OCR review pane to fix/confirm
+    // a pending-review row: review-and-commit (⚑) OR reject it (✕) — an uncommitted item must be removable
+    const badge = r._status==='review'
+      ? ` <button class="ist-review" data-istreview="${i}" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_review'))}</button><button class="ist-rowx sm" data-rmrow="${i}" title="${esc(t('ist_remove'))}">✕</button>`
+      : '';   // clickable → opens the OCR review pane to fix/confirm
     return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}${badge}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
       <td>${esc(r.passport_no||'—')}</td><td>${esc(istFmtDate(r.passport_expiry)||'—')}</td></tr>`;
   }).join('');
@@ -1953,7 +1956,18 @@ function istRenderRows(){
     ? `<tr class="ist-addrow"><td colspan="5" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_pc'))}</td></tr>`
     : `<tr class="ist-addrow"><td colspan="5" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('ist_add_pc'))}<br><em>${esc(t('ist_drop_sub'))}</em></span></td></tr>`;
   tb.innerHTML=dataHtml+drop;
-  tb.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=()=>{ _IST.rows.splice(+b.dataset.rmrow,1); _IST._dirty=true; istRenderRows(); });   // drop a failed row
+  // remove an UNCOMMITTED row (refused / pending-review): also clear its worker scan_jobs row so nothing
+  // lingers in the review queue — no leaks. (The storage blob is swept by the janitor, sweep_orphan_files,
+  // which is hash-protected so it never deletes a committed document's shared scan.) A committed/landed row
+  // is never removed here — it has no _hash left to purge and keeps its registry record.
+  tb.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=async()=>{
+    const i=+b.dataset.rmrow, row=_IST.rows[i]; if(!row)return; b.disabled=true;
+    if(row._hash && sb && row._status!=='landed'){
+      try{ await sb.from('scan_jobs').delete().eq('image_hash',row._hash).not('status','in','(done,committed)'); }
+      catch(_){ /* best-effort; the janitor still reconciles the queue */ }
+    }
+    _IST.rows.splice(i,1); _IST._dirty=true; istRenderRows();
+  });
   tb.querySelectorAll('[data-istreview]').forEach(b=>b.onclick=()=>istOpenReview(+b.dataset.istreview));   // ⚑ → open the OCR review pane
   const dz=$('#ist-drop'); if(dz){
     dz.onclick=istPickFiles;
@@ -2030,7 +2044,8 @@ async function istIngest(file,row){
     // BEFORE the name check below, so a legal roster's names never slip into a passport commit. (The paper is
     // still captured by the legal pipeline; it simply doesn't belong in this table — handle it in المعاملات.)
     if(j.status==='legal-review' || String(j.doc_type||'').startsWith('legal')){
-      row._status='refused'; row._err=t('ist_not_passport'); istRenderRows(); return;
+      row._status='refused'; row._err=t('ist_not_passport'); row._job=j;   // keep the job so ✕ can purge it (no leak)
+      istRenderRows(); return;
     }
     const f=j.fields||{};
     if(f.passport_no||f.name_latin){
@@ -2940,6 +2955,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v123';
+window.__APP_VER = 'v124';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
