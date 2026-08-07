@@ -241,7 +241,9 @@ async function search(q){
   const {data,error}=await sb.rpc('search_employees',{q});
   if(seq!==_seq)return;                            // a newer keystroke won
   if(error){toast(error.message);return}
-  LAST=sortRows(data||[]);                             // apply the chosen sort (number / name / newest)
+  // SEARCH = relevance order (the RPC ranks exact/prefix first — best match on top, direct & pro).
+  // BROWSE (empty box) = the chosen sort chip (number / name / newest).
+  LAST = String(q||'').trim() ? (data||[]) : sortRows(data||[]);
   render(LAST);                                        // PAINT after one round-trip — don't wait on the 2nd query
   // the per-row legal-gap counts (a filter-chip only) load in the BACKGROUND, then re-render — they never
   // block the results from appearing. A newer keystroke (seq bumped) discards a stale background result.
@@ -2700,6 +2702,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v102';
+window.__APP_VER = 'v103';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
