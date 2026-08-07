@@ -152,6 +152,7 @@ function applyLang(){
   $('#ik-h').textContent=t('add');
   $('#dz-t').textContent=t('dz_t'); $('#dz-s').textContent=t('dz_s');
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
+  paintSort();                                            // re-label the sort control for the new language
   if(LAWMODE)renderLaw(LAWLAST); else render(LAST);       // re-label result chrome (law or employees)
 }
 function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang',LANG)}catch(_){}applyLang()}
@@ -237,7 +238,7 @@ async function search(q){
   const {data,error}=await sb.rpc('search_employees',{q});
   if(seq!==_seq)return;                            // a newer keystroke won
   if(error){toast(error.message);return}
-  LAST=data||[];
+  LAST=sortRows(data||[]);                             // apply the chosen sort (number / name / newest)
   render(LAST);                                        // PAINT after one round-trip — don't wait on the 2nd query
   // the per-row legal-gap counts (a filter-chip only) load in the BACKGROUND, then re-render — they never
   // block the results from appearing. A newer keystroke (seq bumped) discards a stale background result.
@@ -548,6 +549,21 @@ function ensurePdfjs(){   // #5: load pdf.js only when a PDF is actually opened 
   });
   return _pdfjsP;
 }   // Phase G UI-smoothness flags (flip a key false to revert that seam)
+/* ── list sort — minimalist: by number (EMP serial asc), by name, or newest (serial desc).
+   Pure client-side: the EMP serial already tracks creation order, so "newest" = highest number first. */
+let SORT=(()=>{try{const s=localStorage.getItem('iccmc_sort');return ['num','name','new'].includes(s)?s:'num'}catch(_){return'num'}})();
+function _pidNum(id){ const m=String(id||'').match(/\d+/); return m?+m[0]:0; }
+function sortRows(rows){ const a=(rows||[]).slice();
+  if(SORT==='name') a.sort((x,y)=>String(x.name||'').localeCompare(String(y.name||''),undefined,{numeric:true,sensitivity:'base'}));
+  else if(SORT==='new') a.sort((x,y)=>_pidNum(y.person_id)-_pidNum(x.person_id));   // newest first (highest EMP no.)
+  else a.sort((x,y)=>_pidNum(x.person_id)-_pidNum(y.person_id));                      // by number, ascending
+  return a; }
+const SORT_OPTS=[{k:'num',ar:'رقم',en:'No.'},{k:'name',ar:'اسم',en:'Name'},{k:'new',ar:'الأحدث',en:'Newest'}];
+function paintSort(){ const bar=$('#sortbar'); if(!bar)return;
+  bar.innerHTML=`<span class="sort-lbl">${LANG==='ar'?'ترتيب':'Sort'}</span>`
+    +SORT_OPTS.map(o=>`<button class="sort-opt${SORT===o.k?' on':''}" data-sort="${o.k}">${LANG==='ar'?o.ar:o.en}</button>`).join(''); }
+function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; try{localStorage.setItem('iccmc_sort',k)}catch(_){}
+  paintSort(); LAST=sortRows(LAST); render(LAST); }
 function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
   const bar=$('#filters'); if(!bar) return;
   bar.innerHTML=FILTERS.map(f=>{
@@ -1448,6 +1464,8 @@ $('#signin').addEventListener('click',signIn);
 $('#pass').addEventListener('keydown',e=>{if(e.key==='Enter')signIn()});
 $('#glang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 $('#tlang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
+paintSort();   // render the sort control once; delegated click (survives repaints)
+{ const _sb=$('#sortbar'); if(_sb)_sb.addEventListener('click',e=>{const b=e.target.closest('[data-sort]');if(b)setSort(b.dataset.sort);}); }
 $('#ttheme').addEventListener('click',toggleTheme);
 $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.auth.signOut();location.reload()}});
 $('#add').addEventListener('click',openIntake);
@@ -2631,6 +2649,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v91';
+window.__APP_VER = 'v92';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
