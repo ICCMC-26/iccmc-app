@@ -667,13 +667,17 @@
   /* ── S4 · استمارة EXPORT — print the LIVE .ist-page (WYSIWYG) on a LANDSCAPE A4, cues stripped.
      Set by istExport() adding `body.ist-print`; wins over the dossier print rules by specificity. ── */
   @media print{
-    @page ist{size:A4 landscape;margin:0}
+    /* landscape is forced by a GLOBAL @page injected by istExport() for this job only (Chrome ignores a
+       NAMED @page's orientation) — not declared here, so the dossier's portrait print stays untouched. */
     body.ist-print{background:#fff}
     body.ist-print #print{display:none!important}                       /* the dossier container: unused here */
-    body.ist-print #istimara{display:block!important;position:static;background:#fff;overflow:visible;z-index:auto}
+    body.ist-print #istimara{display:block!important;position:static;background:#fff;overflow:visible;z-index:auto;margin:0;padding:0}
     body.ist-print .ist-wrap{max-width:none;margin:0;padding:0}
-    body.ist-print .ist-stage{display:block;overflow:visible}
-    body.ist-print .ist-page{page:ist;width:auto;min-height:auto;margin:0;box-shadow:none}
+    body.ist-print .ist-stage{display:block;margin:0;padding:0;overflow:visible}
+    /* min-height 205mm (just under the 210mm landscape page) → the footer reaches the bottom of a
+       one-page form, but the sheet never overflows into a blank second page. A long roster still flows
+       naturally onto more pages (content, never blank). */
+    body.ist-print .ist-page{width:auto;min-height:208mm;margin:0;box-shadow:none;border-radius:0}
     body.ist-print .ist-bar{display:none!important}                     /* toolbar off the paper */
     body.ist-print .ist-in{border:none!important}                       /* copper fill-in underline → clean text */
     body.ist-print .ist-addrow,body.ist-print .ist-review,
@@ -752,7 +756,9 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* match the official Word doc: Arial (cs font) for Arabic + Calibri for Latin, and the WHOLE form is BOLD */
 .ist-page{background:#fff;color:#000;width:297mm;min-height:210mm;flex:none;padding:7.5mm 12.7mm 12.7mm;box-sizing:border-box;
   direction:rtl;font-family:Arial,Calibri,'Segoe UI',Tahoma,sans-serif;font-weight:700;
-  box-shadow:0 6px 30px rgba(0,0,0,.45);border-radius:2px}
+  box-shadow:0 6px 30px rgba(0,0,0,.45);border-radius:2px;
+  display:flex;flex-direction:column}                 /* column so the signature footer sits at the page BOTTOM */
+.ist-body{flex:1 0 auto}                                /* the form content grows → pushes .ist-foot to the page bottom (photo floats INSIDE this block, so the float still works) */
 .ist-title{text-align:center;font-weight:700;font-size:14pt;line-height:1.4;margin:0 0 16px}
 .ist-undertaking{margin:10px 0 4px;font-size:10pt;line-height:2;text-align:justify;color:#000}
 .ist-in-name{display:inline-block;width:190px;flex:none;font-weight:700;text-align:center;

@@ -1878,6 +1878,7 @@ function istimaraOpen(){
         <button class="ist-exp" id="ist-export" title="${esc(t('ist_export_tip'))}">🖨 ${t('ist_export')}</button>
       </div>
       <div class="ist-stage"><div class="ist-page" id="ist-page">
+        <div class="ist-body">
         <div class="ist-photo${_IST.photo?' has-img':''}" id="ist-photo">
           ${_IST.photo?`<img src="${_IST.photo}" alt=""><button class="ist-ph-x" id="ist-ph-x" title="${t('t_close')}">✕</button>`
                        :`<span class="ist-ph-hint">${t('ist_photo')}<br>＋</span>`}
@@ -1890,6 +1891,7 @@ function istimaraOpen(){
           <tbody id="ist-tbody"></tbody>
         </table>
         <div class="ist-undertaking">${t('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${esc(H.authorized||'')}"> ${t('ist_undertaking_post')}</div>
+        </div><!-- /ist-body : content grows to push the signature footer to the page bottom -->
         <div class="ist-foot">
           <div class="ist-sig"><div class="ist-sig-lbl">${t('ist_sig_mgr')}</div>
             <div class="ist-sig-sub">${t('ist_sig_mgr_title')}</div>
@@ -2068,8 +2070,17 @@ async function istIngest(file,row){
    A4 page. The user prints → then physically stamps + signs → scans → submits. */
 function istExport(){
   if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no||r.name)){ toast(t('ist_export_empty')); return; }
+  // Force LANDSCAPE for THIS print job only. Chrome ignores the size/orientation of a NAMED @page,
+  // so we inject a GLOBAL `@page{landscape}` just for the duration of the export (the dossier isn't
+  // being printed at this moment) and remove it on afterprint — so the dossier's portrait print is
+  // untouched. This is what stops the استمارة spilling onto a blank portrait second sheet.
+  let st=document.getElementById('ist-page-orient');
+  if(!st){ st=document.createElement('style'); st.id='ist-page-orient';
+    st.textContent='@media print{@page{size:A4 landscape;margin:0}}'; document.head.appendChild(st); }
   document.body.classList.add('ist-print');
-  const done=()=>{ document.body.classList.remove('ist-print'); window.removeEventListener('afterprint',done); };
+  const done=()=>{ document.body.classList.remove('ist-print');
+    const s=document.getElementById('ist-page-orient'); if(s)s.remove();
+    window.removeEventListener('afterprint',done); };
   window.addEventListener('afterprint',done);
   setTimeout(()=>{ try{ window.print(); }catch(_){ done(); } }, 40);   // let the print CSS settle first
 }
@@ -2955,6 +2966,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v124';
+window.__APP_VER = 'v125';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
