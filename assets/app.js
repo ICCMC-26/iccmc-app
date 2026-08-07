@@ -250,9 +250,9 @@ async function search(q){
    The write side is review-in-place; this is the read side. Same "search IS the app" pattern applied
    to the legal domain: one box finds a batch by its منح number OR by any employee's name/passport in it.
    Click a batch → its papers (view links) + the full roster, each member linking to his employee dossier. */
-let LAWMODE=false, LAWLAST=[], _lawBatch=null, LAW_VIEW='live';   // 'live' | 'archive' | 'review'
+let LAWMODE=false, LAWLAST=[], _lawBatch=null, LAW_FILTER='all';   // legal-section case filter (chips)
 function setLaw(on){
-  LAWMODE=!!on; _lawBatch=null; LAW_VIEW='live';   // always enter the legal section on the LIVE view
+  LAWMODE=!!on; _lawBatch=null; LAW_FILTER='all';   // enter the legal section on "All"
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
   const q=$('#q'); if(q){ q.placeholder=LAWMODE?t('law_ph'):t('ph'); q.value=''; }
   $('#filters').innerHTML=''; $('#count').textContent='';
@@ -301,22 +301,37 @@ function awaitingLabel(id){   // static presence → honest "pending; the visa t
   return `<span class="lg-await" title="${LANG==='ar'?'لا فيزا مرتبطة بعد — تتحدد حياته عند ظهور الفيزا':'no connected visa yet — its life resolves when the visa appears'}">${LANG==='ar'?'⏳ بانتظار الفيزا':'⏳ awaiting visa'}</span>`;
 }
 function legalChipOrAwait(id){ return legalStatusChip(id) || awaitingLabel(id); }   // a visa timed it → phase chip; else the pending label
+/* legal-section case filter — chips like the employee search; each batch bucketed by its case */
+function _batchSectionCase(b){
+  const l=_LBL[b.batch_id];
+  if(l && l.status==='expired')  return 'expired';
+  if(l && l.status==='active')   return 'active';
+  if(l && l.status==='expiring') return 'expiring';
+  return _batchFlagged(b) ? 'flag' : 'awaiting';   // static → flagged (review) or awaiting
+}
+const LAW_FILTERS=[
+  {k:'all',      ar:'الكل',           en:'All',      match:()=>true},
+  {k:'active',   ar:'ساري',           en:'Active',   match:c=>c==='active'},
+  {k:'expiring', ar:'قارب الانتهاء',  en:'Expiring', match:c=>c==='expiring'},
+  {k:'awaiting', ar:'بانتظار الفيزا', en:'Awaiting', match:c=>c==='awaiting'},
+  {k:'flag',     ar:'مراجعة',         en:'Review',   match:c=>c==='flag'},
+  {k:'expired',  ar:'الأرشيف',        en:'Archive',  match:c=>c==='expired'},
+];
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
-  rows=rows||LAWLAST; const box=$('#results'); $('#filters').innerHTML='';
-  // three views: LIVE (default) · ARCHIVE (expired batches) · REVIEW (static batches flagged near a member's active visa)
-  const _isExp=b=>{ const l=_LBL[b.batch_id]; return !!(l && l.status==='expired'); };
-  const _archived=rows.filter(_isExp);
-  const _flagged=rows.filter(b=>!_isExp(b) && _batchFlagged(b));
-  const _shown = LAW_VIEW==='archive'?_archived : LAW_VIEW==='review'?_flagged : rows.filter(b=>!_isExp(b));
+  rows=rows||LAWLAST; const box=$('#results');
+  // classify every batch into a case, render filter chips (counts), then show the chosen case
+  const cased=rows.map(b=>({b, c:_batchSectionCase(b)}));
+  const bar=$('#filters');
+  if(bar) bar.innerHTML=LAW_FILTERS.map(f=>{ const n=cased.filter(x=>f.match(x.c)).length;
+    if(f.k!=='all' && !n) return '';
+    return `<button class="fchip${LAW_FILTER===f.k?' on':''}" data-lf="${f.k}">${LANG==='ar'?f.ar:f.en}<span class="fc">${n}</span></button>`; }).join('');
+  const F=LAW_FILTERS.find(f=>f.k===LAW_FILTER)||LAW_FILTERS[0];
+  const _shown=cased.filter(x=>F.match(x.c)).map(x=>x.b);
   $('#count').textContent=_shown.length?t('n_res',_shown.length):'';
-  const _revBtn=_flagged.length?`<button class="law-arch law-review${LAW_VIEW==='review'?' on':''}" id="law-review">🚩 ${LANG==='ar'?'مراجعة':'Review'} (${_flagged.length})</button>`:'';
-  const _archBtn=_archived.length?`<button class="law-arch${LAW_VIEW==='archive'?' on':''}" id="law-arch">🗄 ${LANG==='ar'?'الأرشيف':'Archive'} (${_archived.length})</button>`:'';
-  const _liveBtn=(LAW_VIEW!=='live')?`<button class="law-arch" id="law-live">↩ ${LANG==='ar'?'الحالية':'Current'}</button>`:'';
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
-    <span class="law-actR">${_liveBtn}${_revBtn}${_archBtn}<button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
-  const _empty = LAW_VIEW==='archive'?(LANG==='ar'?'لا دفعات مؤرشفة':'No archived batches')
-              : LAW_VIEW==='review'?(LANG==='ar'?'لا دفعات للمراجعة':'Nothing to review'):t('law_none');
+    <span class="law-actR"><button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
+  const _empty = LAW_FILTER==='all' ? t('law_none') : (LANG==='ar'?'لا دفعات في هذا التصنيف':'No batches in this filter');
   const body = !_shown.length ? `<div class="empty">${_empty}</div>`
     : _shown.map(b=>{ const s=lawPaperStatus(b);
     // the OLD ⚑ (law-flag) = a batch that can't connect to a منح (endpoint name missing); distinct from the timing flag below
@@ -335,9 +350,7 @@ function renderLaw(rows){
   box.innerHTML=addBtn+body;
   const la=$('#law-add'); if(la)la.onclick=()=>legalOpen();       // manual-batch composer, folded into Law
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
-  const ah=$('#law-arch'); if(ah)ah.onclick=()=>{ LAW_VIEW = LAW_VIEW==='archive'?'live':'archive'; renderLaw(rows); };
-  const rh=$('#law-review'); if(rh)rh.onclick=()=>{ LAW_VIEW = LAW_VIEW==='review'?'live':'review'; renderLaw(rows); };
-  const lv=$('#law-live'); if(lv)lv.onclick=()=>{ LAW_VIEW='live'; renderLaw(rows); };
+  if(bar) bar.querySelectorAll('[data-lf]').forEach(el=>el.onclick=()=>{ LAW_FILTER=el.getAttribute('data-lf'); renderLaw(rows); });
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
 async function gotoLawBatch(id){ closeEmployee(); setLaw(true); await search(''); openLawBatch(id); }
@@ -2618,6 +2631,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v80';
+window.__APP_VER = 'v81';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
