@@ -235,7 +235,7 @@ let LAST=[], _seq=0, _timer=null;
 function onType(){clearTimeout(_timer);_timer=setTimeout(()=>search($('#q').value),180)}
 async function search(q){
   const seq=++_seq;
-  if(LAWMODE){ const rows=await searchLegalBatches(q); if(seq!==_seq)return; LAWLAST=rows; renderLaw(rows); return; }
+  if(LAWMODE){ const rows=await searchLegalBatches(q); if(seq!==_seq)return; LAWLAST=sortLawRows(rows); renderLaw(LAWLAST); return; }
   const {data,error}=await sb.rpc('search_employees',{q});
   if(seq!==_seq)return;                            // a newer keystroke won
   if(error){toast(error.message);return}
@@ -559,12 +559,21 @@ function sortRows(rows){ const a=(rows||[]).slice();
   else if(SORT==='new') a.sort((x,y)=>_pidNum(y.person_id)-_pidNum(x.person_id));   // newest first (highest EMP no.)
   else a.sort((x,y)=>_pidNum(x.person_id)-_pidNum(y.person_id));                      // by number, ascending
   return a; }
+// the SAME three chips, applied to legal batches: الرقم = grant no. asc · الأحدث = grant no. desc · الاسم = lead member's name.
+function _leadName(b){ const m=(b&&b.members)||[]; return m.length?String(m[0].name_as_written||''):''; }  // members are serial-asc → [0] is the lead
+function sortLawRows(rows){ const a=(rows||[]).slice(); const num=(x,y)=>String(x.batch_id).localeCompare(String(y.batch_id),undefined,{numeric:true});
+  if(SORT==='name') a.sort((x,y)=>_leadName(x).localeCompare(_leadName(y),undefined,{numeric:true,sensitivity:'base'}));
+  else if(SORT==='new') a.sort((x,y)=>num(y,x));   // newest grant number first
+  else a.sort(num);                                 // 'num' = grant number ascending
+  return a; }
 const SORT_OPTS=[{k:'num',ar:'الرقم',en:'No.'},{k:'name',ar:'الاسم',en:'Name'},{k:'new',ar:'الأحدث',en:'Newest'}];
 function paintSort(){ const bar=$('#sortbar'); if(!bar)return;
   bar.innerHTML=`<span class="sort-lbl">${LANG==='ar'?'الترتيب':'Sort'}</span>`
     +SORT_OPTS.map(o=>`<button class="sort-opt${SORT===o.k?' on':''}" data-sort="${o.k}">${LANG==='ar'?o.ar:o.en}</button>`).join(''); }
 function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; try{localStorage.setItem('iccmc_sort',k)}catch(_){}
-  paintSort(); LAST=sortRows(LAST); render(LAST); }
+  paintSort();
+  if(LAWMODE){ LAWLAST=sortLawRows(LAWLAST); renderLaw(LAWLAST); }   // stay in the legal section, sort the batches
+  else { LAST=sortRows(LAST); render(LAST); } }
 function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
   const bar=$('#filters'); if(!bar) return;
   bar.innerHTML=FILTERS.map(f=>{
@@ -2664,6 +2673,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v99';
+window.__APP_VER = 'v100';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
