@@ -153,7 +153,6 @@ function applyLang(){
   $('#dz-t').textContent=t('dz_t'); $('#dz-s').textContent=t('dz_s');
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
   paintSort();                                            // re-label the sort control for the new language
-  if($('#insights')&&$('#insights').children.length)renderInsights();   // re-render insights in the new language
   if(LAWMODE)renderLaw(LAWLAST); else render(LAST);       // re-label result chrome (law or employees)
 }
 function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang',LANG)}catch(_){}applyLang()}
@@ -215,7 +214,7 @@ async function signIn(){
   }catch(e){gerr((e&&e.message)||e)}
   finally{b.disabled=false;b.textContent=t('signin')}
 }
-function enterApp(){$('#gate').style.display='none';$('#app').style.display='block';applyLang();$('#q').focus();search('');subscribeLive();renderInsights()}
+function enterApp(){$('#gate').style.display='none';$('#app').style.display='block';applyLang();$('#q').focus();search('');subscribeLive()}
 
 /* live-sync: when an OCR'd employee is committed to persons/visas, re-run the
    current search so the search page updates itself — no manual refresh. RLS still
@@ -223,7 +222,7 @@ function enterApp(){$('#gate').style.display='none';$('#app').style.display='blo
 let _liveCh=null, _liveTimer=null;
 function subscribeLive(){
   if(_liveCh)return;
-  const bump=()=>{clearTimeout(_liveTimer);_liveTimer=setTimeout(()=>{search($('#q').value);refreshInsights();},500)};   // live: list + insights
+  const bump=()=>{clearTimeout(_liveTimer);_liveTimer=setTimeout(()=>search($('#q').value),500)};   // live: list + insights
   _liveCh=sb.channel('iccmc_live')
     .on('postgres_changes',{event:'*',schema:'public',table:'persons'},bump)
     .on('postgres_changes',{event:'*',schema:'public',table:'visas'},bump)
@@ -565,39 +564,6 @@ function paintSort(){ const bar=$('#sortbar'); if(!bar)return;
     +SORT_OPTS.map(o=>`<button class="sort-opt${SORT===o.k?' on':''}" data-sort="${o.k}">${LANG==='ar'?o.ar:o.en}</button>`).join(''); }
 function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; try{localStorage.setItem('iccmc_sort',k)}catch(_){}
   paintSort(); LAST=sortRows(LAST); render(LAST); }
-/* ── Insights (KPI) view — one aggregate call, count-up + grow-from-zero, reduced-motion-safe ── */
-const _reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-function _countUp(el,to,ms){ to=+to||0;
-  if(_reduceMotion || !window.requestAnimationFrame){ el.textContent=to; return; }
-  const t0=performance.now();
-  const tick=n=>{ const p=Math.min(1,(n-t0)/ms); const e=1-Math.pow(1-p,3);   // easeOutCubic
-    el.textContent=Math.round(to*e); if(p<1)requestAnimationFrame(tick); else el.textContent=to; };
-  requestAnimationFrame(tick);
-}
-let _insTimer=null;
-function refreshInsights(){ clearTimeout(_insTimer); _insTimer=setTimeout(renderInsights,400); }   // debounced live refresh
-async function renderInsights(){
-  const box=$('#insights'); if(!box)return;
-  let d; try{ const r=await Promise.race([ sb.rpc('employee_stats'),
-      new Promise((_,rej)=>setTimeout(()=>rej(0),7000)) ]); d=r&&r.data&&r.data[0]; }catch(_){}
-  if(!d){ box.innerHTML=''; return; }                       // unavailable → silent; never blocks the app
-  const T=Math.max(1,+d.total||0);
-  const kpi=(n,lab,cls,f)=>`<button class="ins-kpi ${cls}" data-sfilter="${f}"><b class="ins-num" data-to="${+n||0}">0</b>${lab}</button>`;
-  const bar=[['valid',+d.valid||0],['soon',+d.expiring||0],['exp',+d.expired||0],['inc',+d.incomplete||0]]
-    .map(([c,v])=>v>0?`<span class="ins-seg seg-${c}" style="flex-basis:${(v/T*100).toFixed(2)}%" title="${v}"></span>`:'').join('');
-  box.innerHTML=`<div class="ins-row">
-      ${kpi(d.total,     LANG==='ar'?'إجمالي':'Total','','all')}
-      ${kpi(d.valid,     LANG==='ar'?'ساري':'Valid','k-valid','valid')}
-      ${kpi(d.expiring,  LANG==='ar'?'قرب الانتهاء':'Expiring','k-soon','expiring')}
-      ${kpi(d.expired,   LANG==='ar'?'منتهية':'Expired','k-exp','expired')}
-      ${kpi(d.incomplete,LANG==='ar'?'غير مكتمل':'Incomplete','k-inc','incomplete')}
-    </div><div class="ins-bar">${bar}</div>`;
-  const nums=box.querySelectorAll('.ins-num'), segEls=box.querySelectorAll('.ins-seg');
-  if(_reduceMotion){ nums.forEach(el=>el.textContent=+el.getAttribute('data-to')); segEls.forEach(el=>el.style.transform='scaleX(1)'); }
-  else requestAnimationFrame(()=>{ nums.forEach((el,i)=>setTimeout(()=>_countUp(el,+el.getAttribute('data-to'),550),i*50));
-    segEls.forEach((el,i)=>setTimeout(()=>{ el.style.transform='scaleX(1)'; },120+i*60)); });
-  box.querySelectorAll('[data-sfilter]').forEach(b=>b.onclick=()=>{ if(LAWMODE)setLaw(false); FILTER=b.getAttribute('data-sfilter'); render(LAST); });
-}
 function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
   const bar=$('#filters'); if(!bar) return;
   bar.innerHTML=FILTERS.map(f=>{
@@ -2683,6 +2649,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v95';
+window.__APP_VER = 'v96';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

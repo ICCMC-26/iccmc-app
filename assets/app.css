@@ -684,16 +684,3 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .sort-opt{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:8px;cursor:pointer;transition:color .12s,background .12s}
 .sort-opt:hover{color:var(--ink)}
 .sort-opt.on{color:var(--ink);background:color-mix(in srgb,var(--copper) 15%,transparent)}
-
-/* #15 (v95) inline Insights strip — between header & search: KPI numbers + live compliance bar */
-#insights{margin:2px 4px 8px}
-.ins-row{display:flex;flex-wrap:wrap;gap:4px 20px;align-items:baseline;padding:2px 2px 8px}
-.ins-kpi{background:transparent;border:none;font:inherit;font-family:var(--sans);font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap;padding:2px 0;transition:color .12s}
-.ins-kpi b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:19px;font-weight:800;color:var(--ink);margin-inline-end:5px;line-height:1;min-width:1ch;display:inline-block}
-.ins-kpi:hover{color:var(--ink)}
-.ins-kpi.k-valid b{color:#4bd6a0}.ins-kpi.k-soon b{color:#f3ce53}.ins-kpi.k-exp b{color:#ff6f78}.ins-kpi.k-inc b{color:var(--muted)}
-.ins-bar{display:flex;height:6px;border-radius:999px;overflow:hidden;background:var(--line2)}
-.ins-seg{transform:scaleX(0);transform-origin:right;transition:transform .55s cubic-bezier(.22,1,.36,1)}
-:root[lang="en"] .ins-seg{transform-origin:left}
-.seg-valid{background:#24A148}.seg-soon{background:#f1c21b}.seg-exp{background:#da1e28}.seg-inc{background:#6f6f6f}
-@media(prefers-reduced-motion:reduce){.ins-seg{transition:none}}
