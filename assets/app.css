@@ -519,6 +519,19 @@
   .law-add{background:rgba(197,149,107,.08);border:1px dashed var(--copper);color:var(--ink);border-radius:10px;
     padding:10px 18px;cursor:pointer;font-size:13.5px;font-weight:700}
   .law-add:hover{background:rgba(197,149,107,.16);border-style:solid}
+  /* «إدخال يدوي ▾» → a quiet dropdown: pick which paper to build. Minimal — a title + a faint hint per row. */
+  .law-newwrap{position:relative;display:inline-block}
+  .law-caret{font-size:11px;opacity:.75;margin-inline-start:2px}
+  .law-menu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:40;display:none;min-width:230px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;
+    box-shadow:0 12px 34px rgba(0,0,0,.45)}
+  .law-menu.on{display:block}
+  .law-menu button{display:block;width:100%;text-align:start;background:transparent;border:none;cursor:pointer;
+    font-family:inherit;color:var(--ink);padding:9px 11px;border-radius:8px}
+  .law-menu button:hover{background:rgba(197,149,107,.14)}
+  .law-menu button b{display:block;font-size:13.5px;font-weight:700}
+  .law-menu button em{display:block;font-style:normal;font-size:11.5px;color:var(--ink2);margin-top:1px}
+  .law-menu button.sep{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 8px 8px;padding-top:10px}
   .law-ava{background:var(--card);color:var(--copper);font-weight:800;font-family:var(--mono)}
   .law-cardprint{background:rgba(197,149,107,.12);border:1px solid var(--copper);color:var(--ink);border-radius:10px;
     width:42px;height:42px;flex:none;cursor:pointer;display:grid;place-items:center;margin-inline-start:8px}
@@ -757,6 +770,8 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-stage{display:flex;justify-content:center}
 /* the official form is A4 LANDSCAPE (297×210mm) — the sheet matches so print/export stay faithful */
 /* match the official Word doc: Arial (cs font) for Arabic + Calibri for Latin, and the WHOLE form is BOLD */
+/* the تعهد is PORTRAIT (its doc is 215.9×279.4mm with 25.4/31.8mm margins) */
+.ist-page.portrait{width:215.9mm;min-height:279.4mm;padding:25.4mm 31.8mm}
 .ist-page{background:#fff;color:#000;width:297mm;min-height:210mm;flex:none;padding:7.5mm 12.7mm 12.7mm;box-sizing:border-box;
   direction:rtl;font-family:Arial,Calibri,'Segoe UI',Tahoma,sans-serif;font-weight:700;
   box-shadow:0 6px 30px rgba(0,0,0,.45);border-radius:2px;
@@ -802,9 +817,13 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-table th,.ist-table td{border:1px solid #000;padding:3px 4px;text-align:center;word-break:break-word;font-weight:700}
 .ist-table th{background:#D9D9D9}
 /* real relative widths of the 5 visible cols (from the doc grid: ت 12.9 · اسم 42.1 · جنسية 20 · جواز 35 · نفاذية 25 mm) */
-/* 10-col grid from the doc (5 OCR + 5 hand-typed) */
-.ist-table col.c-ser{width:4.7%} .ist-table col.c-name{width:15.3%} .ist-table col.c-nat{width:7.3%} .ist-table col.c-pass{width:12.7%} .ist-table col.c-exp{width:9.1%}
-.ist-table col.c-addr{width:16.4%} .ist-table col.c-border{width:9.2%} .ist-table col.c-prof{width:8.2%} .ist-table col.c-country{width:9.1%} .ist-table col.c-visited{width:8%}
+/* استمارة — the 10-col grid from its doc (5 OCR + 5 hand-typed); col classes = the paper's field keys */
+.ist-table col.c-_ser{width:4.7%} .ist-table col.c-name{width:15.3%} .ist-table col.c-nationality{width:7.3%}
+.ist-table col.c-passport_no{width:12.7%} .ist-table col.c-passport_expiry{width:9.1%}
+.ist-table col.c-addr_iraq{width:16.4%} .ist-table col.c-border{width:9.2%} .ist-table col.c-profession{width:8.2%}
+.ist-table col.c-res_country{width:9.1%} .ist-table col.c-visited{width:8%}
+/* تعهد — its doc's 3-col grid (العدد 10.9 · الاسم 91.4 · رقم الجواز 32.5 mm) */
+.ist-table.taahud col.c-_ser{width:8%} .ist-table.taahud col.c-name{width:68%} .ist-table.taahud col.c-passport_no{width:24%}
 .ist-table th.ist-hcol{line-height:1.2}                    /* the 5 hand headers are longer → they wrap (same 11pt as the doc) */
 /* a HAND-TYPED cell: an editable input + a fill-down button; a faint copper tint marks the "fill these in" columns */
 .ist-table td.ist-hcell{position:relative;padding:0;background:rgba(197,149,107,.05)}

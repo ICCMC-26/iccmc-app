@@ -82,6 +82,11 @@ const I18N={
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
     ist_export:'تصدير PDF', ist_export_tip:'ينزّل ملف PDF (عرضي) إلى جهازك — افتحه واطبعه لاحقاً إن رغبت', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل ملف الـ PDF ✓', ist_pdf_fail:'تعذّر إنشاء ملف الـ PDF — أعِد المحاولة',
     ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
+    mk_ist:'إنشاء استمارة', mk_ist_s:'استمارة سمة الدخول', mk_taa:'إنشاء تعهد', mk_taa_s:'تعهد الشركة بالموظفين',
+    mk_batch:'تسجيل دفعة يدوياً', mk_batch_s:'إدخال معاملة موجودة',
+    taa_h:'تعهد الشركة', taa_title:'م / تعهد', taa_project:'المشروع', taa_project_ph:'مثال: الدورات المركبة للمحطات (كربلاء – النجف)',
+    taa_body:'تتعهد الشركة بعدم تسرب الموظفين خارج موقع العمل وتتحمل الشركة تكاليف السفر في حالة مغادرتهم البلاد في الوقت المحدد.',
+    taa_c_ser:'العدد',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -157,6 +162,11 @@ const I18N={
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
     ist_export:'Export PDF', ist_export_tip:'Downloads a PDF file (landscape) to your device — open & print it later if you want', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'PDF downloaded ✓', ist_pdf_fail:'Could not create the PDF — try again',
     ist_not_passport:'A legal paper — not a passport. This table is passports only; handle it in the Procedures section.', ist_remove:'Remove',
+    mk_ist:'New entry form', mk_ist_s:'Entry-visa form (استمارة)', mk_taa:'New undertaking', mk_taa_s:'Company undertaking (تعهد)',
+    mk_batch:'Record a batch by hand', mk_batch_s:'Log an existing procedure',
+    taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_project:'Project', taa_project_ph:'e.g. combined-cycle stations (Karbala – Najaf)',
+    taa_body:'The company undertakes that no employee will leave the work site, and bears travel costs should they leave the country at the set time.',
+    taa_c_ser:'No.',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -360,7 +370,13 @@ function renderLaw(rows){
   const _shownC=cased.filter(x=>F.match(x.c));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
   $('#count').textContent=_shownC.length?t('n_res',_shownC.length):'';
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
-    <span class="law-actR"><button class="law-add" id="law-ist">＋ ${t('ist_new')}</button><button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
+    <span class="law-actR"><span class="law-newwrap">
+      <button class="law-add" id="law-add">＋ ${t('lg_manual_h')} <span class="law-caret">▾</span></button>
+      <div class="law-menu" id="law-menu">
+        <button data-new="istimara"><b>${t('mk_ist')}</b><em>${t('mk_ist_s')}</em></button>
+        <button data-new="taahud"><b>${t('mk_taa')}</b><em>${t('mk_taa_s')}</em></button>
+        <button data-new="batch" class="sep"><b>${t('mk_batch')}</b><em>${t('mk_batch_s')}</em></button>
+      </div></span></span></div>`;
   const _empty = LAW_FILTER==='all' ? t('law_none') : (LANG==='ar'?'لا دفعات في هذا التصنيف':'No batches in this filter');
   const body = !_shownC.length ? `<div class="empty">${_empty}</div>`
     : _shownC.map(({b,c})=>{ const s=lawPaperStatus(b);
@@ -378,8 +394,14 @@ function renderLaw(rows){
       <button class="law-cardprint" data-lawprint="${esc(b.batch_id)}" title="${t('t_print')}"><span style="font-size:15px">⎙</span></button>
     </div>`; }).join('');
   box.innerHTML=addBtn+body;
-  const la=$('#law-add'); if(la)la.onclick=()=>legalOpen();       // manual-batch composer, folded into Law
-  const li=$('#law-ist'); if(li)li.onclick=()=>istimaraOpen();    // استمارة builder (WYSIWYG form workspace)
+  // «إدخال يدوي ▾» → one gentle menu: build an استمارة · build a تعهد · (or) record a batch by hand
+  const la=$('#law-add'), lm=$('#law-menu');
+  if(la&&lm){
+    la.onclick=e=>{ e.stopPropagation(); lm.classList.toggle('on'); };
+    lm.querySelectorAll('[data-new]').forEach(b=>b.onclick=()=>{ lm.classList.remove('on');
+      const w=b.dataset.new; if(w==='batch') legalOpen(); else { _IST=null; istimaraOpen(w); } });   // fresh sheet of that paper
+    document.addEventListener('click',()=>lm.classList.remove('on'));   // click anywhere else = close
+  }
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
   if(bar) bar.querySelectorAll('[data-lf]').forEach(el=>el.onclick=()=>{ LAW_FILTER=el.getAttribute('data-lf'); renderLaw(rows); });
 }
@@ -1860,50 +1882,72 @@ function legalClose(){ $('#legalform').classList.remove('on'); document.body.sty
    header fields land live into the draft, the photo embeds. The table is fed by the OCR line (S3),
    and export (PDF/Excel/Word) is S4. Nothing here touches the registry / OCR-commit path. ═══ */
 let _IST=null;   // the draft: {header:{...}, photo:dataURL|null, rows:[{name,nationality,passport_no,passport_expiry}]}
-function istFresh(){ return {header:{company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:''}, photo:null, rows:[], _dirty:false}; }
-const IST_FIELDS=[   // exact labels + order from the official Word استمارة (landscape)
-  {k:'company',     lab:'ist_company',     ph:'ist_company_ph'},
-  {k:'company_nat', lab:'ist_company_nat'},
-  {k:'addr',        lab:'ist_addr'},
-  {k:'purpose',     lab:'ist_purpose'},
-  {k:'stay',        lab:'ist_stay'},
-  {k:'visatype',    lab:'ist_visatype'},
-];
-function istimaraOpen(){
-  if(!_IST) _IST=istLoadDraft()||istFresh();   // restore a saved draft so the user sees his work again
-  const H=_IST.header;
+function istFresh(paper){ return {paper:paper||'istimara',
+  header:{company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:'',project:''},
+  photo:null, rows:[], _dirty:false}; }
+/* ── the PAPER REGISTRY — one workspace, one entry per legal paper we BUILD ──────────────
+   Each paper names its own header fields + table columns; everything else (the OCR feeder,
+   the ⤓ fill-down, the review/reject, the draft, the PDF export) is shared. Adding a paper =
+   a row here + a Word template on the worker (`worker/templates/<key>.docx`). The EDITOR only
+   has to be comfortable — the exported PDF's fidelity comes from that Word template. */
+const IST_PAPERS={
+  istimara:{ h:'ist_h', title:'ist_title', photo:true, land:true,
+    fields:[{k:'company',lab:'ist_company',ph:'ist_company_ph'},{k:'company_nat',lab:'ist_company_nat'},
+            {k:'addr',lab:'ist_addr'},{k:'purpose',lab:'ist_purpose'},{k:'stay',lab:'ist_stay'},{k:'visatype',lab:'ist_visatype'}],
+    cols:[{k:'_ser',lab:'ist_c_ser'},{k:'name',lab:'ist_c_name'},{k:'nationality',lab:'ist_c_nat'},
+          {k:'passport_no',lab:'ist_c_pass'},{k:'passport_expiry',lab:'ist_c_exp'},
+          {k:'addr_iraq',lab:'ist_c_addr',hand:1},{k:'border',lab:'ist_c_border',hand:1},{k:'profession',lab:'ist_c_prof',hand:1},
+          {k:'res_country',lab:'ist_c_country',hand:1},{k:'visited',lab:'ist_c_visited',hand:1}] },
+  taahud:{ h:'taa_h', title:'taa_title', photo:false, land:false,
+    fields:[{k:'company',lab:'ist_company',ph:'ist_company_ph'},{k:'project',lab:'taa_project',ph:'taa_project_ph'}],
+    cols:[{k:'_ser',lab:'taa_c_ser'},{k:'name',lab:'ist_c_name'},{k:'passport_no',lab:'ist_c_pass'}] },
+};
+function istPaper(){ return IST_PAPERS[(_IST&&_IST.paper)||'istimara']||IST_PAPERS.istimara; }
+function istimaraOpen(paper){
+  if(!_IST) _IST=istLoadDraft(paper)||istFresh(paper);   // restore a saved draft so the user sees his work again
+  if(paper && _IST.paper!==paper) _IST=istFresh(paper);  // switching paper → a fresh sheet of that kind
+  const P=istPaper(), H=_IST.header;
   const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
     +`<input class="ist-in" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}"></div>`;
+  const photoBox = P.photo ? `<div class="ist-photo${_IST.photo?' has-img':''}" id="ist-photo">
+          ${_IST.photo?`<img src="${_IST.photo}" alt=""><button class="ist-ph-x" id="ist-ph-x" title="${t('t_close')}">✕</button>`
+                       :`<span class="ist-ph-hint">${t('ist_photo')}<br>＋</span>`}
+        </div>` : '';
+  // the استمارة carries its undertaking + a 2-name signature block; the تعهد's body text and
+  // signature are STATIC in the Word template, so the editor shows the manager block only.
+  const undertaking = _IST.paper==='taahud'
+    ? `<div class="ist-undertaking">${t('taa_body')}</div>`
+    : `<div class="ist-undertaking">${t('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${esc(H.authorized||'')}"> ${t('ist_undertaking_post')}</div>`;
+  const authSig = _IST.paper==='taahud' ? '' :
+    `<div class="ist-sig"><div class="ist-sig-lbl">${t('ist_sig_auth')}</div>
+            <input class="ist-in ist-in-name ist-sig-name" data-h="authorized" value="${esc(H.authorized||'')}"></div>`;
+  const heads=P.cols.map(c=>`<th${c.hand?' class="ist-hcol"':''}>${t(c.lab)}</th>`).join('');
+  const cgroup=P.cols.map(c=>`<col class="c-${c.k}">`).join('');
   $('#istimara').innerHTML=`
     <div class="ist-wrap">
       <div class="ist-bar">
         <button class="icon" id="ist-close" title="${t('t_close')}">✕</button>
-        <span class="ist-t">📄 ${t('ist_h')}</span><span class="spacer"></span>
+        <span class="ist-t">📄 ${t(P.h)}</span><span class="spacer"></span>
         <button class="ist-exp" id="ist-export" title="${esc(t('ist_export_tip'))}">🖨 ${t('ist_export')}</button>
       </div>
-      <div class="ist-stage"><div class="ist-page" id="ist-page">
+      <div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="ist-page">
         <div class="ist-body">
-        <div class="ist-photo${_IST.photo?' has-img':''}" id="ist-photo">
-          ${_IST.photo?`<img src="${_IST.photo}" alt=""><button class="ist-ph-x" id="ist-ph-x" title="${t('t_close')}">✕</button>`
-                       :`<span class="ist-ph-hint">${t('ist_photo')}<br>＋</span>`}
-        </div>
-        <div class="ist-title">${t('ist_title')}</div>
-        <div class="ist-fields">${IST_FIELDS.map(frow).join('')}</div>
-        <table class="ist-table">
-          <colgroup><col class="c-ser"><col class="c-name"><col class="c-nat"><col class="c-pass"><col class="c-exp"><col class="c-addr"><col class="c-border"><col class="c-prof"><col class="c-country"><col class="c-visited"></colgroup>
-          <thead><tr><th>${t('ist_c_ser')}</th><th>${t('ist_c_name')}</th><th>${t('ist_c_nat')}</th><th>${t('ist_c_pass')}</th><th>${t('ist_c_exp')}</th>
-            <th class="ist-hcol">${t('ist_c_addr')}</th><th class="ist-hcol">${t('ist_c_border')}</th><th class="ist-hcol">${t('ist_c_prof')}</th><th class="ist-hcol">${t('ist_c_country')}</th><th class="ist-hcol">${t('ist_c_visited')}</th></tr></thead>
+        ${photoBox}
+        <div class="ist-title">${t(P.title)}</div>
+        <div class="ist-fields">${P.fields.map(frow).join('')}</div>
+        <table class="ist-table ${_IST.paper}">
+          <colgroup>${cgroup}</colgroup>
+          <thead><tr>${heads}</tr></thead>
           <tbody id="ist-tbody"></tbody>
         </table>
-        <div class="ist-undertaking">${t('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${esc(H.authorized||'')}"> ${t('ist_undertaking_post')}</div>
+        ${undertaking}
         </div><!-- /ist-body : content grows to push the signature footer to the page bottom -->
         <div class="ist-foot">
           <div class="ist-sig"><div class="ist-sig-lbl">${t('ist_sig_mgr')}</div>
             <div class="ist-sig-sub">${t('ist_sig_mgr_title')}</div>
             <div class="ist-sig-sub ist-sig-name-static">${t('ist_mgr_name')}</div>
             <div class="ist-sig-sub">${t('ist_mgr_role')}</div></div>
-          <div class="ist-sig"><div class="ist-sig-lbl">${t('ist_sig_auth')}</div>
-            <input class="ist-in ist-in-name ist-sig-name" data-h="authorized" value="${esc(H.authorized||'')}"></div>
+          ${authSig}
         </div>
       </div></div>
     </div>`;
@@ -1920,18 +1964,19 @@ function istimaraOpen(){
 function istimaraClose(){ $('#istimara').classList.remove('on'); document.body.style.overflow=''; }
 /* ── unsaved-work guard: closing with edits asks Save / Discard / Cancel. Save → localStorage draft,
    restored on re-open (see his work again, even before exporting). Discard → wipe it. ── */
-const IST_KEY='iccmc_istimara_draft';
+const IST_KEY='iccmc_istimara_draft';                       // a draft per paper: <key>_<paper>
+function istKey(paper){ return IST_KEY+'_'+(paper||(_IST&&_IST.paper)||'istimara'); }
 function istIsDirty(){ return !!(_IST && _IST._dirty); }
 function istSaveDraft(){
   try{ const keep=(_IST.rows||[]).filter(r=>r.passport_no||r.name).map(r=>({name:r.name||'',nationality:r.nationality||'',passport_no:r.passport_no||'',passport_expiry:r.passport_expiry||'',
       addr_iraq:r.addr_iraq||'',border:r.border||'',profession:r.profession||'',res_country:r.res_country||'',visited:r.visited||'',
       _status:(r._status==='review'?'review':'landed')}));
-    localStorage.setItem(IST_KEY, JSON.stringify({header:_IST.header, photo:_IST.photo, rows:keep}));
+    localStorage.setItem(istKey(), JSON.stringify({paper:_IST.paper, header:_IST.header, photo:_IST.photo, rows:keep}));
     _IST._dirty=false; return true; }catch(_){ return false; }
 }
-function istLoadDraft(){ try{ const s=localStorage.getItem(IST_KEY); if(!s)return null; const d=JSON.parse(s);
-  d.rows=d.rows||[]; d._dirty=false; return d; }catch(_){ return null; } }
-function istClearDraft(){ try{ localStorage.removeItem(IST_KEY); }catch(_){} _IST=null; }
+function istLoadDraft(paper){ try{ const s=localStorage.getItem(istKey(paper)); if(!s)return null; const d=JSON.parse(s);
+  d.rows=d.rows||[]; d.paper=d.paper||paper||'istimara'; d._dirty=false; return d; }catch(_){ return null; } }
+function istClearDraft(){ try{ localStorage.removeItem(istKey()); }catch(_){} _IST=null; }
 function istRequestClose(){
   if(!istIsDirty()){ istimaraClose(); return; }         // nothing new → just close
   const dlg=document.createElement('div'); dlg.className='ist-dlg-wrap';
@@ -1948,26 +1993,32 @@ function istRequestClose(){
 }
 function istRenderRows(){
   const tb=$('#ist-tbody'); if(!tb)return;
+  const COLS=istPaper().cols, N=COLS.length;               // the columns THIS paper carries
   const dataHtml=_IST.rows.map((r,i)=>{
     if(r._status==='uploading'||r._status==='processing'||r._status==='committing')   // busy → the OCR-line stage text (same as the drop box)
-      return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="9">${esc(istRowStatusTxt(r))}</td></tr>`;
+      return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="${N-1}">${esc(istRowStatusTxt(r))}</td></tr>`;
     if(r._status==='refused')
-      return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="8">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('ist_remove')}">✕ ${esc(t('ist_remove'))}</button></td></tr>`;
+      return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="${N-2}">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('ist_remove')}">✕ ${esc(t('ist_remove'))}</button></td></tr>`;
     // a pending-review row: review-and-commit (⚑) OR reject it (✕) — an uncommitted item must be removable
     const badge = r._status==='review'
       ? ` <button class="ist-review" data-istreview="${i}" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_review'))}</button><button class="ist-rowx sm" data-rmrow="${i}" title="${esc(t('ist_remove'))}">✕</button>`
       : '';   // clickable → opens the OCR review pane to fix/confirm
-    // the 5 HAND-TYPED columns (NOT from the OCR line): each = an editable cell + a ⤓ fill-down button
+    // a HAND-TYPED column (NOT from the OCR line) = an editable cell + a ⤓ fill-down button
     // (copies this cell's value to every row below it, like Excel's fill handle).
-    const hcell=k=>`<td class="ist-hcell"><input class="ist-hin" data-ri="${i}" data-rk="${k}" value="${esc(r[k]||'')}"><button class="ist-fill" data-fi="${i}" data-fk="${k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></td>`;
-    return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}${badge}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
-      <td>${esc(r.passport_no||'—')}</td><td>${esc(istFmtDate(r.passport_expiry)||'—')}</td>
-      ${hcell('addr_iraq')}${hcell('border')}${hcell('profession')}${hcell('res_country')}${hcell('visited')}</tr>`;
+    const cell=c=>{
+      if(c.hand) return `<td class="ist-hcell"><input class="ist-hin" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}"><button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></td>`;
+      if(c.k==='_ser')            return `<td>${i+1}</td>`;
+      if(c.k==='name')            return `<td>${esc(r.name||'—')}${badge}</td>`;
+      if(c.k==='nationality')     return `<td>${esc(r.nationality?tv(r.nationality):'—')}</td>`;
+      if(c.k==='passport_expiry') return `<td>${esc(istFmtDate(r.passport_expiry)||'—')}</td>`;
+      return `<td>${esc(r[c.k]||'—')}</td>`;
+    };
+    return `<tr>${COLS.map(cell).join('')}</tr>`;
   }).join('');
   // the add-zone IS the table body — a clickable + droppable box, like the OCR upload box. No separate button.
   const drop = _IST.rows.length
-    ? `<tr class="ist-addrow"><td colspan="10" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_pc'))}</td></tr>`
-    : `<tr class="ist-addrow"><td colspan="10" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('ist_add_pc'))}<br><em>${esc(t('ist_drop_sub'))}</em></span></td></tr>`;
+    ? `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_pc'))}</td></tr>`
+    : `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('ist_add_pc'))}<br><em>${esc(t('ist_drop_sub'))}</em></span></td></tr>`;
   tb.innerHTML=dataHtml+drop;
   // hand columns: type into a cell (kept live in the row, no re-render → focus stays); ⤓ fills the value DOWN
   tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri]; if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; } });
@@ -2100,8 +2151,10 @@ async function istExport(){
   if(btn){ btn.disabled=true; btn.textContent='… '+t('ist_export'); }
   try{
     const H=_IST.header;
-    const data={ company:H.company||'', company_nat:H.company_nat||'', addr:H.addr||'', purpose:H.purpose||'',
-      stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'', photo:_IST.photo||'',   // user's photo → replaces the template default
+    const data={ paper:_IST.paper||'istimara',                              // picks the Word template on the worker
+      company:H.company||'', company_nat:H.company_nat||'', addr:H.addr||'', purpose:H.purpose||'',
+      stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'', project:H.project||'',
+      photo:_IST.photo||'',   // user's photo → replaces the template default
       rows:(_IST.rows||[]).filter(r=>r.passport_no||r.name).map(r=>({    // the DISPLAY values, exactly as the table shows
         name:r.name||'', nationality:r.nationality?tv(r.nationality):'', passport_no:r.passport_no||'',
         passport_expiry:istFmtDate(r.passport_expiry)||'', addr_iraq:r.addr_iraq||'', border:r.border||'',
@@ -3008,6 +3061,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v130';
+window.__APP_VER = 'v131';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
