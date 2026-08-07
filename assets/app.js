@@ -349,25 +349,36 @@ function _batchSectionCase(b){
   if(l && l.status==='expiring') return 'expiring';
   return _batchFlagged(b) ? 'flag' : 'awaiting';   // static → flagged (review) or awaiting
 }
+// the stamp gate, batch-wide: every REQUIRED paper present AND trusted (all its stamps marked).
+// Same rule the employee list uses for its legal gap — one definition, two places.
+const _batchStampsDone=b=>ptKeys().filter(ptReq).every(k=>{ const x=batchPaper(b,k); return x.present&&x.trusted; });
+// A filter matches on the batch's CASE (active/expiring/…) and may also inspect the batch itself —
+// «أختام ناقصة» is a different dimension: a batch can be perfectly active and still miss a stamp.
 const LAW_FILTERS=[
   {k:'all',      ar:'الكل',           en:'All',      match:()=>true},
   {k:'active',   ar:'ساري',           en:'Active',   match:c=>c==='active'},
   {k:'expiring', ar:'قارب الانتهاء',  en:'Expiring', match:c=>c==='expiring'},
   {k:'awaiting', ar:'بانتظار الفيزا', en:'Awaiting', match:c=>c==='awaiting'},
+  {k:'nostamp',  ar:'أختام ناقصة',    en:'Missing stamps', match:(c,b)=>!_batchStampsDone(b)},
   {k:'flag',     ar:'مراجعة',         en:'Review',   match:c=>c==='flag'},
   {k:'expired',  ar:'الأرشيف',        en:'Archive',  match:c=>c==='expired'},
 ];
+// ONE way to name a batch everywhere — a generated «~» id reads as its people, a real منح number
+// reads as itself. (The employee's legal card used to print the raw «~…» id while the legal section
+// showed the friendly label, so the same batch appeared under two different names.)
+function batchName(b){ b=b||{}; const id=String(b.batch_id||''); return id.startsWith('~')?batchLabel(b):id; }
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
   rows=rows||LAWLAST; const box=$('#results');
+  { const sb2=$('#sortbar'); if(sb2) sb2.style.display=''; }     // back to the list → sorting applies again
   // classify every batch into a case, render filter chips (counts), then show the chosen case
   const cased=rows.map(b=>({b, c:_batchSectionCase(b)}));
   const bar=$('#filters');
-  if(bar) bar.innerHTML=LAW_FILTERS.map(f=>{ const n=cased.filter(x=>f.match(x.c)).length;
+  if(bar) bar.innerHTML=LAW_FILTERS.map(f=>{ const n=cased.filter(x=>f.match(x.c,x.b)).length;
     if(f.k!=='all' && !n) return '';
     return `<button class="fchip${LAW_FILTER===f.k?' on':''}" data-lf="${f.k}">${LANG==='ar'?f.ar:f.en}<span class="fc">${n}</span></button>`; }).join('');
   const F=LAW_FILTERS.find(f=>f.k===LAW_FILTER)||LAW_FILTERS[0];
-  const _shownC=cased.filter(x=>F.match(x.c));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
+  const _shownC=cased.filter(x=>F.match(x.c,x.b));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
   $('#count').textContent=_shownC.length?t('n_res',_shownC.length):'';
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
     <span class="law-actR"><span class="law-newwrap">
@@ -387,7 +398,7 @@ function renderLaw(rows){
       : legalChipOrAwait(b.batch_id);
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
       <div class="ava law-ava">⚖</div>
-      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${_mark}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
+      <div class="who"><div class="nm">${esc(batchName(b))} ${_mark}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
         <div class="sub">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}</div></div>
       <div class="val law-pp">${ptKeys().map(k=>`<span class="lp-ok">${ptLabel(k)} ${s[k]}</span>`).join('')}</div>
       <button class="law-cardprint" data-lawprint="${esc(b.batch_id)}" title="${t('t_print')}"><span style="font-size:15px">⎙</span></button>
@@ -421,6 +432,9 @@ async function lawFillName(b,i,name){   // fill a name the OCR missed → comple
 }
 function renderLawBatch(b){
   const box=$('#results'); $('#count').textContent='';
+  // Inside ONE batch there is nothing to order — the roster is fixed by serial. Hide the sort chips
+  // (الرقم / الاسم / الأحدث) here; the list view restores them.
+  { const sb2=$('#sortbar'); if(sb2) sb2.style.display='none'; }
   const s=lawPaperStatus(b);
   const brot=b.rot||{};
   const paper=(lab,status,scan,rd)=>`<div class="lb-paper"><span>${lab} <b>${status}</b></span>${scan?`<button class="lb-view" data-lawscan="${esc(scan)}" data-rot="${(+rd||0)}">${t('lg_view')} ›</button>`:''}</div>`;
@@ -447,7 +461,7 @@ function renderLawBatch(b){
       <button class="lb-back" id="lb-back">${t('law_back')}</button>
       <button class="lb-back" id="lb-home2">${t('law_main')}</button></span>
       <button class="lb-printbtn" id="lb-print"><span style="font-size:14px">⎙</span> ${t('t_print')}</button></div>
-    <div class="lb-h">⚖ ${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${legalChipOrAwait(b.batch_id)}</div>
+    <div class="lb-h">⚖ ${esc(batchName(b))} ${legalChipOrAwait(b.batch_id)}</div>
     <div class="lb-meta">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${b.manh_date?` · ${esc(b.manh_date)}`:''}</div>
     <div class="lb-block"><div class="lb-sub">${t('law_papersLbl')}</div>
       ${ptKeys().map(k=>paper(ptLabel(k),s[k],batchPaper(b,k).scan,brot[k])).join('')}</div>
@@ -626,6 +640,7 @@ function sortLawRows(rows){ const a=(rows||[]).slice(); const num=(x,y)=>String(
   return a; }
 const SORT_OPTS=[{k:'num',ar:'الرقم',en:'No.'},{k:'name',ar:'الاسم',en:'Name'},{k:'new',ar:'الأحدث',en:'Newest'}];
 function paintSort(){ const bar=$('#sortbar'); if(!bar)return;
+  bar.style.display='';        // a batch view hides these; any repaint (search, language, back) restores them
   bar.innerHTML=`<span class="sort-lbl">${LANG==='ar'?'الترتيب':'Sort'}</span>`
     +SORT_OPTS.map(o=>`<button class="sort-opt${SORT===o.k?' on':''}" data-sort="${o.k}">${LANG==='ar'?o.ar:o.en}</button>`).join(''); }
 function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; try{localStorage.setItem('iccmc_sort',k)}catch(_){}
@@ -2422,7 +2437,7 @@ function legalCard(legal){
   const paper=(present,trusted)=> !present ? `<span class="lg-miss">–</span>`
     : (trusted?`<span class="lg-ok">✓</span>`:`<span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
   const rows=items.map(({m,b,cls})=>`<div class="lg-row">
-      <div class="lg-bid" data-lawgo="${esc(b.batch_id||m.batch_id)}" style="cursor:pointer">⚖ ${esc(b.batch_id||m.batch_id)} ${batchMarker(b.batch_id||m.batch_id,b,cls)}</div>
+      <div class="lg-bid" data-lawgo="${esc(b.batch_id||m.batch_id)}" style="cursor:pointer">⚖ ${esc(batchName(b.batch_id?b:{...b,batch_id:m.batch_id}))} ${batchMarker(b.batch_id||m.batch_id,b,cls)}</div>
       <div class="lg-meta">${t('lg_serial')} ${esc(m.serial??'—')}${(b.interval_from!=null&&b.interval_to!=null)?` · ${t('lg_covered')} ${esc(b.interval_from)}–${esc(b.interval_to)}`:''}</div>
       <div class="lg-papers">
         ${ptKeys().map(k=>{ const x=batchPaper(b,k); return `<span>${ptLabel(k)} ${paper(x.present,x.trusted)}</span>`; }).join('')}
@@ -3154,6 +3169,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v141';
+window.__APP_VER = 'v142';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
