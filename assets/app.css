@@ -771,7 +771,14 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-table th{background:#eee}
 /* real relative widths of the 5 visible cols (from the doc grid: ت 12.9 · اسم 42.1 · جنسية 20 · جواز 35 · نفاذية 25 mm) */
 .ist-table col.c-ser{width:9.5%} .ist-table col.c-name{width:31%} .ist-table col.c-nat{width:14.7%} .ist-table col.c-pass{width:25.8%} .ist-table col.c-exp{width:19%}
-.ist-tbody-empty td{padding:22px 8px;color:#999;font-size:12.5px;border-style:dashed}
+/* the add-zone IS the table body — clickable + droppable like the OCR upload box (screen-only; S4/print strips it).
+   `.ist-table td.ist-drop` beats the table's own `.ist-table td` solid-black border rule. */
+.ist-table td.ist-drop{cursor:pointer;text-align:center;color:var(--copper);border:1.5px dashed var(--copper);
+  padding:26px 8px;font-weight:700;transition:background .12s}
+.ist-table td.ist-drop.slim{padding:9px 8px}
+.ist-table td.ist-drop:hover,.ist-table td.ist-drop.over{background:rgba(197,149,107,.09)}
+.ist-drop-hint{display:inline-block;line-height:1.9;font-size:13px}
+.ist-drop-hint em{font-style:normal;font-weight:400;font-size:11px;color:#9a9a9a}
 /* S3 row states while a passport is read through the OCR line */
 .ist-row-busy td{color:var(--copper);font-weight:700}
 .ist-row-err td{color:#b3261e}

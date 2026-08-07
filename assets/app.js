@@ -76,7 +76,7 @@ const I18N={
     ist_sig_mgr:'اسم وختم وتوقيع مدير الشركة', ist_sig_mgr_title:'المهندس', ist_mgr_name:'احمد عبد اللطيف جاسم', ist_mgr_role:'المدير الإقليمي', ist_sig_auth:'اسم وتوقيع مخول الشركة',
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
-    ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة',
+    ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -146,7 +146,7 @@ const I18N={
     ist_sig_mgr:'Company manager — name, seal & signature', ist_sig_mgr_title:'المهندس', ist_mgr_name:'احمد عبد اللطيف جاسم', ist_mgr_role:'المدير الإقليمي', ist_sig_auth:'Company authorized rep — name & signature',
     ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
-    ist_reading:'… reading', ist_read_fail:'Could not read — try again',
+    ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -1891,7 +1891,6 @@ function istimaraOpen(){
             <input class="ist-in ist-in-name ist-sig-name" data-h="authorized" value="${esc(H.authorized||'')}"></div>
         </div>
       </div></div>
-      <div class="ist-add"><button class="ist-btn primary" id="ist-add-pc">＋ ${t('ist_add_pc')}</button></div>
     </div>`;
   istRenderRows();
   $('#istimara').querySelectorAll('.ist-in[data-h]').forEach(inp=>inp.addEventListener('input',()=>{
@@ -1900,16 +1899,12 @@ function istimaraOpen(){
   }));
   $('#ist-close').onclick=istimaraClose;
   istWirePhoto();
-  const pc=$('#ist-add-pc'); if(pc) pc.onclick=()=>{   // S3: open the SAME file picker as the OCR line → passports flow through the OCR, rows auto-fill
-    const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
-    inp.onchange=()=>{ if(inp.files&&inp.files.length) istAddFromPC(inp.files); }; inp.click(); };
   $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
 }
 function istimaraClose(){ $('#istimara').classList.remove('on'); document.body.style.overflow=''; }
 function istRenderRows(){
   const tb=$('#ist-tbody'); if(!tb)return;
-  if(!_IST.rows.length){ tb.innerHTML=`<tr class="ist-tbody-empty"><td colspan="5">${t('ist_empty')}</td></tr>`; return; }
-  tb.innerHTML=_IST.rows.map((r,i)=>{
+  const dataHtml=_IST.rows.map((r,i)=>{
     if(r._status==='uploading'||r._status==='processing'||r._status==='committing')   // busy → the OCR-line stage text (same as the drop box)
       return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="4">${esc(istRowStatusTxt(r))}</td></tr>`;
     if(r._status==='refused')
@@ -1918,8 +1913,21 @@ function istRenderRows(){
     return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}${badge}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
       <td>${esc(r.passport_no||'—')}</td><td>${esc(r.passport_expiry||'—')}</td></tr>`;
   }).join('');
+  // the add-zone IS the table body — a clickable + droppable box, like the OCR upload box. No separate button.
+  const drop = _IST.rows.length
+    ? `<tr class="ist-addrow"><td colspan="5" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_pc'))}</td></tr>`
+    : `<tr class="ist-addrow"><td colspan="5" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('ist_add_pc'))}<br><em>${esc(t('ist_drop_sub'))}</em></span></td></tr>`;
+  tb.innerHTML=dataHtml+drop;
   tb.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=()=>{ _IST.rows.splice(+b.dataset.rmrow,1); istRenderRows(); });   // drop a failed row
+  const dz=$('#ist-drop'); if(dz){
+    dz.onclick=istPickFiles;
+    dz.ondragover=e=>{ e.preventDefault(); dz.classList.add('over'); };
+    dz.ondragleave=()=>dz.classList.remove('over');
+    dz.ondrop=e=>{ e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files.length) istAddFromPC(e.dataTransfer.files); };
+  }
 }
+function istPickFiles(){ const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
+  inp.onchange=()=>{ if(inp.files&&inp.files.length) istAddFromPC(inp.files); }; inp.click(); }
 // the SAME status texting the OCR drop box uses (ikStageTxt / ik_* keys)
 function istRowStatusTxt(r){
   if(r._status==='uploading')  return (r._pct||0)+'%';
@@ -2855,6 +2863,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v115';
+window.__APP_VER = 'v116';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
