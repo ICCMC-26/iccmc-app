@@ -250,9 +250,9 @@ async function search(q){
    The write side is review-in-place; this is the read side. Same "search IS the app" pattern applied
    to the legal domain: one box finds a batch by its منح number OR by any employee's name/passport in it.
    Click a batch → its papers (view links) + the full roster, each member linking to his employee dossier. */
-let LAWMODE=false, LAWLAST=[], _lawBatch=null;
+let LAWMODE=false, LAWLAST=[], _lawBatch=null, LAW_ARCHIVE=false;
 function setLaw(on){
-  LAWMODE=!!on; _lawBatch=null;
+  LAWMODE=!!on; _lawBatch=null; LAW_ARCHIVE=false;   // always enter the legal section on the LIVE view, not the archive
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
   const q=$('#q'); if(q){ q.placeholder=LAWMODE?t('law_ph'):t('ph'); q.value=''; }
   $('#filters').innerHTML=''; $('#count').textContent='';
@@ -289,14 +289,26 @@ function visaLegalCover(v){   // #Phase2b: from a visa, show the legal batch it 
   if(!bid) return '';
   return `<div class="v-legal" data-lawgo="${esc(bid)}" style="cursor:pointer;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="opacity:.7">${LANG==='ar'?'الغطاء القانوني':'Legal cover'}</span> ⚖ ${esc(bid)} ${legalStatusChip(bid)}</div>`;
 }
+function isStaticBatch(id){ const l=_LBL[id]; return !l || !l.connected || l.status==='static'; }   // no connecting visa yet → life unknown
+function awaitingLabel(id){   // static presence → honest "pending; the visa that will time it hasn't landed"
+  if(!isStaticBatch(id)) return '';
+  return `<span class="lg-await" title="${LANG==='ar'?'لا فيزا مرتبطة بعد — تتحدد حياته عند ظهور الفيزا':'no connected visa yet — its life resolves when the visa appears'}">${LANG==='ar'?'⏳ بانتظار الفيزا':'⏳ awaiting visa'}</span>`;
+}
+function legalChipOrAwait(id){ return legalStatusChip(id) || awaitingLabel(id); }   // a visa timed it → phase chip; else the pending label
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
   rows=rows||LAWLAST; const box=$('#results'); $('#filters').innerHTML='';
-  $('#count').textContent=rows.length?t('n_res',rows.length):'';
+  // live vs archived: an EXPIRED batch (its connected visa lapsed) leaves the live list for the ARCHIVE — never deleted
+  const _isExp=b=>{ const l=_LBL[b.batch_id]; return !!(l && l.status==='expired'); };
+  const _archived=rows.filter(_isExp), _shown=LAW_ARCHIVE?_archived:rows.filter(b=>!_isExp(b));
+  $('#count').textContent=_shown.length?t('n_res',_shown.length):'';
+  const _archBtn=_archived.length?(LAW_ARCHIVE
+      ? `<button class="law-arch on" id="law-arch">↩ ${LANG==='ar'?'العودة للحالية':'Back to current'}</button>`
+      : `<button class="law-arch" id="law-arch">🗄 ${LANG==='ar'?'الأرشيف':'Archive'} (${_archived.length})</button>`):'';
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
-    <button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></div>`;
-  const body = !rows.length ? `<div class="empty">${t('law_none')}</div>`
-    : rows.map(b=>{ const s=lawPaperStatus(b);
+    <span class="law-actR">${_archBtn}<button class="law-add" id="law-add">＋ ${t('lg_manual_h')}</button></span></div>`;
+  const body = !_shown.length ? `<div class="empty">${LAW_ARCHIVE?(LANG==='ar'?'لا دفعات مؤرشفة':'No archived batches'):t('law_none')}</div>`
+    : _shown.map(b=>{ const s=lawPaperStatus(b);
     // Flag ONLY when the batch can't CONNECT to a منح. The منح is narrow — just the two endpoints
     // (first & last: name + serial). Connectable = has the serial INTERVAL + at least ONE endpoint name
     // (the منح matches on serials + a % name symmetry, tolerant of one weak end). A single blank/imperfect
@@ -304,7 +316,7 @@ function renderLaw(rows){
     const _epGap=(b.interval_from==null||b.interval_to==null)||(!b.first_name&&!b.last_name);
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
       <div class="ava law-ava">⚖</div>
-      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${legalStatusChip(b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
+      <div class="who"><div class="nm">${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${legalChipOrAwait(b.batch_id)}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
         <div class="sub">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}</div></div>
       <div class="val law-pp">${ptKeys().map(k=>`<span class="lp-ok">${ptLabel(k)} ${s[k]}</span>`).join('')}</div>
       <button class="law-cardprint" data-lawprint="${esc(b.batch_id)}" title="${t('t_print')}"><span style="font-size:15px">⎙</span></button>
@@ -312,6 +324,7 @@ function renderLaw(rows){
   box.innerHTML=addBtn+body;
   const la=$('#law-add'); if(la)la.onclick=()=>legalOpen();       // manual-batch composer, folded into Law
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
+  const ah=$('#law-arch'); if(ah)ah.onclick=()=>{ LAW_ARCHIVE=!LAW_ARCHIVE; renderLaw(rows); };   // toggle live ⇄ archive
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
 async function gotoLawBatch(id){ closeEmployee(); setLaw(true); await search(''); openLawBatch(id); }
@@ -356,7 +369,7 @@ function renderLawBatch(b){
       <button class="lb-back" id="lb-back">${t('law_back')}</button>
       <button class="lb-back" id="lb-home2">${t('law_main')}</button></span>
       <button class="lb-printbtn" id="lb-print"><span style="font-size:14px">⎙</span> ${t('t_print')}</button></div>
-    <div class="lb-h">⚖ ${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${legalStatusChip(b.batch_id)}</div>
+    <div class="lb-h">⚖ ${esc(String(b.batch_id||'').startsWith('~')?batchLabel(b):b.batch_id)} ${legalChipOrAwait(b.batch_id)}</div>
     <div class="lb-meta">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${b.manh_date?` · ${esc(b.manh_date)}`:''}</div>
     <div class="lb-block"><div class="lb-sub">${t('law_papersLbl')}</div>
       ${ptKeys().map(k=>paper(ptLabel(k),s[k],batchPaper(b,k).scan,brot[k])).join('')}</div>
@@ -1827,13 +1840,14 @@ function legalHistCard(legal){   // expired batches = his past legal presences (
 function legalCard(legal){
   if(!legal||!legal.length) return `<div class="doc empty2">${t('lg_none')}</div>`;
   const seen={}, items=[];
-  legal.slice().sort((a,b)=>(a.serial||0)-(b.serial||0)).forEach(m=>{
+  // newest legal presence first (by منح date) — so the most recent grant leads; expired ones live in the history card
+  legal.slice().sort((a,b)=>String((b.batch&&b.batch.manh_date)||'').localeCompare(String((a.batch&&a.batch.manh_date)||''))).forEach(m=>{
     const b=m.batch||{}; const id=b.batch_id||m.batch_id; if(seen[id])return; if(_LBL[id]&&_LBL[id].status==='expired')return; seen[id]=1; items.push({m,b}); });
   if(!items.length) return '';
   const paper=(present,trusted)=> !present ? `<span class="lg-miss">–</span>`
     : (trusted?`<span class="lg-ok">✓</span>`:`<span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
   const rows=items.map(({m,b})=>`<div class="lg-row">
-      <div class="lg-bid" data-lawgo="${esc(b.batch_id||m.batch_id)}" style="cursor:pointer">⚖ ${esc(b.batch_id||m.batch_id)} ${legalStatusChip(b.batch_id||m.batch_id)}</div>
+      <div class="lg-bid" data-lawgo="${esc(b.batch_id||m.batch_id)}" style="cursor:pointer">⚖ ${esc(b.batch_id||m.batch_id)} ${legalChipOrAwait(b.batch_id||m.batch_id)}</div>
       <div class="lg-meta">${t('lg_serial')} ${esc(m.serial??'—')}${(b.interval_from!=null&&b.interval_to!=null)?` · ${t('lg_covered')} ${esc(b.interval_from)}–${esc(b.interval_to)}`:''}</div>
       <div class="lg-papers">
         ${ptKeys().map(k=>{ const x=batchPaper(b,k); return `<span>${ptLabel(k)} ${paper(x.present,x.trusted)}</span>`; }).join('')}
@@ -2548,6 +2562,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v76';
+window.__APP_VER = 'v77';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
