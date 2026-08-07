@@ -79,6 +79,7 @@ const I18N={
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
     ist_export:'تصدير PDF', ist_export_tip:'طباعة أو حفظ كـ PDF (بمقاس عرضي) — ثم يُختم ويُوقّع ويُمسح ضوئياً', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير',
+    ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -151,6 +152,7 @@ const I18N={
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
     ist_export:'Export PDF', ist_export_tip:'Print or save as PDF (landscape) — then stamp, sign & scan', ist_export_empty:'Add at least one employee before exporting',
+    ist_not_passport:'A legal paper — not a passport. This table is passports only; handle it in the Procedures section.', ist_remove:'Remove',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -1941,7 +1943,7 @@ function istRenderRows(){
     if(r._status==='uploading'||r._status==='processing'||r._status==='committing')   // busy → the OCR-line stage text (same as the drop box)
       return `<tr class="ist-row-busy"><td>${i+1}</td><td colspan="4">${esc(istRowStatusTxt(r))}</td></tr>`;
     if(r._status==='refused')
-      return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('t_close')}">✕</button></td></tr>`;
+      return `<tr class="ist-row-err"><td>${i+1}</td><td colspan="3">${esc(r._err||t('ist_read_fail'))}</td><td><button class="ist-rowx" data-rmrow="${i}" title="${t('ist_remove')}">✕ ${esc(t('ist_remove'))}</button></td></tr>`;
     const badge = r._status==='review'?` <button class="ist-review" data-istreview="${i}" title="${esc(t('rv_ask'))}">⚑ ${esc(t('ik_review'))}</button>`:'';   // clickable → opens the OCR review pane to fix/confirm
     return `<tr><td>${i+1}</td><td>${esc(r.name||'—')}${badge}</td><td>${esc(r.nationality?tv(r.nationality):'—')}</td>
       <td>${esc(r.passport_no||'—')}</td><td>${esc(istFmtDate(r.passport_expiry)||'—')}</td></tr>`;
@@ -2023,6 +2025,13 @@ async function istIngest(file,row){
     if(!j) continue;
     if(row._status==='processing'){ row._stage=j.status; istRenderRows(); }   // reflect the OCR-line stage live
     if(j.status==='failed'){ row._status='refused'; row._err=j.error_msg||t('ist_read_fail'); istRenderRows(); return; }
+    // this door is for PASSPORTS ONLY. If the OCR line read the file as a LEGAL paper (تعهد/منح/استمارة),
+    // refuse it instantly & clearly instead of waiting 60s for a passport number that will never come — and
+    // BEFORE the name check below, so a legal roster's names never slip into a passport commit. (The paper is
+    // still captured by the legal pipeline; it simply doesn't belong in this table — handle it in المعاملات.)
+    if(j.status==='legal-review' || String(j.doc_type||'').startsWith('legal')){
+      row._status='refused'; row._err=t('ist_not_passport'); istRenderRows(); return;
+    }
     const f=j.fields||{};
     if(f.passport_no||f.name_latin){
       Object.assign(row,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''});
@@ -2931,6 +2940,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v122';
+window.__APP_VER = 'v123';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

@@ -803,7 +803,12 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* S3 row states while a passport is read through the OCR line */
 .ist-row-busy td{color:var(--copper);font-weight:700}
 .ist-row-err td{color:#b3261e}
-.ist-rowx{border:none;background:transparent;color:#b3261e;cursor:pointer;font-size:13px;font-weight:700;padding:0 4px}
+/* the remove control on a refused row — a PERSISTENT red pill so it reads as clickable from far
+   (same fill+border affordance the other action buttons use), not a bare glyph */
+.ist-rowx{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-family:inherit;
+  font-size:12px;font-weight:800;line-height:1;padding:5px 11px;border-radius:8px;color:#b3261e;
+  background:rgba(179,38,30,.12);border:1px solid rgba(179,38,30,.5)}
+.ist-rowx:hover{background:rgba(179,38,30,.2);border-color:#b3261e}
 .ist-review{display:inline-flex;align-items:center;gap:3px;font-family:inherit;font-size:12px;font-weight:800;color:#fff;
   background:#c9861e;border:none;border-radius:8px;padding:5px 13px;margin-inline-start:10px;cursor:pointer;
   white-space:nowrap;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:filter .12s}
