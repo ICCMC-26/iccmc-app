@@ -26,6 +26,7 @@
 !assets/docx-preview.min.js
 # The ICCMC logo mark (SVG), shown in the login + the app header. Image only — no code/keys.
 !assets/logo.svg
+!assets/logo-sub.svg
 # GitHub Pages: serve every file verbatim (skip Jekyll processing).
 !.nojekyll
 # The repo map — explains which file is the app's source of truth (for contributors + a fresh Claude).

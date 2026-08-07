@@ -671,8 +671,12 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* #11 (v80) Review filter toggle in the legal section */
 .law-review.on{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--ink)}
 /* #12 (v84) header logo — ICCMC mark, viewBox cropped tight (no dead space), theme-tinted mask */
-.top-logo{display:block;flex:none;align-self:center;height:70px;width:137px;   /* full logo aspect 466/238 ≈ 1.96 → ICCMC ~54px */
-  background:var(--ink);
-  -webkit-mask:url(logo.svg?v=3) left center/contain no-repeat;
-          mask:url(logo.svg?v=3) left center/contain no-repeat}
-@media(max-width:520px){ .top-logo{height:56px;width:110px} }
+.brand{display:inline-flex;flex-direction:column;align-items:center;gap:3px;flex:none}
+.top-logo,.top-sub{display:block;background:var(--ink)}
+.top-logo{height:54px;width:138px;   /* ICCMC only, aspect 466/182 ≈ 2.56 */
+  -webkit-mask:url(logo.svg?v=4) center/contain no-repeat;
+          mask:url(logo.svg?v=4) center/contain no-repeat}
+.top-sub{height:24px;width:228px;    /* sub-text lines, aspect 466/49 ≈ 9.5 — enlarged for readability */
+  -webkit-mask:url(logo-sub.svg?v=1) center/contain no-repeat;
+          mask:url(logo-sub.svg?v=1) center/contain no-repeat}
+@media(max-width:520px){ .top-logo{height:44px;width:113px} .top-sub{height:19px;width:181px} }
