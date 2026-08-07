@@ -19,7 +19,7 @@ const I18N={
   ar:{dir:'rtl', other:'English',
     gtag:'سجل وثائق الموظفين', signin:'تسجيل الدخول ›', signing:'… جارٍ الدخول',
     bad:'بريد أو كلمة مرور غير صحيحة.', need:'أدخل البريد وكلمة المرور.',
-    add:'موظف جديد', ph:'ابحث عن أي موظف — الاسم، الجواز، التأشيرة، الجنسية…',
+    add:'إضافة', ph:'ابحث عن أي موظف — الاسم، الجواز، التأشيرة، الجنسية…',
     hint:'اكتب أي شيء أخذناه من الموظف — يظهر فورًا.', all:'كل الموظفين',
     n_res:n=>`${n} نتيجة`, none:'لا نتائج — جرّب اسمًا أو رقم جواز آخر.',
     soon:'ينتهي خلال', day:'يوم', expired:'منتهٍ', valid:'ساري', nodocs:'لا وثائق', incomplete:'غير مكتمل',
@@ -68,7 +68,7 @@ const I18N={
     lg_manh_need:'اكتب رقم المنح لهذه الدفعة', lg_manual_h:'إدخال يدوي', lg_names_ocr:n=>`${n} اسم من المسح`,
     lg_saved_prov:'حُفظت دفعة مؤقتة ✓ ', lg_adopt:(n,b)=>`المنح ${n} يُكمل الدفعة: ${b}`, lg_adopt_do:'أكمِل الدفعة بهذا المنح',
     lg_adopted:'اكتملت الدفعة برقم المنح ✓ ', lg_adopt_amb:'منح يطابق أكثر من دفعة — اختر الصحيحة:', lg_manh_opt:'رقم المنح (اختياري الآن)', lg_anchor:'ثبّت الدفعة مؤقتًا', lg_merged:'دُمجت في الدفعة: ',
-    law_h:'القانون', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
+    law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
@@ -81,7 +81,7 @@ const I18N={
   en:{dir:'ltr', other:'العربية',
     gtag:'Employee documents registry', signin:'Sign in ›', signing:'… signing in',
     bad:'Wrong email or password.', need:'Enter email and password.',
-    add:'New employee', ph:'Search any employee — name, passport, visa, nationality…',
+    add:'Add', ph:'Search any employee — name, passport, visa, nationality…',
     hint:'Type anything we captured from the employee — results appear instantly.', all:'All employees',
     n_res:n=>`${n} result${n===1?'':'s'}`, none:'No matches — try another name or passport number.',
     soon:'expires in', day:'d', expired:'Expired', valid:'Valid', nodocs:'No documents', incomplete:'Incomplete',
@@ -130,7 +130,7 @@ const I18N={
     lg_manh_need:'Type the grant number for this batch', lg_manual_h:'Manual entry', lg_names_ocr:n=>`${n} names from scan`,
     lg_saved_prov:'Provisional batch saved ✓ ', lg_adopt:(n,b)=>`Grant ${n} completes: ${b}`, lg_adopt_do:'Complete this batch with the grant',
     lg_adopted:'Batch completed with its grant number ✓ ', lg_adopt_amb:'Grant matches more than one batch — pick the right one:', lg_manh_opt:'Grant number (optional now)', lg_anchor:'Anchor provisionally', lg_merged:'Merged into batch: ',
-    law_h:'Law', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
+    law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
@@ -149,6 +149,7 @@ function applyLang(){
   $('#gtag').textContent=t('gtag'); $('#signin').textContent=t('signin');
   $('#glang').textContent=L.other; $('#tlang').textContent=LANG==='ar'?'EN':'ع';
   $('#addtxt').textContent=t('add'); $('#q').placeholder=LAWMODE?t('law_ph'):t('ph');
+  { const bl=$('#blawtxt'); if(bl)bl.textContent=t('law_btn'); }
   $('#ik-h').textContent=t('add');
   $('#dz-t').textContent=t('dz_t'); $('#dz-s').textContent=t('dz_s');
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
@@ -2650,6 +2651,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v97';
+window.__APP_VER = 'v98';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
