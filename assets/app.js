@@ -1470,7 +1470,7 @@ function ikPump(){
    Two buckets, because both need a home: قيد المراجعة (work owed) and مرفوض (with its reason).
    Committed files need no surface here — they are already employees, searchable in the app.  */
 const PQ_SIZE=50;
-const PQ={bucket:'review', kind:'all', page:0, rows:[], total:0, counts:[], seq:0, loading:false};
+const PQ={bucket:'review', kind:'all', page:0, rows:[], total:0, counts:[], countsLoaded:false, seq:0, loading:false};
 const PQ_KINDS=[['all','pq_all'],['legal','pq_legal'],['passport','pq_pass'],['visa','pq_visa']];
 
 async function pqOpen(){ $('#pend').classList.add('on'); document.body.style.overflow='hidden';
@@ -1488,9 +1488,13 @@ function pqClose(){ $('#pend').classList.remove('on'); document.body.style.overf
    request win instead of blocking. `counts` refreshes on open/refresh and after a mutation. */
 async function pqLoad(opts){
   const seq=++PQ.seq;                                   // last click wins; none are swallowed
-  if(opts&&opts.counts!==false){
-    try{ const {data}=await sb.from('v_intake_counts').select('bucket,kind,n'); PQ.counts=data||[]; }
-    catch(_){}
+  // Default is TO fetch; only an explicit {counts:false} skips it. Written as `opts && …` this
+  // was inverted: pqLoad() with no argument (open, refresh, and after every delete/retry) skipped
+  // the counts entirely, so the chips all read 0 while the list below showed the real rows.
+  if(!opts || opts.counts!==false){
+    try{ const {data,error}=await sb.from('v_intake_counts').select('bucket,kind,n');
+         if(error) throw error; PQ.counts=data||[]; PQ.countsLoaded=true; }
+    catch(e){ PQ.countsLoaded=false; }
     if(seq!==PQ.seq) return;
   }
   try{
@@ -1508,15 +1512,22 @@ async function pqLoad(opts){
     if(error) throw error;
     PQ.rows=data||[]; PQ.total=count||0;
   }catch(e){ if(seq!==PQ.seq) return; PQ.rows=[]; PQ.total=0; toast((e&&e.message)||'load failed'); }
-  finally{ if(seq===PQ.seq){ PQ.loading=false; pqRender(); pqBadge(); } }
+  finally{ if(seq===PQ.seq){ PQ.loading=false; pqRender(); } }
 }
 
-const pqCount=(b,k)=>PQ.counts.filter(c=>c.bucket===b&&(k==='all'||c.kind===k))
-                              .reduce((s,c)=>s+(c.n||0),0);
+/* Returns null until the counts have actually arrived. A chip that prints a confident "0" before
+   its number loads is a lie in the same family as the empty list that hid the مرفوض rows: the
+   reader cannot tell "none" from "not known yet". Callers render '' for null. */
+function pqCount(b,k){
+  if(!PQ.countsLoaded) return null;
+  return PQ.counts.filter(c=>c.bucket===b&&(k==='all'||c.kind===k))
+                  .reduce((s,c)=>s+(c.n||0),0);
+}
+const pqN=v=>v==null?'':v;                 // what a chip actually prints
 
 function pqBadge(){
   const n=pqCount('review','all'), el=$('#pq-badge');
-  if(el){ el.textContent=n; el.hidden=!n; }
+  if(el){ el.textContent=pqN(n); el.hidden=(n==null||!n); }
 }
 
 function pqRender(){
@@ -1534,14 +1545,15 @@ function pqRender(){
   // employees + legal filters, so this section reads as part of the app and not a bolt-on
   B.innerHTML=[['review','⏳ '+t('pq_rev')],['refused','✕ '+t('pq_ref')]]
     .map(([b,lab])=>`<button class="fchip${PQ.bucket===b?' on':''}" data-pqb="${b}">${lab}
-      <span class="fc">${pqCount(b,'all')}</span></button>`).join('');
+      <span class="fc">${pqN(pqCount(b,'all'))}</span></button>`).join('');
   // kinds only qualify REVIEW — a refusal is about the file, not the paper type
   K.style.display=isRev?'flex':'none';
   K.innerHTML=!isRev?'':PQ_KINDS.map(([k,key])=>{
       const n=pqCount('review',k);
-      if(k!=='all' && !n) return '';                       // hide an empty kind, as the legal bar does
+      // an unknown count (still loading) must NOT hide the chip — only a known zero may
+      if(k!=='all' && n===0) return '';                    // hide an empty kind, as the legal bar does
       return `<button class="fchip${PQ.kind===k?' on':''}" data-pqk="${k}">${t(key)}
-        <span class="fc">${n}</span></button>`; }).join('');
+        <span class="fc">${pqN(n)}</span></button>`; }).join('');
   const cnt=$('#pq-count');
   if(cnt) cnt.textContent = PQ.total ? t('n_res',PQ.total) : '';
 
@@ -1579,7 +1591,8 @@ function pqRender(){
     ? `<button ${PQ.page<=0?'disabled':''} data-pqp="-1">‹</button>
        <span class="pq-sub">${PQ.page+1} / ${pages} · ${PQ.total}</span>
        <button ${PQ.page>=pages-1?'disabled':''} data-pqp="1">›</button>` : '';
-  pqInvariant();
+  pqBadge();          // keep the top-bar badge tied to the RENDER, not to one code path —
+  pqInvariant();      // otherwise any repaint outside pqLoad leaves it stale
 }
 
 /* The conservation law, shown where the work is: the most recent SETTLED batch keeps its frozen
@@ -3460,6 +3473,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v147';
+window.__APP_VER = 'v148';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
