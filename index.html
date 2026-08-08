@@ -36,7 +36,7 @@
     <span class="spacer"></span>
     <button class="add" id="add"><span style="font-size:17px">＋</span> <span id="addtxt">إضافة</span></button>
     <button class="add lawbtn" id="blaw" title="المعاملات القانونية / Legal procedures"><span style="font-size:16px">⚖</span> <span id="blawtxt">المعاملات</span></button>
-    <button class="add pendbtn" id="bpend" title="قيد المراجعة والمرفوضة / Pending review &amp; refused"><span style="font-size:15px">⏳</span> <span id="bpendtxt">المراجعة</span><span class="pq-badge" id="pq-badge" hidden>0</span></button>
+    <button class="add pendbtn" id="bpend" title="الوارد — ما لم يُودَع بعد / Inbox — not committed yet"><span style="font-size:16px">📥</span> <span id="bpendtxt">الوارد</span><span class="pq-badge" id="pq-badge" hidden>0</span></button>
     <button class="icon" id="tlang" title="EN / ع">ع</button>
     <button class="icon" id="ttheme" title="فاتح / داكن">◐</button>
     <button class="icon" id="tout" title="خروج">⏻</button>
@@ -80,7 +80,7 @@
      only what is displayed. Two buckets: قيد المراجعة (work owed) and مرفوض (with reasons). -->
 <div id="pend">
   <div class="ik-bar">
-    <span class="ik-h">⏳ <span id="pq-bar-h">قائمة المراجعة</span></span>
+    <span class="ik-h">📥 <span id="pq-bar-h">قائمة المراجعة</span></span>
     <span class="spacer"></span>
     <span class="pq-inv" id="pq-inv"></span>
     <button class="icon" id="pq-refresh" title="تحديث">⟳</button>
@@ -118,6 +118,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=146"></script>
+<script src="assets/app.js?v=147"></script>
 </body>
 </html>

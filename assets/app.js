@@ -69,6 +69,15 @@ const I18N={
     lg_manh_need:'اكتب رقم المنح لهذه الدفعة', lg_manual_h:'إدخال يدوي', lg_names_ocr:n=>`${n} اسم من المسح`,
     lg_saved_prov:'حُفظت دفعة مؤقتة ✓ ', lg_adopt:(n,b)=>`المنح ${n} يُكمل الدفعة: ${b}`, lg_adopt_do:'أكمِل الدفعة بهذا المنح',
     lg_adopted:'اكتملت الدفعة برقم المنح ✓ ', lg_adopt_amb:'منح يطابق أكثر من دفعة — اختر الصحيحة:', lg_manh_opt:'رقم المنح (اختياري الآن)', lg_anchor:'ثبّت الدفعة مؤقتًا', lg_merged:'دُمجت في الدفعة: ',
+    pq_btn:'الوارد', pq_h:'الوارد — ما لم يُودَع بعد',
+    pq_rev:'قيد المراجعة', pq_ref:'مرفوض',
+    pq_rev_s:'ملفات تنتظر تأكيدك قبل أن تُودَع', pq_ref_s:'ملفات لم تُقبل — السبب مذكور مع كل ملف',
+    pq_all:'الكل', pq_legal:'قانوني', pq_pass:'جوازات', pq_visa:'فيزا',
+    pq_none_rev:'لا شيء بانتظار المراجعة — كل شيء تم.', pq_none_ref:'لا ملفات مرفوضة.',
+    pq_review:'راجِع', pq_retry:'إعادة', pq_del:'حذف نهائي', pq_noreason:'بدون سبب مسجَّل',
+    pq_gone:'لم يعد موجودًا', pq_deleted:'حُذف', pq_cleared:'أُزيل السجل — أعِد إسقاط الملف الآن',
+    pq_nodet:'هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
+    pq_nocommit:'لا يمكن حذف ملف مُودَع', pq_delq:n=>`حذف «${n}» نهائيًا؟`,
     law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
     ist_new:'استمارة', ist_h:'استمارة سمة الدخول', ist_title:'استمارة طلب سمات الدخول للشركات المتعاقدة مع الدولة',
     ist_company:'اسم الشركة', ist_company_nat:'جنسية الشركة', ist_addr:'عنوان الشركة داخل العراق', ist_purpose:'الغاية من الدخول', ist_stay:'مدة البقاء المتوقعة في العراق', ist_visatype:'نوع السمة',
@@ -149,6 +158,16 @@ const I18N={
     lg_manh_need:'Type the grant number for this batch', lg_manual_h:'Manual entry', lg_names_ocr:n=>`${n} names from scan`,
     lg_saved_prov:'Provisional batch saved ✓ ', lg_adopt:(n,b)=>`Grant ${n} completes: ${b}`, lg_adopt_do:'Complete this batch with the grant',
     lg_adopted:'Batch completed with its grant number ✓ ', lg_adopt_amb:'Grant matches more than one batch — pick the right one:', lg_manh_opt:'Grant number (optional now)', lg_anchor:'Anchor provisionally', lg_merged:'Merged into batch: ',
+    pq_btn:'Inbox', pq_h:'Inbox — not committed yet',
+    pq_rev:'Pending review', pq_ref:'Refused',
+    pq_rev_s:'Files waiting for your confirmation before they are committed',
+    pq_ref_s:'Files that were not accepted — each shows its reason',
+    pq_all:'All', pq_legal:'Legal', pq_pass:'Passports', pq_visa:'Visas',
+    pq_none_rev:'Nothing waiting — all clear.', pq_none_ref:'No refused files.',
+    pq_review:'Review', pq_retry:'Retry', pq_del:'Delete', pq_noreason:'no reason recorded',
+    pq_gone:'No longer there', pq_deleted:'Deleted', pq_cleared:'Cleared — drop the file again now',
+    pq_nodet:'Retrying cannot help this file — it needs a clearer scan or splitting',
+    pq_nocommit:'Cannot delete a committed file', pq_delq:n=>`Delete “${n}” permanently?`,
     law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
     ist_new:'Entry form', ist_h:'Entry-visa form', ist_title:'Application form for entry visas — companies contracted with the State',
     ist_company:'Company name', ist_company_nat:'Company nationality', ist_addr:'Address in Iraq', ist_purpose:'Purpose of entry', ist_stay:'Expected stay in Iraq', ist_visatype:'Visa type',
@@ -186,6 +205,10 @@ function applyLang(){
   $('#glang').textContent=L.other; $('#tlang').textContent=LANG==='ar'?'EN':'ع';
   $('#addtxt').textContent=t('add'); $('#q').placeholder=LAWMODE?t('law_ph'):t('ph');
   { const bl=$('#blawtxt'); if(bl)bl.textContent=t('law_btn'); }
+  { const bp=$('#bpendtxt'); if(bp)bp.textContent=t('pq_btn');
+    const bh=$('#pq-bar-h'); if(bh)bh.textContent=t('pq_h');
+    // the queue re-labels itself too, or it would keep the old language until reopened
+    if($('#pend')&&$('#pend').classList.contains('on'))pqRender(); }
   $('#ik-h').textContent=t('add');
   $('#dz-t').textContent=t('dz_t'); $('#dz-s').textContent=t('dz_s');
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
@@ -1447,18 +1470,30 @@ function ikPump(){
    Two buckets, because both need a home: قيد المراجعة (work owed) and مرفوض (with its reason).
    Committed files need no surface here — they are already employees, searchable in the app.  */
 const PQ_SIZE=50;
-const PQ={bucket:'review', kind:'all', page:0, rows:[], total:0, counts:[], busy:false};
-const PQ_KINDS=[['all','الكل','All'],['legal','قانوني','Legal'],['passport','جوازات','Passports'],['visa','فيزا','Visas']];
-const _pqL=(ar,en)=>LANG==='ar'?ar:en;
+const PQ={bucket:'review', kind:'all', page:0, rows:[], total:0, counts:[], seq:0, loading:false};
+const PQ_KINDS=[['all','pq_all'],['legal','pq_legal'],['passport','pq_pass'],['visa','pq_visa']];
 
-async function pqOpen(){ $('#pend').classList.add('on'); document.body.style.overflow='hidden'; await pqLoad(); }
+async function pqOpen(){ $('#pend').classList.add('on'); document.body.style.overflow='hidden';
+  PQ.loading=true; pqRender(); await pqLoad(); }
 function pqClose(){ $('#pend').classList.remove('on'); document.body.style.overflow=''; }
 
-async function pqLoad(){
-  if(PQ.busy) return; PQ.busy=true;
+/* Why this is shaped the way it is — the first version FELT slow on every chip click:
+     · it re-fetched the COUNTS on each click, though counts don't change when you change a
+       filter — only when the data changes;
+     · the two requests ran one after the other, so the wait was their SUM;
+     · nothing repainted until both returned, so a click looked ignored;
+     · and `if(PQ.busy) return` silently DROPPED any click made during a load, which reads as
+       the UI being stuck rather than busy.
+   Now: repaint instantly from what we already know, fetch only the rows, and let the latest
+   request win instead of blocking. `counts` refreshes on open/refresh and after a mutation. */
+async function pqLoad(opts){
+  const seq=++PQ.seq;                                   // last click wins; none are swallowed
+  if(opts&&opts.counts!==false){
+    try{ const {data}=await sb.from('v_intake_counts').select('bucket,kind,n'); PQ.counts=data||[]; }
+    catch(_){}
+    if(seq!==PQ.seq) return;
+  }
   try{
-    const {data:counts}=await sb.from('v_intake_counts').select('bucket,kind,n');
-    PQ.counts=counts||[];
     // BOUNDED by construction: one page at a time, ordered oldest-first (fairest queue), so the
     // request size never grows with the batch. The old reconciler sent every pending hash as a
     // URL parameter and broke around 200-250 files.
@@ -1469,10 +1504,11 @@ async function pqLoad(){
       .range(PQ.page*PQ_SIZE, PQ.page*PQ_SIZE+PQ_SIZE-1);
     if(PQ.kind!=='all') q=q.eq('kind',PQ.kind);
     const {data,count,error}=await q;
+    if(seq!==PQ.seq) return;                            // a newer click already superseded this
     if(error) throw error;
     PQ.rows=data||[]; PQ.total=count||0;
-  }catch(e){ PQ.rows=[]; PQ.total=0; toast((e&&e.message)||'load failed'); }
-  finally{ PQ.busy=false; pqRender(); pqBadge(); }
+  }catch(e){ if(seq!==PQ.seq) return; PQ.rows=[]; PQ.total=0; toast((e&&e.message)||'load failed'); }
+  finally{ if(seq===PQ.seq){ PQ.loading=false; pqRender(); pqBadge(); } }
 }
 
 const pqCount=(b,k)=>PQ.counts.filter(c=>c.bucket===b&&(k==='all'||c.kind===k))
@@ -1490,33 +1526,31 @@ function pqRender(){
   // ── WHERE AM I ────────────────────────────────────────────────────────────────────────────
   const hero=$('.pq-hero'); if(hero) hero.classList.toggle('refused',!isRev);
   $('#pq-hero-ic').textContent = isRev?'⏳':'✕';
-  $('#pq-hero-t').textContent  = isRev?_pqL('قيد المراجعة','Pending review')
-                                      :_pqL('مرفوض','Refused');
-  $('#pq-hero-s').textContent  = isRev
-    ? _pqL('ملفات تنتظر تأكيدك قبل أن تُودَع','Files waiting for your confirmation before they are committed')
-    : _pqL('ملفات لم تُقبل — السبب مذكور مع كل ملف','Files that were not accepted — each shows its reason');
-  $('#pq-bar-h').textContent   = _pqL('قائمة المراجعة','The queue');
+  $('#pq-hero-t').textContent  = t(isRev?'pq_rev':'pq_ref');
+  $('#pq-hero-s').textContent  = t(isRev?'pq_rev_s':'pq_ref_s');
+  $('#pq-bar-h').textContent   = t('pq_h');
 
   // chips in the app's own filter language (.fchip/.fc), same look and place as the
   // employees + legal filters, so this section reads as part of the app and not a bolt-on
-  B.innerHTML=[['review','⏳ '+_pqL('قيد المراجعة','Pending review')],
-               ['refused','✕ '+_pqL('مرفوض','Refused')]]
+  B.innerHTML=[['review','⏳ '+t('pq_rev')],['refused','✕ '+t('pq_ref')]]
     .map(([b,lab])=>`<button class="fchip${PQ.bucket===b?' on':''}" data-pqb="${b}">${lab}
       <span class="fc">${pqCount(b,'all')}</span></button>`).join('');
   // kinds only qualify REVIEW — a refusal is about the file, not the paper type
   K.style.display=isRev?'flex':'none';
-  K.innerHTML=!isRev?'':PQ_KINDS.map(([k,ar,en])=>{
+  K.innerHTML=!isRev?'':PQ_KINDS.map(([k,key])=>{
       const n=pqCount('review',k);
       if(k!=='all' && !n) return '';                       // hide an empty kind, as the legal bar does
-      return `<button class="fchip${PQ.kind===k?' on':''}" data-pqk="${k}">${_pqL(ar,en)}
+      return `<button class="fchip${PQ.kind===k?' on':''}" data-pqk="${k}">${t(key)}
         <span class="fc">${n}</span></button>`; }).join('');
   const cnt=$('#pq-count');
   if(cnt) cnt.textContent = PQ.total ? t('n_res',PQ.total) : '';
 
   if(!PQ.rows.length){
-    L.innerHTML=`<div class="pq-empty">${PQ.bucket==='review'
-      ? _pqL('لا شيء بانتظار المراجعة — كل شيء تم.','Nothing waiting — all clear.')
-      : _pqL('لا ملفات مرفوضة.','No refused files.')}</div>`;
+    // "loading" and "genuinely empty" must not look identical — otherwise a slow fetch reads as
+    // "there is nothing here", which is exactly how the مرفوض bug presented itself.
+    L.innerHTML=PQ.loading
+      ? `<div class="pq-empty">…</div>`
+      : `<div class="pq-empty">${t(isRev?'pq_none_rev':'pq_none_ref')}</div>`;
   } else {
     L.innerHTML=PQ.rows.map(r=>{
       const nm=esc((r.fields&&r.fields._original_filename)||r.image_path||r.job_id.slice(0,8));
@@ -1526,17 +1560,17 @@ function pqRender(){
       // fallback every one of them would show only "failed" and explain nothing.
       const reason=r.fail_reason||r.error_msg||'';
       const why=r.bucket==='refused'
-        ? `<div class="pq-why">${esc(reason||_pqL('بدون سبب مسجَّل','no reason recorded'))}${
+        ? `<div class="pq-why">${esc(reason||t('pq_noreason'))}${
              r.fail_kind?` · ${esc(r.fail_kind)}`:''}</div>` : '';
       const act=r.bucket==='review'
-        ? `<button class="pq-act" data-pqopen="${r.job_id}">${_pqL('راجِع','Review')} ›</button>`
-        : `<button class="pq-act" data-pqretry="${r.job_id}">${_pqL('إعادة','Retry')} ⟳</button>`;
+        ? `<button class="pq-act" data-pqopen="${r.job_id}">${t('pq_review')} ›</button>`
+        : `<button class="pq-act" data-pqretry="${r.job_id}">${t('pq_retry')} ⟳</button>`;
       return `<div class="pq-row ${r.bucket}">
         <span class="pq-kindtag">${kindTag}</span>
         <div class="pq-meta"><div class="pq-nm">${nm}</div>
           <div class="pq-sub">${esc(r.status)} · ${esc(when)}</div>${why}</div>
         ${act}
-        <button class="pq-del" data-pqdel="${r.job_id}" title="${_pqL('حذف نهائي','Delete')}">🗑</button>
+        <button class="pq-del" data-pqdel="${r.job_id}" title="${t('pq_del')}">🗑</button>
       </div>`;
     }).join('');
   }
@@ -1568,13 +1602,13 @@ async function pqInvariant(){
    database policy still refuses anyone below editor. */
 async function pqDelete(jobId){
   const r=PQ.rows.find(x=>x.job_id===jobId); if(!r) return;
-  if(r.bucket==='committed'){ toast(_pqL('لا يمكن حذف ملف مُودَع','Cannot delete a committed file')); return; }
+  if(r.bucket==='committed'){ toast(t('pq_nocommit')); return; }
   const nm=(r.fields&&r.fields._original_filename)||jobId.slice(0,8);
-  if(!confirm(_pqL(`حذف «${nm}» نهائيًا؟`,`Delete “${nm}” permanently?`))) return;
+  if(!confirm(t('pq_delq',nm))) return;
   const {error}=await sb.from('scan_jobs').delete().eq('job_id',jobId)
                         .not('status','in','(done,committed)');   // belt and braces
   if(error){ toast(error.message); return; }
-  toast(_pqL('حُذف','Deleted')); await pqLoad();
+  toast(t('pq_deleted')); await pqLoad();
 }
 
 /* Retry a refused file. The line dedups by content hash, so the row must GO before the same file
@@ -1583,14 +1617,13 @@ async function pqDelete(jobId){
 async function pqRetry(jobId){
   const r=PQ.rows.find(x=>x.job_id===jobId); if(!r) return;
   if(r.fail_kind==='deterministic'){
-    toast(_pqL('هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
-               'Retrying cannot help this file — it needs a clearer scan or splitting'));
+    toast(t('pq_nodet'));
     return;
   }
   const {error}=await sb.from('scan_jobs').delete().eq('job_id',jobId)
                         .not('status','in','(done,committed)');
   if(error){ toast(error.message); return; }
-  toast(_pqL('أُزيل السجل — أعِد إسقاط الملف الآن','Cleared — drop the file again now'));
+  toast(t('pq_cleared'));
   await pqLoad();
 }
 
@@ -1780,12 +1813,18 @@ $('#pend').addEventListener('click',e=>{
   const b=e.target.closest('[data-pqb]'), k=e.target.closest('[data-pqk]'),
         p=e.target.closest('[data-pqp]'), o=e.target.closest('[data-pqopen]'),
         d=e.target.closest('[data-pqdel]'), r=e.target.closest('[data-pqretry]');
+  // Repaint FIRST, fetch second. The chip highlight, the header and the count all come from state
+  // we already hold, so they can change on the same frame as the click; only the rows need the
+  // network. Waiting for the round-trip before drawing anything is what felt sluggish.
   // Reset the kind when the bucket changes. Kinds do NOT carry across buckets: refused files are
   // kind='other', which isn't even a tab — so keeping a kind filter made مرفوض come up empty while
   // its chip still counted 5. That was the bug.
-  if(b){ PQ.bucket=b.dataset.pqb; PQ.kind='all'; PQ.page=0; pqLoad(); }
-  else if(k){ PQ.kind=k.dataset.pqk; PQ.page=0; pqLoad(); }
-  else if(p){ PQ.page=Math.max(0,PQ.page+ +p.dataset.pqp); pqLoad(); }
+  if(b){ PQ.bucket=b.dataset.pqb; PQ.kind='all'; PQ.page=0; PQ.rows=[]; PQ.loading=true;
+         pqRender(); pqLoad({counts:false}); }
+  else if(k){ PQ.kind=k.dataset.pqk; PQ.page=0; PQ.rows=[]; PQ.loading=true;
+              pqRender(); pqLoad({counts:false}); }
+  else if(p){ PQ.page=Math.max(0,PQ.page+ +p.dataset.pqp); PQ.rows=[]; PQ.loading=true;
+              pqRender(); pqLoad({counts:false}); }
   else if(d){ pqDelete(d.dataset.pqdel); }
   else if(r){ pqRetry(r.dataset.pqretry); }
   else if(o){ pqReview(o.dataset.pqopen); }
@@ -1797,7 +1836,7 @@ async function pqReview(jobId){
   if(String(r.status)==='legal-review'){ pqClose(); openLegalReview(r.image_hash||''); return; }
   const {data}=await sb.from('scan_jobs').select('*').eq('job_id',jobId).limit(1);
   const job=data&&data[0];
-  if(!job){ toast(_pqL('لم يعد موجودًا','No longer there')); await pqLoad(); return; }
+  if(!job){ toast(t('pq_gone')); await pqLoad(); return; }
   // ADOPT the row into the IK list so `openIkReview` — and therefore the whole commit path
   // (anchor ladder, whitelists, mandatory-field gate) — is literally the same code. A second
   // commit implementation is how two behaviours drift apart.
@@ -3421,6 +3460,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v146';
+window.__APP_VER = 'v147';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
