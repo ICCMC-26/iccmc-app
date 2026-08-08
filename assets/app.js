@@ -1388,8 +1388,24 @@ function ikResync(){
   ikEnsurePoll();     // ensure the 4s reconcile poll is alive
   ikReconcile();      // and snap to truth now (the token is fresh after a refresh/focus)
 }
+/* Files can arrive from OUTSIDE this browser — the folder uploader puts them straight into the
+   bucket, so the worker reads them and parks the clean ones at 'staged' with nothing on this page
+   knowing they exist. Realtime doesn't help: it is only subscribed when THIS page has uploads in
+   flight, and ikReconcile keys off _ikPending, which is empty in that case. So the app would sit
+   open, apparently working, and commit nothing — worse than closing and reopening it, which at
+   least triggers a sweep.
+   A slow heartbeat closes that: one cheap query while the tab is visible, doing nothing when the
+   queue is empty and draining it when it is not. */
+const IK_DRAIN_MS=20000;
+let _ikDrainTimer=null;
+function ikWatchBacklog(){
+  if(_ikDrainTimer) return;
+  _ikDrainTimer=setInterval(()=>{
+    if(document.visibilityState==='visible' && !_ikDraining) ikSweepStaged();
+  }, IK_DRAIN_MS);
+}
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') ikResync(); });
-if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){ ikResync(); loadPaperTypes(); } });   // (app.js has no LIVE flag — sb is always created)
+if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){ ikResync(); ikWatchBacklog(); loadPaperTypes(); } });   // (app.js has no LIVE flag — sb is always created)
 
 // the OCR-line stages, shown live on a processing row so the paper's movement is visible
 const IK_STAGE_L={'captured':['التُقط','captured'],'raw-uploaded':['حُفظت الصورة','image saved'],
@@ -3559,6 +3575,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v152';
+window.__APP_VER = 'v153';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
