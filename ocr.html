@@ -1474,11 +1474,13 @@ async function deleteJob(jobId, terminal){
     if(!confirm(t('del_confirm',who))) return;
   }
   if(DEMO){ JOBS=JOBS.filter(x=>x.job_id!==jobId); renderBoard(); toast(t('del_done_ok')); return; }
-  // an uncommitted job's scans are orphaned once its row goes — sweep them too,
-  // so "discard" leaves nothing behind. A committed job's scans belong to the
-  // person now, so they stay.
-  if(!terminal) await sweepStorage(j);
-  const { error }=await sb.from('scan_jobs').delete().eq('job_id',jobId);
+  // ARCHIVE, never delete. The conservation law — N pumped = committed + review + refused —
+  // can only be evaluated while every row survives. Measured before this change: 415 people had
+  // landed but only 17 committed rows remained (4%), so the sum was uncomputable.
+  // The row is kept and still counted; it is merely hidden from this board.
+  // Storage is NOT swept any more: a kept row still references its scan.
+  const { error }=await sb.from('scan_jobs')
+    .update({archived_at:new Date().toISOString()}).eq('job_id',jobId);
   if(error){ toast(t('del_fail')+error.message); return; }
   await refresh(); toast(t('del_done_ok'));
 }
@@ -1487,8 +1489,11 @@ async function clearDone(){
   if(!done.length) return;
   if(!confirm(t('clr_confirm',done.length))) return;
   if(DEMO){ JOBS=JOBS.filter(j=>!(j.status==='done'||j.status==='committed')); renderBoard(); toast(t('clr_ok',done.length)); return; }
+  // THIS is the action that erased 398 of 415 committed rows. Archive instead: the rows stay
+  // countable in v_intake_ledger, the board just stops showing them.
   const ids=done.map(j=>j.job_id);
-  const { error }=await sb.from('scan_jobs').delete().in('job_id',ids);
+  const { error }=await sb.from('scan_jobs')
+    .update({archived_at:new Date().toISOString()}).in('job_id',ids);
   if(error){ toast(t('del_fail')+error.message); return; }
   await refresh(); toast(t('clr_ok',done.length));
 }
@@ -1500,9 +1505,13 @@ async function clearReview(){
   if(!rev.length) return;
   if(!confirm(t('clr_rev_confirm',rev.length))) return;
   if(DEMO){ JOBS=JOBS.filter(j=>!(j.status==='pending-review'||j.status==='needs-linking')); renderBoard(); toast(t('clr_rev_ok',rev.length)); return; }
-  for(const j of rev) await sweepStorage(j);          // uncommitted → free their scans
+  // These files still NEED review — deleting them (and sweeping their scans) destroyed unfinished
+  // work. Archive only: they remain in the ledger's `review` bucket and stay fully reachable from
+  // the user's «قيد المراجعة» section, which ignores archived_at for that bucket. Clearing this
+  // maintenance board must never be able to hide work that is still owed.
   const ids=rev.map(j=>j.job_id);
-  const { error }=await sb.from('scan_jobs').delete().in('job_id',ids);
+  const { error }=await sb.from('scan_jobs')
+    .update({archived_at:new Date().toISOString()}).in('job_id',ids);
   if(error){ toast(t('del_fail')+error.message); return; }
   await refresh(); toast(t('clr_rev_ok',rev.length));
 }

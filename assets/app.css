@@ -271,6 +271,42 @@
   .lb-fill{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--copper);color:inherit;border-radius:7px;padding:6px 9px;font:inherit;font-size:13px}
   .lb-fillbtn{flex:none;background:var(--copper);color:#1a1206;border:none;border-radius:7px;min-width:34px;min-height:34px;cursor:pointer;font-size:14px;font-weight:700}
   .lb-fillbtn:hover{filter:brightness(1.08)}
+  /* ── THE QUEUE — the database's own review/refused list ──────────────────── */
+  #pend{position:fixed;inset:0;z-index:46;background:var(--app-grad);display:none;flex-direction:column}
+  #pend.on{display:flex}
+  .pq-close{width:38px;height:38px;border:2px solid var(--muted);border-radius:11px;color:var(--ink);
+    font-size:15px;background:var(--card)}
+  .pq-inv{font:600 12px/1.5 var(--mono);color:var(--muted);letter-spacing:.02em}
+  .pq-tabs{display:flex;gap:8px;padding:10px 18px 0;flex-wrap:wrap}
+  .pq-kinds{padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .pq-tab{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+    color:var(--ink);border-radius:11px;padding:8px 14px;cursor:pointer;font:inherit;font-size:13.5px}
+  .pq-tab:hover{border-color:var(--copper)}
+  .pq-tab.on{border-color:var(--copper);background:rgba(197,149,107,.14);font-weight:700}
+  .pq-tab .n{font:700 12px/1 var(--mono);background:rgba(0,0,0,.3);border-radius:20px;padding:3px 7px;min-width:20px;text-align:center}
+  .pq-tab.on .n{background:var(--copper);color:#1a1206}
+  .pq-badge{font:700 11px/1 var(--mono);background:var(--copper);color:#1a1206;border-radius:20px;
+    padding:3px 6px;margin-inline-start:5px}
+  .pq-row{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:8px 18px;
+    background:var(--card);border:1px solid var(--line);border-radius:13px}
+  .pq-row.refused{border-color:rgba(228,0,20,.42)}
+  .pq-meta{flex:1;min-width:0}
+  .pq-nm{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pq-sub{font:12px/1.6 var(--mono);color:var(--muted)}
+  .pq-why{font-size:12.5px;color:#ff9b9b;margin-top:3px}
+  .pq-kindtag{font:700 10.5px/1 var(--mono);border:1px solid var(--line);border-radius:6px;
+    padding:3px 6px;color:var(--muted)}
+  .pq-act{flex:none;border:1px solid var(--copper);background:transparent;color:var(--copper);
+    border-radius:9px;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px}
+  .pq-act:hover{background:var(--copper);color:#1a1206}
+  .pq-del{flex:none;width:34px;height:34px;border:1px solid rgba(228,0,20,.5);background:transparent;
+    color:#ff8080;border-radius:9px;cursor:pointer;font-size:14px}
+  .pq-del:hover{background:rgba(228,0,20,.16)}
+  .pq-empty{text-align:center;color:var(--muted);padding:46px 18px;font-size:14px}
+  #pq-pager{display:flex;gap:10px;align-items:center;justify-content:center;padding:14px 18px 26px}
+  #pq-pager button{background:var(--card);border:1px solid var(--line);color:var(--ink);
+    border-radius:9px;padding:7px 13px;cursor:pointer;font:inherit}
+  #pq-pager button:disabled{opacity:.4;cursor:default}
   /* ── add-employee intake ─────────────────────────────────────────────────── */
   #intake{position:fixed;inset:0;z-index:45;background:var(--app-grad);display:none;flex-direction:column}
   #intake.on{display:flex}

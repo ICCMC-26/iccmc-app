@@ -1344,6 +1344,23 @@ function ikSyncRow(j){                              // cheap per-row update duri
   const bar=el.querySelector('.ik-bar2 i'); if(bar)bar.style.width=j.pct+'%';
   const st=el.querySelector('.ik-state'); if(st)st.textContent=ikStateTxt(j);
 }
+/* One row per dropped file, written at upload so nothing can be invisible. Idempotent by hash:
+   a retry of the same file must not add a second row. Returns false if the ledger refused it —
+   the caller then fails the card rather than pumping a file the count can never see. */
+async function ikLedgerRow(job, path){
+  if(!job.hash || job._ledger) return true;
+  try{
+    const {data:seen}=await sb.from('scan_jobs').select('job_id')
+      .eq('image_hash',job.hash).limit(1);
+    if(seen&&seen.length){ job._ledger=true; return true; }      // worker or a prior try got there first
+    const {error}=await sb.from('scan_jobs').insert({
+      batch_id:job.batch||null, source:'intake', status:'received', doc_type:'unknown',
+      image_hash:job.hash, image_path:path,
+      fields:{_original_filename:job.file.name}});
+    if(error) throw error;
+    job._ledger=true; return true;
+  }catch(e){ job._ledgerErr=(e&&e.message)||'ledger'; return false; }
+}
 async function ikUpload(job){
   job.state='uploading'; job.pct=0; ikSyncRow(job);
   try{
@@ -1355,6 +1372,16 @@ async function ikUpload(job){
     // reads back (its filename check looks for taahud/istimara). Empty for passports/visas → no effect.
     const _lt=/استمارة|istimara/i.test(job.file.name)?'istimara-':(/تعهد|taahud/i.test(job.file.name)?'taahud-':'');
     const path=`${Date.now().toString(36)}-${job.id}-${_lt}${safe}`;
+    // ── the LEDGER ROW, written BEFORE the file exists ───────────────────────────────────────
+    // A file used to become visible only when the WORKER created its row, so a dropped webhook
+    // left the file in the bucket with no row at all — in the system, but in none of the three
+    // buckets. Five files sat like that for 27-35 minutes and no count could see them.
+    // The order matters: uploading first would let the webhook fire and the worker insert its own
+    // row before ours lands, giving TWO rows for one file. Writing it first means the worker's
+    // find_by_hash always finds this row and reuses it (status 'received' is ranked below any real
+    // read, so it neither blocks a fresh file nor lets a re-drop of a committed one look new).
+    if(!await ikLedgerRow(job, path))
+      throw new Error(t('ik_ledger')||('لم يُسجَّل الملف في السجل — '+(job._ledgerErr||'')));
     if(job.file.size>=IK_RESUMABLE) await ikResumable(job,path,session);   // big → chunked
     else await new Promise((res,rej)=>{                                    // small → one-shot POST
       const xhr=new XMLHttpRequest();
@@ -1408,9 +1435,163 @@ function ikPump(){
   const next=IK.find(j=>j.state==='queued');
   if(next){ ikUpload(next); ikPump(); }
 }
-function ikAdd(files){
-  for(const f of Array.from(files)){
-    const job={id:++_ikSeq, file:f, state:'queued', pct:0, err:''};
+/* ════════════════════════════════════════════════════════════════════════════════════════════
+   THE QUEUE — a window onto the database
+   ════════════════════════════════════════════════════════════════════════════════════════════
+   Every row here comes from `v_intake_ledger`. Nothing is kept in browser memory, so refreshing
+   or closing the tab changes only what is DISPLAYED — the work itself never disappears. That was
+   the old failure: the intake list was built from `_ikPending` (this session's drops), so after a
+   reload the reconciler returned immediately and pending files became unreachable while still
+   sitting in the database.
+
+   Two buckets, because both need a home: قيد المراجعة (work owed) and مرفوض (with its reason).
+   Committed files need no surface here — they are already employees, searchable in the app.  */
+const PQ_SIZE=50;
+const PQ={bucket:'review', kind:'all', page:0, rows:[], total:0, counts:[], busy:false};
+const PQ_KINDS=[['all','الكل','All'],['legal','قانوني','Legal'],['passport','جوازات','Passports'],['visa','فيزا','Visas']];
+const _pqL=(ar,en)=>LANG==='ar'?ar:en;
+
+async function pqOpen(){ $('#pend').classList.add('on'); document.body.style.overflow='hidden'; await pqLoad(); }
+function pqClose(){ $('#pend').classList.remove('on'); document.body.style.overflow=''; }
+
+async function pqLoad(){
+  if(PQ.busy) return; PQ.busy=true;
+  try{
+    const {data:counts}=await sb.from('v_intake_counts').select('bucket,kind,n');
+    PQ.counts=counts||[];
+    // BOUNDED by construction: one page at a time, ordered oldest-first (fairest queue), so the
+    // request size never grows with the batch. The old reconciler sent every pending hash as a
+    // URL parameter and broke around 200-250 files.
+    let q=sb.from('v_intake_ledger')
+      .select('job_id,doc_type,kind,bucket,status,image_path,image_hash,fields,fail_reason,fail_kind,created_at,batch_id',
+              {count:'exact'})
+      .eq('bucket',PQ.bucket).order('created_at',{ascending:true})
+      .range(PQ.page*PQ_SIZE, PQ.page*PQ_SIZE+PQ_SIZE-1);
+    if(PQ.kind!=='all') q=q.eq('kind',PQ.kind);
+    const {data,count,error}=await q;
+    if(error) throw error;
+    PQ.rows=data||[]; PQ.total=count||0;
+  }catch(e){ PQ.rows=[]; PQ.total=0; toast((e&&e.message)||'load failed'); }
+  finally{ PQ.busy=false; pqRender(); pqBadge(); }
+}
+
+const pqCount=(b,k)=>PQ.counts.filter(c=>c.bucket===b&&(k==='all'||c.kind===k))
+                              .reduce((s,c)=>s+(c.n||0),0);
+
+function pqBadge(){
+  const n=pqCount('review','all'), el=$('#pq-badge');
+  if(el){ el.textContent=n; el.hidden=!n; }
+}
+
+function pqRender(){
+  const B=$('#pq-buckets'), K=$('#pq-kinds'), L=$('#pq-list'), P=$('#pq-pager');
+  if(!B) return;
+  B.innerHTML=[['review','⏳ '+_pqL('قيد المراجعة','Pending review')],
+               ['refused','✕ '+_pqL('مرفوض','Refused')]]
+    .map(([b,lab])=>`<button class="pq-tab ${PQ.bucket===b?'on':''}" data-pqb="${b}">${lab}
+      <span class="n">${pqCount(b,'all')}</span></button>`).join('');
+  // kinds only make sense for review — a refusal is about the FILE, not the paper type
+  K.style.display=PQ.bucket==='review'?'flex':'none';
+  K.innerHTML=PQ_KINDS.map(([k,ar,en])=>`<button class="pq-tab ${PQ.kind===k?'on':''}" data-pqk="${k}">
+      ${_pqL(ar,en)} <span class="n">${pqCount('review',k)}</span></button>`).join('');
+
+  if(!PQ.rows.length){
+    L.innerHTML=`<div class="pq-empty">${PQ.bucket==='review'
+      ? _pqL('لا شيء بانتظار المراجعة — كل شيء تم.','Nothing waiting — all clear.')
+      : _pqL('لا ملفات مرفوضة.','No refused files.')}</div>`;
+  } else {
+    L.innerHTML=PQ.rows.map(r=>{
+      const nm=esc((r.fields&&r.fields._original_filename)||r.image_path||r.job_id.slice(0,8));
+      const when=new Date(r.created_at).toLocaleString(LANG==='ar'?'ar':'en-GB');
+      const kindTag=esc(r.kind||'—');
+      const why=r.bucket==='refused'
+        ? `<div class="pq-why">${esc(r.fail_reason||r.status)}${r.fail_kind?` · ${esc(r.fail_kind)}`:''}</div>` : '';
+      const act=r.bucket==='review'
+        ? `<button class="pq-act" data-pqopen="${r.job_id}">${_pqL('راجِع','Review')} ›</button>`
+        : `<button class="pq-act" data-pqretry="${r.job_id}">${_pqL('إعادة','Retry')} ⟳</button>`;
+      return `<div class="pq-row ${r.bucket}">
+        <span class="pq-kindtag">${kindTag}</span>
+        <div class="pq-meta"><div class="pq-nm">${nm}</div>
+          <div class="pq-sub">${esc(r.status)} · ${esc(when)}</div>${why}</div>
+        ${act}
+        <button class="pq-del" data-pqdel="${r.job_id}" title="${_pqL('حذف نهائي','Delete')}">🗑</button>
+      </div>`;
+    }).join('');
+  }
+  const pages=Math.max(1,Math.ceil(PQ.total/PQ_SIZE));
+  P.innerHTML=PQ.total>PQ_SIZE
+    ? `<button ${PQ.page<=0?'disabled':''} data-pqp="-1">‹</button>
+       <span class="pq-sub">${PQ.page+1} / ${pages} · ${PQ.total}</span>
+       <button ${PQ.page>=pages-1?'disabled':''} data-pqp="1">›</button>` : '';
+  pqInvariant();
+}
+
+/* The conservation law, shown where the work is: the most recent SETTLED batch keeps its frozen
+   verdict, so it stays honest no matter what is deleted afterwards. */
+async function pqInvariant(){
+  const el=$('#pq-inv'); if(!el) return;
+  try{
+    const {data}=await sb.from('intake_batches')
+      .select('declared_total,pumped,committed,review,refused,verdict,settled_at')
+      .not('settled_at','is',null).order('settled_at',{ascending:false}).limit(1);
+    const b=data&&data[0];
+    el.textContent=b ? `${b.pumped} = ${b.committed}+${b.review}+${b.refused} · ${b.verdict}` : '';
+    el.style.color=b&&b.verdict!=='PASS' ? '#ff8080' : '';
+  }catch(_){ el.textContent=''; }
+}
+
+/* Real deletion — the section IS the window onto the database, so removing a card removes the
+   row. Safe because NOTHING in review or refused is in the registry yet: no employee, no visa,
+   no link. The guard is the bucket itself — a committed row is never listed here, and the
+   database policy still refuses anyone below editor. */
+async function pqDelete(jobId){
+  const r=PQ.rows.find(x=>x.job_id===jobId); if(!r) return;
+  if(r.bucket==='committed'){ toast(_pqL('لا يمكن حذف ملف مُودَع','Cannot delete a committed file')); return; }
+  const nm=(r.fields&&r.fields._original_filename)||jobId.slice(0,8);
+  if(!confirm(_pqL(`حذف «${nm}» نهائيًا؟`,`Delete “${nm}” permanently?`))) return;
+  const {error}=await sb.from('scan_jobs').delete().eq('job_id',jobId)
+                        .not('status','in','(done,committed)');   // belt and braces
+  if(error){ toast(error.message); return; }
+  toast(_pqL('حُذف','Deleted')); await pqLoad();
+}
+
+/* Retry a refused file. The line dedups by content hash, so the row must GO before the same file
+   can be read again — otherwise a re-drop is a silent no-op, which is exactly what made the
+   re-drops during the first mass pump look like they did nothing. */
+async function pqRetry(jobId){
+  const r=PQ.rows.find(x=>x.job_id===jobId); if(!r) return;
+  if(r.fail_kind==='deterministic'){
+    toast(_pqL('هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
+               'Retrying cannot help this file — it needs a clearer scan or splitting'));
+    return;
+  }
+  const {error}=await sb.from('scan_jobs').delete().eq('job_id',jobId)
+                        .not('status','in','(done,committed)');
+  if(error){ toast(error.message); return; }
+  toast(_pqL('أُزيل السجل — أعِد إسقاط الملف الآن','Cleared — drop the file again now'));
+  await pqLoad();
+}
+
+/* ── the DROP BATCH — how many files this drop is sending ────────────────────────────────────
+   The conservation law (N pumped = committed + review + refused) needs ONE number that comes from
+   OUTSIDE the database. Comparing rows against the sum of their own buckets can never fail — every
+   row is in a bucket by construction — so it would report 500 = 500 even if 200 files never
+   arrived. `declared_total` is that outside number: the client says what it is about to send, and
+   settle_batches() compares it to what actually reached the ledger.
+   Best-effort: if the stamp fails the files still pump — we lose the verdict, not the work. */
+async function ikStampBatch(n){
+  const id=`B${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+  try{
+    const {data:{user}}=await sb.auth.getUser();
+    await sb.from('intake_batches').insert({batch_id:id, declared_total:n, declared_by:user?.email||null});
+  }catch(_){ /* no verdict for this batch; the pump is unaffected */ }
+  return id;
+}
+async function ikAdd(files){
+  const list=Array.from(files);
+  const batch=await ikStampBatch(list.length);
+  for(const f of list){
+    const job={id:++_ikSeq, file:f, state:'queued', pct:0, err:'', batch};
     if(!IK_OK.test(f.type) && !/\.(xlsx|docx)$/i.test(f.name)) {job.state='failed'; job.err=t('ik_bad')}  // .xlsx/.docx by name: some OSes give them an empty MIME
     else if(f.size>IK_MAX) {job.state='failed'; job.err=t('ik_big')}
     IK.push(job);
@@ -1569,6 +1750,43 @@ $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.aut
 $('#add').addEventListener('click',openIntake);
 $('#blaw').addEventListener('click',()=>setLaw(!LAWMODE));
 $('#intake .ik-close').addEventListener('click',closeIntake);
+/* ── the queue: one delegated listener, so re-rendering never leaks handlers ── */
+$('#bpend').addEventListener('click',pqOpen);
+$('#pend .pq-close').addEventListener('click',pqClose);
+$('#pq-refresh').addEventListener('click',()=>pqLoad());
+$('#pend').addEventListener('click',e=>{
+  const b=e.target.closest('[data-pqb]'), k=e.target.closest('[data-pqk]'),
+        p=e.target.closest('[data-pqp]'), o=e.target.closest('[data-pqopen]'),
+        d=e.target.closest('[data-pqdel]'), r=e.target.closest('[data-pqretry]');
+  if(b){ PQ.bucket=b.dataset.pqb; PQ.page=0; pqLoad(); }
+  else if(k){ PQ.kind=k.dataset.pqk; PQ.page=0; pqLoad(); }
+  else if(p){ PQ.page=Math.max(0,PQ.page+ +p.dataset.pqp); pqLoad(); }
+  else if(d){ pqDelete(d.dataset.pqdel); }
+  else if(r){ pqRetry(r.dataset.pqretry); }
+  else if(o){ pqReview(o.dataset.pqopen); }
+});
+/* Open a queued card in the SAME review drawer the intake list uses, so a file reviewed here
+   takes the identical commit path (anchor ladder, whitelists, gates) — one behaviour, not two. */
+async function pqReview(jobId){
+  const r=PQ.rows.find(x=>x.job_id===jobId); if(!r) return;
+  if(String(r.status)==='legal-review'){ pqClose(); openLegalReview(r.image_hash||''); return; }
+  const {data}=await sb.from('scan_jobs').select('*').eq('job_id',jobId).limit(1);
+  const job=data&&data[0];
+  if(!job){ toast(_pqL('لم يعد موجودًا','No longer there')); await pqLoad(); return; }
+  // ADOPT the row into the IK list so `openIkReview` — and therefore the whole commit path
+  // (anchor ladder, whitelists, mandatory-field gate) — is literally the same code. A second
+  // commit implementation is how two behaviours drift apart.
+  let jk=IK.find(x=>x.hash===job.image_hash);
+  if(!jk){
+    jk={id:++_ikSeq, hash:job.image_hash, batch:job.batch_id, pct:100, err:'', _ledger:true,
+        // a synthetic file stub: the drawer only reads name/size/type (thumb falls back to 📄)
+        file:{name:(job.fields||{})._original_filename||job.image_path||job.job_id.slice(0,8),
+              size:0, type:''}};
+    IK.push(jk);
+  }
+  jk.job=job; jk.state='review'; jk.needsBoard=(job.status==='needs-linking');
+  pqClose(); openIkReview(jk.id);
+}
 $('#dz-input').addEventListener('change',e=>{ikAdd(e.target.files);e.target.value=''});
 (()=>{ const dz=$('#dz');
   ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over')}));
@@ -1703,7 +1921,16 @@ async function ikCommitJob(j,f,forcePid){
 async function _ikMarkDone(j,pid,f){
   // the corrected fields ride back to scan_jobs — the person row uses them, and each
   // correction becomes a labelled example stored next to its image (free training later).
-  await sb.from('scan_jobs').update({status:'done',person_id:pid,error_msg:null,fields:f,flagged:[]}).eq('job_id',j.job_id);
+  const row={status:'done',person_id:pid,error_msg:null,fields:f,flagged:[]};
+  // WHO confirmed this? Until now `reviewed_by` was NULL on every row — including committed ones —
+  // so "did a person actually check this record?" had no answer. A commit that a human drove
+  // through the drawer is stamped; an automatic one is deliberately left blank, so the two stay
+  // distinguishable rather than both looking reviewed.
+  if(_rvJob && _rvJob.job && _rvJob.job.job_id===j.job_id){
+    try{ const {data:{user}}=await sb.auth.getUser();
+         row.reviewed_by=user?.email||'human'; row.reviewed_at=new Date().toISOString(); }catch(_){}
+  }
+  await sb.from('scan_jobs').update(row).eq('job_id',j.job_id);
 }
 
 let _rvJob=null,_rvShowAll=false;
@@ -3169,6 +3396,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v143';
+window.__APP_VER = 'v145';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

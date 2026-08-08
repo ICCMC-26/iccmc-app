@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=79">
+<link rel="stylesheet" href="assets/app.css?v=80">
 </head>
 <body>
 
@@ -36,6 +36,7 @@
     <span class="spacer"></span>
     <button class="add" id="add"><span style="font-size:17px">＋</span> <span id="addtxt">إضافة</span></button>
     <button class="add lawbtn" id="blaw" title="المعاملات القانونية / Legal procedures"><span style="font-size:16px">⚖</span> <span id="blawtxt">المعاملات</span></button>
+    <button class="add pendbtn" id="bpend" title="قيد المراجعة والمرفوضة / Pending review &amp; refused"><span style="font-size:15px">⏳</span> <span id="bpendtxt">المراجعة</span><span class="pq-badge" id="pq-badge" hidden>0</span></button>
     <button class="icon" id="tlang" title="EN / ع">ع</button>
     <button class="icon" id="ttheme" title="فاتح / داكن">◐</button>
     <button class="icon" id="tout" title="خروج">⏻</button>
@@ -74,6 +75,25 @@
   </div>
 </div>
 
+<!-- ══ THE QUEUE — a window onto the database, not onto this browser ══════════════════════
+     Everything here is read from v_intake_ledger, so closing the tab or refreshing changes
+     only what is displayed. Two buckets: قيد المراجعة (work owed) and مرفوض (with reasons). -->
+<div id="pend">
+  <div class="ik-bar">
+    <span class="ik-h">⏳ <span id="pq-h">قيد المراجعة</span></span>
+    <span class="spacer"></span>
+    <span class="pq-inv" id="pq-inv"></span>
+    <button class="icon" id="pq-refresh" title="تحديث">⟳</button>
+    <button class="icon pq-close" title="إغلاق">✕</button>
+  </div>
+  <div class="pq-tabs" id="pq-buckets"></div>
+  <div class="pq-tabs pq-kinds" id="pq-kinds"></div>
+  <div class="ik-scroll">
+    <div id="pq-list"></div>
+    <div id="pq-pager"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ══ quick-review page — a stuck pic gets checked & inserted here, in-app ══ -->
@@ -88,6 +108,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=143"></script>
+<script src="assets/app.js?v=145"></script>
 </body>
 </html>
