@@ -1194,18 +1194,33 @@ async function sha256(file){
     return Array.from(new Uint8Array(d)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
   catch(_){ return null; }
 }
+/* D2 · the reconcile query must never grow with the batch.
+   `.in('image_hash',…)` is a URL parameter and each hash is 64 hex characters, so ~200-250 pending
+   files exceed the URL limit and the request fails outright — a wall, not a slowdown. Two defences:
+     1. the set itself now stays small, because a file parked for a human leaves _ikPending (above);
+     2. and even so we never send more than IK_RECON_CHUNK hashes in one request.
+   Belt AND braces on purpose: (1) is a design property that a future change could quietly undo,
+   while (2) is a hard bound that holds regardless. */
+const IK_RECON_CHUNK=80;
 async function ikReconcile(){
   const hashes=Object.keys(_ikPending); if(!hashes.length)return;
   // newest job per hash wins — so an OLD committed job from a previous drop of the same
   // file can't tick a NEW upload that is still being read. Tick only when the CURRENT
   // job is truly committed (the board's مُودَع column = status committed/done).
-  const {data}=await sb.from('scan_jobs')
+  const chunks=[];
+  for(let i=0;i<hashes.length;i+=IK_RECON_CHUNK) chunks.push(hashes.slice(i,i+IK_RECON_CHUNK));
+  const parts=await Promise.all(chunks.map(c=>sb.from('scan_jobs')
     .select('job_id,image_hash,status,error_msg,created_at,doc_type,image_path,fields,field_conf,flagged')
-    .in('image_hash',hashes)
-    .order('created_at',{ascending:false});
-  if(!data)return;
+    .in('image_hash',c)
+    .order('created_at',{ascending:false})
+    .then(r=>r.data||[], ()=>[])));          // one bad chunk must not blind the others
+  const data=parts.flat();
+  if(!data.length)return;
   const latest={};
-  for(const r of data){ if(!(r.image_hash in latest)) latest[r.image_hash]=r; }
+  for(const r of data){                       // newest per hash still wins across chunks
+    const p=latest[r.image_hash];
+    if(!p || new Date(r.created_at)>new Date(p.created_at)) latest[r.image_hash]=r;
+  }
   let changed=false;
   for(const h of Object.keys(_ikPending)){
     const r=latest[h]; if(!r)continue;
@@ -1228,14 +1243,24 @@ async function ikReconcile(){
         delete _ikPending[h]; changed=true; ikEnsurePoll();     // keep polling for the children
       } else if(j.stage!=='splitting'){ j.stage='splitting'; changed=true; }
     } else if(r.status==='pending-review'||r.status==='needs-linking'){
-      // a stuck pic waiting for a human — NOT terminal, so keep watching until it commits.
+      // Parked for a human. It USED to stay in _ikPending "until it commits", which meant every
+      // reviewed file was polled forever — so on a big drop the pending set grew without bound and
+      // the reconcile query grew with it (D2: the hash list is a URL parameter and breaks around
+      // 200-250 files). It never needed polling: a commit from the drawer sets the card to
+      // 'landed' directly, and the DB-backed «الوارد» section is now the surface for these.
       // needsBoard = the rare orphan/ambiguous case the quick-review may not auto-resolve.
-      j.job=r; j.needsBoard=(r.status==='needs-linking');
-      if(j.state!=='review'){ j.state='review'; changed=true; }
+      // resolve TWINS together, like the landed/refused branches — a duplicate-content card left
+      // on the old state would freeze at 'processing' once its hash stops being polled
+      twins.forEach(x=>{ x.job=r; x.needsBoard=(r.status==='needs-linking');
+                         if(x.state!=='review'){ x.state='review'; changed=true; } });
+      delete _ikPending[h];                       // stop watching → the set stays small
     } else if(r.status==='legal-review'){
       // a legal paper (تعهد/استمارة/منح) — parked in its OWN pool for the § assembler, never a
       // person/visa. Terminal for the intake board: it shows «§ legal review», no auto-commit.
-      if(j.state!=='legal'){ j.state='legal'; changed=true; }
+      // Same as review: terminal for THIS board, so stop polling it (the legal commit path sets
+      // the card to 'landed' itself — see the batch commit).
+      twins.forEach(x=>{ if(x.state!=='legal'){ x.state='legal'; changed=true; } });
+      delete _ikPending[h];
     } else if(r.status==='staged'||r.status==='skipped'||r.status==='approved'){
       // CLEAN and parked at the gate. The worker doesn't commit — v2 does. Auto-commit it
       // now (gate open by default); on success it becomes 'done' → the row flips to ✓.
@@ -3498,6 +3523,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v149';
+window.__APP_VER = 'v150';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
