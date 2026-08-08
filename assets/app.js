@@ -1302,22 +1302,49 @@ async function ikAutoCommit(hash, r){
 }
 /* Sweep every clean job parked at the gate — even ones this browser didn't upload (a file
    scanned while v2 was closed). Runs whenever the intake opens: v2 = the open gate. */
+/* ── D3 · drain the BACKLOG from the database, not from this browser ─────────────────────────
+   A file the worker finished cleanly parks at 'staged' and waits for v2 to commit it. That sweep
+   only ran when someone OPENED the intake panel — so after a reload, or if nobody opens it, a
+   perfectly good file waits forever. Measured on the live board: 2 clean files stranded for
+   24 hours, in none of the three buckets. That is precisely the dead end the premise forbids.
+
+   So it now runs from the DATABASE side, on sign-in and when the tab becomes visible, with no
+   dependence on what this browser happens to remember.
+
+   Note it cannot resume UPLOADS: a file that was never uploaded exists only as a File object in
+   the page and is genuinely gone after a reload. What resumes is everything that reached the DB.  */
+const IK_SWEEP_PAGE=50, IK_SWEEP_MAX_PAGES=40;      // ≤2000 per drain; a cap, not a limit on work
+let _ikDraining=false;
 async function ikSweepStaged(){
-  if(!GATE_OPEN)return;
+  if(!GATE_OPEN || _ikDraining) return 0;
+  _ikDraining=true;
+  let committed=0;
   try{
-    const {data}=await sb.from('scan_jobs')
-      .select('job_id,doc_type,image_path,fields,field_conf,flagged,status')
-      .eq('status','staged').limit(50);
-    let any=false;
-    for(const r of (data||[])){
-      if(_ikCommitting.has(r.job_id))continue;
-      _ikCommitting.add(r.job_id);
-      try{ const res=await ikCommitSerial(r,{...(r.fields||{})}); if(res&&res.ok)any=true; }
-      catch(_){}
-      finally{ _ikCommitting.delete(r.job_id); }
+    for(let page=0; page<IK_SWEEP_MAX_PAGES; page++){
+      const {data,error}=await sb.from('scan_jobs')
+        .select('job_id,doc_type,image_path,fields,field_conf,flagged,status')
+        // 'approved'/'skipped' are parked-and-clean too — the reconciler already auto-commits
+        // them, so a sweep that only knew 'staged' left those stranded by omission.
+        .in('status',['staged','approved','skipped'])
+        .order('created_at',{ascending:true})       // oldest first: the longest-waiting file goes first
+        .limit(IK_SWEEP_PAGE);
+      if(error) break;
+      const rows=(data||[]).filter(r=>!_ikCommitting.has(r.job_id));
+      if(!rows.length) break;                       // drained
+      rows.forEach(r=>_ikCommitting.add(r.job_id));
+      // Dispatch through the POOL instead of awaiting each in turn. Awaiting one at a time here
+      // would re-impose the very serialisation D1 removed, on the exact path that handles bulk.
+      const res=await Promise.all(rows.map(r=>
+        ikCommitSerial(r,{...(r.fields||{})})
+          .then(x=>!!(x&&x.ok), ()=>false)
+          .finally(()=>_ikCommitting.delete(r.job_id))));
+      committed+=res.filter(Boolean).length;
+      if(!res.some(Boolean)) break;                 // nothing moved → stop rather than spin
     }
-    if(any) search($('#q')?$('#q').value:'');
+    if(committed) search($('#q')?$('#q').value:'');
   }catch(_){}
+  finally{ _ikDraining=false; }
+  return committed;
 }
 /* Realtime may be off for scan_jobs — poll while uploads are in flight so the staged
    transition (and its auto-commit) is caught within seconds regardless. */
@@ -1346,7 +1373,11 @@ function ikWatch(){                                  // flip 'processing' → 'l
    snaps to its TRUE db state. No-op when nothing is pending (zero cost), and it invents NO status:
    a card only resolves to what the DB already says (✓ landed / ✕ refused / review). */
 function ikResync(){
-  if(!Object.keys(_ikPending).length) return;          // nothing waiting → nothing to heal
+  // D3: the BACKLOG lives in the database, so drain it whether or not this browser remembers
+  // anything. The old early-return below meant a reload (which empties _ikPending) skipped the
+  // drain entirely — how 2 clean files sat stranded for 24 hours.
+  ikSweepStaged();
+  if(!Object.keys(_ikPending).length) return;          // nothing THIS page uploaded → no card to heal
   if(_ikCh){ try{ sb.removeChannel(_ikCh); }catch(_){} _ikCh=null; }   // drop a possibly-dead socket
   ikWatch();          // re-subscribe realtime
   ikEnsurePoll();     // ensure the 4s reconcile poll is alive
@@ -3523,6 +3554,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v150';
+window.__APP_VER = 'v151';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
