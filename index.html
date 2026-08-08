@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=80">
+<link rel="stylesheet" href="assets/app.css?v=81">
 </head>
 <body>
 
@@ -80,15 +80,25 @@
      only what is displayed. Two buckets: قيد المراجعة (work owed) and مرفوض (with reasons). -->
 <div id="pend">
   <div class="ik-bar">
-    <span class="ik-h">⏳ <span id="pq-h">قيد المراجعة</span></span>
+    <span class="ik-h">⏳ <span id="pq-bar-h">قائمة المراجعة</span></span>
     <span class="spacer"></span>
     <span class="pq-inv" id="pq-inv"></span>
     <button class="icon" id="pq-refresh" title="تحديث">⟳</button>
     <button class="icon pq-close" title="إغلاق">✕</button>
   </div>
-  <div class="pq-tabs" id="pq-buckets"></div>
-  <div class="pq-tabs pq-kinds" id="pq-kinds"></div>
   <div class="ik-scroll">
+    <!-- WHERE AM I: a named header that changes with the bucket, so the section identifies
+         itself instead of leaving the user to infer it from which chip looks selected. -->
+    <div class="pq-hero">
+      <div class="pq-hero-ic" id="pq-hero-ic">⏳</div>
+      <div>
+        <div class="pq-hero-t" id="pq-hero-t">قيد المراجعة</div>
+        <div class="pq-hero-s" id="pq-hero-s"></div>
+      </div>
+    </div>
+    <div class="filters" id="pq-buckets"></div>
+    <div class="filters pq-kinds" id="pq-kinds"></div>
+    <div class="listbar"><div class="count" id="pq-count"></div></div>
     <div id="pq-list"></div>
     <div id="pq-pager"></div>
   </div>
@@ -108,6 +118,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=145"></script>
+<script src="assets/app.js?v=146"></script>
 </body>
 </html>

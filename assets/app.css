@@ -277,17 +277,22 @@
   .pq-close{width:38px;height:38px;border:2px solid var(--muted);border-radius:11px;color:var(--ink);
     font-size:15px;background:var(--card)}
   .pq-inv{font:600 12px/1.5 var(--mono);color:var(--muted);letter-spacing:.02em}
-  .pq-tabs{display:flex;gap:8px;padding:10px 18px 0;flex-wrap:wrap}
-  .pq-kinds{padding-bottom:10px;border-bottom:1px solid var(--line)}
-  .pq-tab{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
-    color:var(--ink);border-radius:11px;padding:8px 14px;cursor:pointer;font:inherit;font-size:13.5px}
-  .pq-tab:hover{border-color:var(--copper)}
-  .pq-tab.on{border-color:var(--copper);background:rgba(197,149,107,.14);font-weight:700}
-  .pq-tab .n{font:700 12px/1 var(--mono);background:rgba(0,0,0,.3);border-radius:20px;padding:3px 7px;min-width:20px;text-align:center}
-  .pq-tab.on .n{background:var(--copper);color:#1a1206}
+  /* "where am I" — the section names itself instead of leaving the user to infer it from
+     which chip happens to look selected. Tinted copper for review, red for refused. */
+  .pq-hero{display:flex;align-items:center;gap:14px;margin:14px 2px 12px;padding:14px 16px;
+    border:1px solid var(--line);border-inline-start:4px solid var(--copper);border-radius:14px;
+    background:linear-gradient(90deg,rgba(197,149,107,.12),transparent 70%)}
+  .pq-hero.refused{border-inline-start-color:var(--red);
+    background:linear-gradient(90deg,rgba(228,0,20,.13),transparent 70%)}
+  .pq-hero-ic{font-size:24px;line-height:1}
+  .pq-hero-t{font-size:19px;font-weight:800;color:var(--ink);letter-spacing:.01em}
+  .pq-hero-s{font-size:12.5px;color:var(--muted);margin-top:3px}
+  /* the kind row belongs to «قيد المراجعة» — a copper bracket says so, same idea as .subfilter */
+  .pq-kinds{margin-top:-4px;padding-inline-start:12px;
+    border-inline-start:2px solid rgba(197,149,107,.45)}
   .pq-badge{font:700 11px/1 var(--mono);background:var(--copper);color:#1a1206;border-radius:20px;
     padding:3px 6px;margin-inline-start:5px}
-  .pq-row{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:8px 18px;
+  .pq-row{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:8px 2px;
     background:var(--card);border:1px solid var(--line);border-radius:13px}
   .pq-row.refused{border-color:rgba(228,0,20,.42)}
   .pq-meta{flex:1;min-width:0}
@@ -302,8 +307,8 @@
   .pq-del{flex:none;width:34px;height:34px;border:1px solid rgba(228,0,20,.5);background:transparent;
     color:#ff8080;border-radius:9px;cursor:pointer;font-size:14px}
   .pq-del:hover{background:rgba(228,0,20,.16)}
-  .pq-empty{text-align:center;color:var(--muted);padding:46px 18px;font-size:14px}
-  #pq-pager{display:flex;gap:10px;align-items:center;justify-content:center;padding:14px 18px 26px}
+  .pq-empty{text-align:center;color:var(--muted);padding:46px 18px;font-size:14px;border:1px dashed var(--line);border-radius:14px;margin:6px 2px}
+  #pq-pager{display:flex;gap:10px;align-items:center;justify-content:center;padding:14px 2px 26px}
   #pq-pager button{background:var(--card);border:1px solid var(--line);color:var(--ink);
     border-radius:9px;padding:7px 13px;cursor:pointer;font:inherit}
   #pq-pager button:disabled{opacity:.4;cursor:default}

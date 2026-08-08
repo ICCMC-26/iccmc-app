@@ -1463,7 +1463,7 @@ async function pqLoad(){
     // request size never grows with the batch. The old reconciler sent every pending hash as a
     // URL parameter and broke around 200-250 files.
     let q=sb.from('v_intake_ledger')
-      .select('job_id,doc_type,kind,bucket,status,image_path,image_hash,fields,fail_reason,fail_kind,created_at,batch_id',
+      .select('job_id,doc_type,kind,bucket,status,image_path,image_hash,fields,fail_reason,fail_kind,error_msg,created_at,batch_id',
               {count:'exact'})
       .eq('bucket',PQ.bucket).order('created_at',{ascending:true})
       .range(PQ.page*PQ_SIZE, PQ.page*PQ_SIZE+PQ_SIZE-1);
@@ -1486,14 +1486,32 @@ function pqBadge(){
 function pqRender(){
   const B=$('#pq-buckets'), K=$('#pq-kinds'), L=$('#pq-list'), P=$('#pq-pager');
   if(!B) return;
+  const isRev=PQ.bucket==='review';
+  // ── WHERE AM I ────────────────────────────────────────────────────────────────────────────
+  const hero=$('.pq-hero'); if(hero) hero.classList.toggle('refused',!isRev);
+  $('#pq-hero-ic').textContent = isRev?'⏳':'✕';
+  $('#pq-hero-t').textContent  = isRev?_pqL('قيد المراجعة','Pending review')
+                                      :_pqL('مرفوض','Refused');
+  $('#pq-hero-s').textContent  = isRev
+    ? _pqL('ملفات تنتظر تأكيدك قبل أن تُودَع','Files waiting for your confirmation before they are committed')
+    : _pqL('ملفات لم تُقبل — السبب مذكور مع كل ملف','Files that were not accepted — each shows its reason');
+  $('#pq-bar-h').textContent   = _pqL('قائمة المراجعة','The queue');
+
+  // chips in the app's own filter language (.fchip/.fc), same look and place as the
+  // employees + legal filters, so this section reads as part of the app and not a bolt-on
   B.innerHTML=[['review','⏳ '+_pqL('قيد المراجعة','Pending review')],
                ['refused','✕ '+_pqL('مرفوض','Refused')]]
-    .map(([b,lab])=>`<button class="pq-tab ${PQ.bucket===b?'on':''}" data-pqb="${b}">${lab}
-      <span class="n">${pqCount(b,'all')}</span></button>`).join('');
-  // kinds only make sense for review — a refusal is about the FILE, not the paper type
-  K.style.display=PQ.bucket==='review'?'flex':'none';
-  K.innerHTML=PQ_KINDS.map(([k,ar,en])=>`<button class="pq-tab ${PQ.kind===k?'on':''}" data-pqk="${k}">
-      ${_pqL(ar,en)} <span class="n">${pqCount('review',k)}</span></button>`).join('');
+    .map(([b,lab])=>`<button class="fchip${PQ.bucket===b?' on':''}" data-pqb="${b}">${lab}
+      <span class="fc">${pqCount(b,'all')}</span></button>`).join('');
+  // kinds only qualify REVIEW — a refusal is about the file, not the paper type
+  K.style.display=isRev?'flex':'none';
+  K.innerHTML=!isRev?'':PQ_KINDS.map(([k,ar,en])=>{
+      const n=pqCount('review',k);
+      if(k!=='all' && !n) return '';                       // hide an empty kind, as the legal bar does
+      return `<button class="fchip${PQ.kind===k?' on':''}" data-pqk="${k}">${_pqL(ar,en)}
+        <span class="fc">${n}</span></button>`; }).join('');
+  const cnt=$('#pq-count');
+  if(cnt) cnt.textContent = PQ.total ? t('n_res',PQ.total) : '';
 
   if(!PQ.rows.length){
     L.innerHTML=`<div class="pq-empty">${PQ.bucket==='review'
@@ -1504,8 +1522,12 @@ function pqRender(){
       const nm=esc((r.fields&&r.fields._original_filename)||r.image_path||r.job_id.slice(0,8));
       const when=new Date(r.created_at).toLocaleString(LANG==='ar'?'ar':'en-GB');
       const kindTag=esc(r.kind||'—');
+      // Rows refused BEFORE Phase A carry their reason in the older `error_msg`; without this
+      // fallback every one of them would show only "failed" and explain nothing.
+      const reason=r.fail_reason||r.error_msg||'';
       const why=r.bucket==='refused'
-        ? `<div class="pq-why">${esc(r.fail_reason||r.status)}${r.fail_kind?` · ${esc(r.fail_kind)}`:''}</div>` : '';
+        ? `<div class="pq-why">${esc(reason||_pqL('بدون سبب مسجَّل','no reason recorded'))}${
+             r.fail_kind?` · ${esc(r.fail_kind)}`:''}</div>` : '';
       const act=r.bucket==='review'
         ? `<button class="pq-act" data-pqopen="${r.job_id}">${_pqL('راجِع','Review')} ›</button>`
         : `<button class="pq-act" data-pqretry="${r.job_id}">${_pqL('إعادة','Retry')} ⟳</button>`;
@@ -1758,7 +1780,10 @@ $('#pend').addEventListener('click',e=>{
   const b=e.target.closest('[data-pqb]'), k=e.target.closest('[data-pqk]'),
         p=e.target.closest('[data-pqp]'), o=e.target.closest('[data-pqopen]'),
         d=e.target.closest('[data-pqdel]'), r=e.target.closest('[data-pqretry]');
-  if(b){ PQ.bucket=b.dataset.pqb; PQ.page=0; pqLoad(); }
+  // Reset the kind when the bucket changes. Kinds do NOT carry across buckets: refused files are
+  // kind='other', which isn't even a tab — so keeping a kind filter made مرفوض come up empty while
+  // its chip still counted 5. That was the bug.
+  if(b){ PQ.bucket=b.dataset.pqb; PQ.kind='all'; PQ.page=0; pqLoad(); }
   else if(k){ PQ.kind=k.dataset.pqk; PQ.page=0; pqLoad(); }
   else if(p){ PQ.page=Math.max(0,PQ.page+ +p.dataset.pqp); pqLoad(); }
   else if(d){ pqDelete(d.dataset.pqdel); }
@@ -3396,6 +3421,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v145';
+window.__APP_VER = 'v146';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
