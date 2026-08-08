@@ -1318,7 +1318,7 @@ let _ikDraining=false;
 async function ikSweepStaged(){
   if(!GATE_OPEN || _ikDraining) return 0;
   _ikDraining=true;
-  let committed=0;
+  let committed=0, hitCap=true;         // assume capped until a page proves we drained
   try{
     for(let page=0; page<IK_SWEEP_MAX_PAGES; page++){
       const {data,error}=await sb.from('scan_jobs')
@@ -1330,7 +1330,7 @@ async function ikSweepStaged(){
         .limit(IK_SWEEP_PAGE);
       if(error) break;
       const rows=(data||[]).filter(r=>!_ikCommitting.has(r.job_id));
-      if(!rows.length) break;                       // drained
+      if(!rows.length){ hitCap=false; break; }        // drained: nothing left to take
       rows.forEach(r=>_ikCommitting.add(r.job_id));
       // Dispatch through the POOL instead of awaiting each in turn. Awaiting one at a time here
       // would re-impose the very serialisation D1 removed, on the exact path that handles bulk.
@@ -1339,11 +1339,16 @@ async function ikSweepStaged(){
           .then(x=>!!(x&&x.ok), ()=>false)
           .finally(()=>_ikCommitting.delete(r.job_id))));
       committed+=res.filter(Boolean).length;
-      if(!res.some(Boolean)) break;                 // nothing moved → stop rather than spin
+      if(!res.some(Boolean)){ hitCap=false; break; }  // nothing moved → stop rather than spin
     }
     if(committed) search($('#q')?$('#q').value:'');
   }catch(_){}
   finally{ _ikDraining=false; }
+  // A backlog bigger than one pass (3000 files > the 2000 ceiling) must not stop halfway and
+  // wait for some unrelated trigger — that is a silent stall, which is the thing we are
+  // removing everywhere else. If we stopped because of the page cap and work still moved,
+  // continue on the next tick until the queue is genuinely empty.
+  if(hitCap && committed) setTimeout(()=>ikSweepStaged(), 0);
   return committed;
 }
 /* Realtime may be off for scan_jobs — poll while uploads are in flight so the staged
@@ -3554,6 +3559,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v151';
+window.__APP_VER = 'v152';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
