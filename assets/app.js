@@ -1900,12 +1900,16 @@ const VISA_DB=['person_id','visa_no','visa_type','visa_issue','visa_expiry','vis
 function pickDb(src,keys){const o={};keys.forEach(k=>{const v=src[k];if(v!==undefined&&v!==null&&String(v).trim()!=='')o[k]=v});return o}
 const _nameTokens=s=>new Set(String(s||'').toUpperCase().split(/[^A-Z]+/).filter(x=>x.length>1));
 function _sameName(a,b){const A=_nameTokens(a),B=_nameTokens(b);if(!A.size||A.size!==B.size)return false;for(const x of A)if(!B.has(x))return false;return true}
+/* Ask the DATABASE for the next id. This used to be select-max-then-add-one here in the client,
+   which is only safe while exactly one commit runs at a time — the real reason commits were
+   chained, and therefore the reason throughput fell from 18.4/min to 1.3/min across a batch.
+   A sequence hands out each number once however many callers ask together, so commits can now
+   run in parallel. person_id is the primary key, so any surprise still fails loudly. */
 async function _nextPersonId(){
-  const {data,error}=await sb.from('persons').select('person_id').like('person_id','EMP-%')
-    .order('person_id',{ascending:false}).limit(1);
+  const {data,error}=await sb.rpc('next_person_id');
   if(error)throw error;
-  const last=(data&&data[0])?parseInt(String(data[0].person_id).replace(/\D/g,''),10):0;
-  return 'EMP-'+String((last||0)+1).padStart(4,'0');
+  if(!data)throw new Error('next_person_id returned nothing');
+  return data;
 }
 async function _resolveAnchor(f){
   const no=String(f.passport_no||'').trim();
@@ -1950,11 +1954,32 @@ async function _identityConflict(pid,f){
    passport, committed concurrently, would each resolveAnchor to "none" (neither has inserted yet)
    and each create a person → a duplicate. Chaining makes job B's anchor lookup run AFTER job A's
    insert, so B finds A and updates instead. All three commit paths (auto, sweep, review) use this. */
-let _commitChain=Promise.resolve();
+/* ── D1 · commits run in a POOL, not a single file ───────────────────────────────────────────
+   Every commit used to be chained onto one promise, so however many uploads ran in parallel the
+   whole pump collapsed to the commit rate: measured 18.4/min for the first 25 files and 1.3/min
+   for the last 25 — a 14x decay, which is the "it gets weak after 30" you felt.
+
+   Why it HAD to be serial until now: person ids were minted client-side by reading the max and
+   adding one, so two concurrent commits would mint the same EMP-####. That is fixed at the root
+   (next_person_id() is a DB sequence, verified unique across 200 concurrent allocations), so the
+   ordering constraint is gone and a pool is safe.
+
+   Kept modest at 4: each commit is several round-trips, and the aim is a STEADY rate, not a
+   burst that competes with the uploads for the same connection. */
+const COMMIT_PAR=4;
+let _commitActive=0; const _commitQ=[];
+function _commitDrain(){
+  while(_commitActive<COMMIT_PAR && _commitQ.length){
+    const it=_commitQ.shift(); _commitActive++;
+    Promise.resolve().then(()=>ikCommitJob(it.j,it.f,it.forcePid))
+      .then(it.resolve, it.reject)
+      .finally(()=>{ _commitActive--; _commitDrain(); });
+  }
+}
+/* Name kept: every call site means "commit this safely", and that contract is unchanged — only
+   the scheduling is. A failed commit still cannot stall the others; it just frees its slot. */
 function ikCommitSerial(j,f,forcePid){
-  const run=_commitChain.then(()=>ikCommitJob(j,f,forcePid));
-  _commitChain=run.catch(()=>{});          // a failed commit must not break the chain
-  return run;
+  return new Promise((resolve,reject)=>{ _commitQ.push({j,f,forcePid,resolve,reject}); _commitDrain(); });
 }
 async function ikCommitJob(j,f,forcePid){
   const type=j.doc_type||'unknown';
@@ -3473,6 +3498,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v148';
+window.__APP_VER = 'v149';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
