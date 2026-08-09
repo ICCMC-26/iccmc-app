@@ -83,6 +83,9 @@ const I18N={
     pq_rev_s:'ملفات تنتظر تأكيدك قبل أن تُودَع', pq_ref_s:'ملفات لم تُقبل — السبب مذكور مع كل ملف',
     pq_all:'الكل', pq_legal:'قانوني', pq_pass:'جوازات', pq_visa:'فيزا',
     pq_none_rev:'لا شيء بانتظار المراجعة — كل شيء تم.', pq_none_ref:'لا ملفات مرفوضة.',
+    pq_wipe:'حذف الكل', pq_wipe_q:n=>`حذف ${n} ملفًا من هذه القائمة نهائياً؟`+String.fromCharCode(10)
+      +'تُمحى من قاعدة البيانات ولا يمكن التراجع. الملفات المُودَعة لا تتأثر.',
+    pq_wiping:'…يُحذف', pq_wiped:n=>`حُذف ${n}`, pq_wipe_none:'لا شيء لحذفه هنا',
     pq_review:'راجِع', pq_retry:'إعادة', pq_del:'حذف نهائي', pq_noreason:'بدون سبب مسجَّل',
     pq_gone:'لم يعد موجودًا', pq_deleted:'حُذف', pq_cleared:'أُزيل السجل — أعِد إسقاط الملف الآن',
     pq_nodet:'هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
@@ -182,6 +185,9 @@ const I18N={
     pq_ref_s:'Files that were not accepted — each shows its reason',
     pq_all:'All', pq_legal:'Legal', pq_pass:'Passports', pq_visa:'Visas',
     pq_none_rev:'Nothing waiting — all clear.', pq_none_ref:'No refused files.',
+    pq_wipe:'Delete all', pq_wipe_q:n=>`Permanently delete all ${n} files in this list?`+String.fromCharCode(10)
+      +'They are erased from the database and cannot be recovered. Committed files are untouched.',
+    pq_wiping:'…deleting', pq_wiped:n=>`deleted ${n}`, pq_wipe_none:'nothing to delete here',
     pq_review:'Review', pq_retry:'Retry', pq_del:'Delete', pq_noreason:'no reason recorded',
     pq_gone:'No longer there', pq_deleted:'Deleted', pq_cleared:'Cleared — drop the file again now',
     pq_nodet:'Retrying cannot help this file — it needs a clearer scan or splitting',
@@ -1666,6 +1672,18 @@ function pqRender(){
         <span class="fc">${pqN(n)}</span></button>`; }).join('');
   const cnt=$('#pq-count');
   if(cnt) cnt.textContent = PQ.total ? t('n_res',PQ.total) : '';
+  // Emptying the whole bucket belongs BESIDE the count, because the count is what it acts on —
+  // and it only exists while there is something to act on, so it can never be a live control
+  // over an empty list.
+  const bar=cnt&&cnt.parentElement;
+  if(bar){
+    let w=bar.querySelector('#pq-wipe');
+    if(PQ.total){
+      if(!w){ w=document.createElement('button'); w.id='pq-wipe'; w.className='pq-wipe';
+              w.onclick=pqWipeBucket; bar.appendChild(w); }
+      w.textContent='🗑 '+t('pq_wipe');
+    }else if(w){ w.remove(); }
+  }
 
   if(!PQ.rows.length){
     // "loading" and "genuinely empty" must not look identical — otherwise a slow fetch reads as
@@ -1713,6 +1731,33 @@ function pqRender(){
    row. Safe because NOTHING in review or refused is in the registry yet: no employee, no visa,
    no link. The guard is the bucket itself — a committed row is never listed here, and the
    database policy still refuses anyone below editor. */
+/* Empty the whole bucket — the same deletion pqDelete performs, applied to everything listed.
+
+   It carries the SAME guard, `status not in (done,committed)`: a committed row is not in this
+   section by construction, but a bulk delete is exactly where a wrong assumption becomes 400 rows
+   instead of one, so the database refuses it rather than trusting the filter above.
+
+   Deliberately bucket-scoped: emptying مرفوض must never touch قيد المراجعة. And the count comes
+   from the delete itself (returning select), not from what the page happened to be showing —
+   a paged list only ever holds a screenful, and reporting that as the total would be a lie. */
+async function pqWipeBucket(){
+  const bucket=PQ.bucket;
+  if(!PQ.total){ toast(t('pq_wipe_none')); return; }
+  if(!confirm(t('pq_wipe_q',PQ.total))) return;
+  const btn=$('#pq-wipe'); if(btn){ btn.disabled=true; btn.textContent='…'+t('pq_wiping'); }
+  const statuses = bucket==='review'
+    ? ['pending-review','needs-linking','legal-review']
+    : ['failed','permanently-failed'];
+  const {data,error}=await sb.from('scan_jobs').delete()
+      .in('status',statuses)
+      .not('status','in','(done,committed)')      // belt and braces, as in pqDelete
+      .select('job_id');
+  if(btn){ btn.disabled=false; btn.textContent='🗑 '+t('pq_wipe'); }
+  if(error){ toast(error.message); return; }
+  toast(t('pq_wiped',(data||[]).length));
+  await pqLoad();          // pqLoad repaints, and pqRender refreshes the top-bar badge
+}
+
 async function pqDelete(jobId){
   const r=PQ.rows.find(x=>x.job_id===jobId); if(!r) return;
   if(r.bucket==='committed'){ toast(t('pq_nocommit')); return; }
@@ -3734,6 +3779,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v166';
+window.__APP_VER = 'v167';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

@@ -337,6 +337,12 @@
     font-size:12.5px;color:var(--muted);text-decoration:none;transition:color .12s}
   .dz-agent:hover{color:var(--copper)}
   .dz-agent .dz-agent-i{font-size:14px;line-height:1}
+  /* destructive, so it is stated in red and kept quiet until hovered — never a primary button */
+  .pq-wipe{margin-inline-start:auto;border:1px solid transparent;background:transparent;
+    color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;border-radius:9px;
+    padding:5px 11px;transition:color .12s,border-color .12s,background .12s}
+  .pq-wipe:hover{color:var(--red);border-color:var(--red);background:rgba(255,77,89,.08)}
+  .pq-wipe:disabled{opacity:.6;cursor:default}
   .ikbig-re{color:var(--copper);text-decoration:none;font-weight:600}
   .ikbig-re:hover{text-decoration:underline}
   button.ikbig-go{border:none;font:inherit;cursor:pointer}
