@@ -69,6 +69,8 @@ const I18N={
     lg_manh_need:'اكتب رقم المنح لهذه الدفعة', lg_manual_h:'إدخال يدوي', lg_names_ocr:n=>`${n} اسم من المسح`,
     lg_saved_prov:'حُفظت دفعة مؤقتة ✓ ', lg_adopt:(n,b)=>`المنح ${n} يُكمل الدفعة: ${b}`, lg_adopt_do:'أكمِل الدفعة بهذا المنح',
     lg_adopted:'اكتملت الدفعة برقم المنح ✓ ', lg_adopt_amb:'منح يطابق أكثر من دفعة — اختر الصحيحة:', lg_manh_opt:'رقم المنح (اختياري الآن)', lg_anchor:'ثبّت الدفعة مؤقتًا', lg_merged:'دُمجت في الدفعة: ',
+    big_files:'ملف — دفعة كبيرة', big_why:'المتصفح يفقد الطابور عند التحديث أو الإغلاق. أداة الرفع تجعل الطابور مجلدًا على قرصك، فيصمد أمام التحديث وانقطاع النت وإعادة التشغيل.',
+    big_get:'حمِّل أداة الرفع', big_anyway:'تابع من المتصفح', big_note:'بعد الرفع بالأداة، افتح الموقع مرة واحدة لتُودَع الملفات النظيفة.',
     pq_btn:'الوارد', pq_h:'الوارد — ما لم يُودَع بعد',
     pq_rev:'قيد المراجعة', pq_ref:'مرفوض',
     pq_rev_s:'ملفات تنتظر تأكيدك قبل أن تُودَع', pq_ref_s:'ملفات لم تُقبل — السبب مذكور مع كل ملف',
@@ -158,6 +160,8 @@ const I18N={
     lg_manh_need:'Type the grant number for this batch', lg_manual_h:'Manual entry', lg_names_ocr:n=>`${n} names from scan`,
     lg_saved_prov:'Provisional batch saved ✓ ', lg_adopt:(n,b)=>`Grant ${n} completes: ${b}`, lg_adopt_do:'Complete this batch with the grant',
     lg_adopted:'Batch completed with its grant number ✓ ', lg_adopt_amb:'Grant matches more than one batch — pick the right one:', lg_manh_opt:'Grant number (optional now)', lg_anchor:'Anchor provisionally', lg_merged:'Merged into batch: ',
+    big_files:'files — that is a big batch', big_why:'The browser loses the queue on refresh or close. The uploader makes the queue a folder on your disk, so it survives refresh, connection drops and restarts.',
+    big_get:'Get the uploader', big_anyway:'Continue in the browser', big_note:'After it finishes, open the site once so the clean files are committed.',
     pq_btn:'Inbox', pq_h:'Inbox — not committed yet',
     pq_rev:'Pending review', pq_ref:'Refused',
     pq_rev_s:'Files waiting for your confirmation before they are committed',
@@ -1732,8 +1736,37 @@ async function ikStampBatch(n){
   }catch(_){ /* no verdict for this batch; the pump is unaffected */ }
   return id;
 }
+/* ── the hand-off: a browser is the wrong place to hold hours of pending work ────────────────
+   With a big drop only IK_PIPELINE files are moving and the rest are File handles in this page's
+   memory. Refresh and the browser revokes them — not a bug we can fix, it is the browser refusing
+   to let a page re-read your disk without you choosing again. (Google's own Cloud Console cancels
+   an upload on refresh for the same reason.) So above a threshold we stop and offer the folder
+   uploader, where the queue is files on a disk instead.
+   It is a CHOICE, not a block: «تابع من المتصفح» is always there, because a wrong guess about the
+   threshold must never stop someone doing their work. */
+const IK_BIG=40;
+function ikBigDropAsk(n){
+  return new Promise(resolve=>{
+    const w=document.createElement('div'); w.className='ikbig-w';
+    w.innerHTML=`<div class="ikbig">
+      <div class="ikbig-h">${n} ${t('big_files')}</div>
+      <div class="ikbig-s">${t('big_why')}</div>
+      <div class="ikbig-b">
+        <a class="ikbig-go" href="iccmc-uploader.zip" download>⤓ ${t('big_get')}</a>
+        <button class="ikbig-alt">${t('big_anyway')}</button>
+      </div>
+      <div class="ikbig-n">${t('big_note')}</div>
+    </div>`;
+    document.body.appendChild(w);
+    const close=v=>{ w.remove(); resolve(v); };
+    w.querySelector('.ikbig-alt').onclick=()=>close(true);        // proceed in the browser
+    w.querySelector('.ikbig-go').onclick=()=>setTimeout(()=>close(false),400);  // let the download start
+    w.onclick=e=>{ if(e.target===w) close(false); };
+  });
+}
 async function ikAdd(files){
   const list=Array.from(files);
+  if(list.length>=IK_BIG && !await ikBigDropAsk(list.length)) return;
   const batch=await ikStampBatch(list.length);
   for(const f of list){
     const job={id:++_ikSeq, file:f, state:'queued', pct:0, err:'', batch};
@@ -3575,6 +3608,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v153';
+window.__APP_VER = 'v154';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

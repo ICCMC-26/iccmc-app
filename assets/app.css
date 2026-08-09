@@ -964,3 +964,18 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-add{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:14px 0 4px}
 /* on narrow screens the mm-wide sheet would overflow — let it scroll rather than break the layout */
 @media(max-width:1180px){ .ist-stage{overflow-x:auto;justify-content:flex-start} }  /* landscape sheet ≈1122px → scroll on smaller screens */
+  /* ── the big-drop hand-off ────────────────────────────────────────────────── */
+  .ikbig-w{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.62);display:flex;
+    align-items:center;justify-content:center;padding:20px}
+  .ikbig{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px 24px;
+    max-width:440px;width:100%;text-align:center}
+  .ikbig-h{font-size:19px;font-weight:800;color:var(--ink);margin-bottom:8px}
+  .ikbig-s{font-size:13.5px;color:var(--muted);line-height:1.75;margin-bottom:18px}
+  .ikbig-b{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .ikbig-go{background:var(--copper);color:#1a1206;border:none;border-radius:11px;padding:11px 20px;
+    font-weight:700;font-size:14px;cursor:pointer;text-decoration:none;display:inline-block}
+  .ikbig-go:hover{filter:brightness(1.08)}
+  .ikbig-alt{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:11px;
+    padding:11px 18px;font:inherit;font-size:14px;cursor:pointer}
+  .ikbig-alt:hover{border-color:var(--copper)}
+  .ikbig-n{font-size:12px;color:var(--muted);margin-top:16px;line-height:1.6}

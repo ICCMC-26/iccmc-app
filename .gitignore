@@ -15,6 +15,11 @@
 # Tells Cloudflare which files must NOT be published. Critically it excludes
 # .git — without it, Wrangler uploads the whole repo including history.
 !.assetsignore
+# The folder uploader, offered from the drop zone when a drop is too big for a browser.
+# Explicitly allowed and INSPECTED: it is source only — pump.py / pump_gui.py / pump.bat /
+# pump.example.ini / README.txt. The example ini carries PLACEHOLDERS; the real pump.ini
+# holds a password and is gitignored at the source, never packaged.
+!iccmc-uploader.zip
 # The split front-end assets that index.html loads (CSS + vendored supabase + app logic).
 # EXPLICIT entries only — never a broad assets/** — so nothing else can slip into the repo.
 !assets/
