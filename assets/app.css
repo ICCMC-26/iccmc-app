@@ -339,6 +339,9 @@
   .dz-agent .dz-agent-i{font-size:14px;line-height:1}
   /* destructive, so it is stated in red and kept quiet until hovered — never a primary button */
   /* one paper at a time: where you are, what is left, and the way forward */
+  /* the quiet line under the workspace drop zone — what will NOT be added here */
+  .ist-agent-note{display:inline-block;margin-top:6px;font-size:11.5px;color:var(--muted);
+    font-style:normal;opacity:.9}
   .lr-walk{display:flex;align-items:center;gap:10px;margin-bottom:14px}
   .lr-walk-mid{flex:1;text-align:center;min-width:0}
   .lr-walk-t{font-size:16px;font-weight:700;color:var(--ink);white-space:nowrap;

@@ -101,6 +101,11 @@ const I18N={
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
     ist_c_addr:'العنوان الكامل للأقامة داخل العراق', ist_c_border:'اسم المنفذ الحدودي', ist_c_prof:'المهنة', ist_c_country:'بلد الاقامة الحالي', ist_c_visited:'هل سبق زيارة العراق',
     ist_filldown:'تعبئة للأسفل — نسخ هذه القيمة إلى كل الصفوف تحتها', ist_hand_hint:'تُكتب باليد (لا تأتي من قراءة الجواز)',
+    ist_agent_open:'افتح أداة الرفع', ist_agent_get:'حمِّل أداة الرفع',
+    ist_agent_new:'حمِّل تحديث أداة الرفع',
+    ist_agent_hint:'تُرفع الجوازات بالأداة — تدخل السجل كالمعتاد وتظهر هنا تلقائياً',
+    ist_agent_wait:'بانتظار الجوازات من الأداة…', ist_agent_got:n=>`أُضيف ${n} من الأداة`,
+    ist_agent_other:'المستندات الأخرى تذهب إلى «الوارد» ولا تُدرج في هذا الجدول',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
@@ -206,6 +211,11 @@ const I18N={
     ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
     ist_c_addr:'Full address of residence in Iraq', ist_c_border:'Border entry point', ist_c_prof:'Profession', ist_c_country:'Current country of residence', ist_c_visited:'Visited Iraq before?',
     ist_filldown:'Fill down — copy this value to all rows below', ist_hand_hint:'Typed by hand (not read from the passport)',
+    ist_agent_open:'Open the uploader', ist_agent_get:'Get the uploader',
+    ist_agent_new:'Download the uploader update',
+    ist_agent_hint:'Passports go through the uploader — they enter the registry as usual and appear here automatically',
+    ist_agent_wait:'waiting for passports from the uploader…', ist_agent_got:n=>`${n} added from the uploader`,
+    ist_agent_other:'Other documents go to «الوارد» and are not added to this table',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
@@ -2701,8 +2711,8 @@ function istRenderRows(){
   }).join('');
   // the add-zone IS the table body — a clickable + droppable box, like the OCR upload box. No separate button.
   const drop = _IST.rows.length
-    ? `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_pc'))}</td></tr>`
-    : `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('ist_add_pc'))}<br><em>${esc(t('ist_drop_sub'))}</em></span></td></tr>`;
+    ? `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop slim">＋ ${esc(t(agentState()==='current'?'ist_agent_open':'ist_agent_get'))}<span class="ist-agent-note" id="ist-agent-note"></span></td></tr>`
+    : `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t(agentState()==='current'?'ist_agent_open':agentState()==='stale'?'ist_agent_new':'ist_agent_get'))}<br><em>${esc(t('ist_agent_hint'))}</em><br><em class="ist-agent-note" id="ist-agent-note">${esc(t('ist_agent_other'))}</em></span></td></tr>`;
   tb.innerHTML=dataHtml+drop;
   // hand columns: type into a cell (kept live in the row, no re-render → focus stays); ⤓ fills the value DOWN
   tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri]; if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; } });
@@ -2723,7 +2733,9 @@ function istRenderRows(){
   });
   tb.querySelectorAll('[data-istreview]').forEach(b=>b.onclick=()=>istOpenReview(+b.dataset.istreview));   // ⚑ → open the OCR review pane
   const dz=$('#ist-drop'); if(dz){
-    dz.onclick=istPickFiles;
+    // Click opens the UPLOADER; dropping files here still takes the direct path, so neither way
+    // of working is taken away.
+    dz.onclick=istOpenAgent;
     dz.ondragover=e=>{ e.preventDefault(); dz.classList.add('over'); };
     dz.ondragleave=()=>dz.classList.remove('over');
     dz.ondrop=e=>{ e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files.length) istAddFromPC(e.dataTransfer.files); };
@@ -2764,6 +2776,81 @@ function istRowStatusTxt(r){
    review (⚑), same as the drop box; the person is finalised when it's reviewed in the OCR board. */
 // Accept EXACTLY what the OCR drop box accepts — a passport the line would read must never be turned
 // away here. A file outside those limits still gets a ROW with the reason (it used to vanish silently).
+/* ── the Agent as a second door into this workspace ──────────────────────────────────────────
+   Same line, one addition. Files pumped by the uploader travel the ORDINARY path — bucket, worker,
+   ledger, review — exactly as they do from anywhere else. Nothing here re-implements that, and
+   nothing here can bypass it.
+
+   The one addition is that a PASSPORT read while this sheet is open is also adopted into the
+   table, because that is the work the sheet exists to collect. Anything else — a legal paper, a
+   visa, something unrecognised — is left entirely alone: it is already accounted for in «الوارد»,
+   and putting it in a roster of employees would be a lie about what the document is.
+
+   Adoption necessarily happens AFTER the read: a file's type is not knowable until it has been
+   read, so nothing is guessed from a filename. */
+let _istAgentTimer=null, _istAgentSince=null, _istAgentSeen=new Set(), _istAgentCount=0;
+
+function istOpenAgent(){
+  const st=agentState();
+  const note=$('#ist-agent-note');
+  const say=k=>{ if(note) note.textContent=t(k); };
+  if(st!=='current'){                       // no copy, or an old one → fetch it, then watch
+    const a=document.createElement('a');
+    a.href='ICCMC-uploader.pyw'; a.download='افتح أداة الرفع.pyw';
+    document.body.appendChild(a); a.click(); a.remove();
+    agentGot(); paintAgentLink();
+    say('ist_agent_hint');
+    istAgentWatch();
+    return;
+  }
+  let left=false; const mark=()=>{left=true;};
+  window.addEventListener('blur',mark,{once:true});
+  document.addEventListener('visibilitychange',mark,{once:true});
+  try{ location.href='iccmc-uploader://open'; }catch(_){}
+  setTimeout(()=>{ window.removeEventListener('blur',mark);
+    say(left?'ist_agent_wait':'dz_agent_nope'); },2500);
+  istAgentWatch();                          // watch either way: it may already be open
+}
+
+function istAgentWatch(){
+  _istAgentSince=new Date().toISOString();   // only what arrives from NOW — never adopt history
+  _istAgentSeen=new Set(((_IST&&_IST.rows)||[]).map(r=>r._hash).filter(Boolean));
+  _istAgentCount=0;
+  if(_istAgentTimer) return;
+  _istAgentTimer=setInterval(istAgentPoll,4000);
+  istAgentPoll();
+}
+async function istAgentPoll(){
+  const on=$('#istimara')&&$('#istimara').classList.contains('on');
+  if(!_IST || !on){ clearInterval(_istAgentTimer); _istAgentTimer=null; return; }
+  if(document.hidden) return;
+  let jobs=[];
+  try{
+    const {data,error}=await sb.from('scan_jobs')
+      .select('job_id,status,fields,doc_type,image_hash,image_path,field_conf,flagged,error_msg')
+      .eq('source','pump').gte('created_at',_istAgentSince)
+      .in('doc_type',['passport','national_id'])      // ONLY passports join the table
+      .order('created_at',{ascending:true});
+    if(error) return; jobs=data||[];
+  }catch(_){ return; }
+  let added=0;
+  for(const j of jobs){
+    if(!j.image_hash || _istAgentSeen.has(j.image_hash)) continue;
+    _istAgentSeen.add(j.image_hash);
+    const row={name:'',nationality:'',passport_no:'',passport_expiry:'',
+               _status:'processing',_pct:100,_stage:j.status,_err:'',_hash:j.image_hash,_agent:true};
+    _IST.rows.push(row); _IST._dirty=true;
+    try{ await istApply(row,j); }catch(_){}
+    added++;
+  }
+  if(added){
+    _istAgentCount+=added;
+    const note=$('#ist-agent-note'); if(note) note.textContent=t('ist_agent_got',_istAgentCount);
+    istRenderRows();
+    istEnsureWatch();                        // hand them to the shared reconciler, like any row
+  }
+}
+
 function istAddFromPC(files){
   const all=Array.from(files), queue=[]; if(all.length) _IST._dirty=true;
   for(const file of all){
@@ -4022,6 +4109,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v177';
+window.__APP_VER = 'v178';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
