@@ -35,7 +35,7 @@ const I18N={
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
-    ik_processing:'قيد المعالجة…', ik_landed:'أودعت', ik_sent:'قيد المعالجة', ik_committed:'أودعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_allclear:'أودِع الكل ✓', ik_lg_rev:'مراجعة',
+    ik_processing:'قيد المعالجة…', ik_landed:'أودعت', ik_pre:'موجودة مسبقًا', ik_sent:'قيد المعالجة', ik_committed:'أودعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_allclear:'أودِع الكل ✓', ik_lg_rev:'مراجعة',
     ik_cls_passport:'جواز', ik_cls_visa:'تأشيرة', ik_cls_legal:'قانوني',
     ik_next2:'المستندات قيد المسح — تظهر في صفحة البحث فور اعتمادها.',
     ik_review:'مراجعة ›', ik_legal:'مراجعة قانونية', rv_ask:'بانتظار مراجعتك — تأكيد سريع', rv_asklink:'يحتاج ربطًا — راجِع للمتابعة',
@@ -144,7 +144,7 @@ const I18N={
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
-    ik_processing:'Processing…', ik_landed:'Committed', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again', ik_v_compact:'Compact', ik_v_detailed:'Detailed', ik_allclear:'All committed ✓', ik_lg_rev:'review',
+    ik_processing:'Processing…', ik_landed:'Committed', ik_pre:'already in the system', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again', ik_v_compact:'Compact', ik_v_detailed:'Detailed', ik_allclear:'All committed ✓', ik_lg_rev:'review',
     ik_cls_passport:'passport', ik_cls_visa:'visa', ik_cls_legal:'legal',
     ik_next2:'Being scanned — they appear on the search page once committed.',
     ik_review:'Review ›', ik_legal:'legal review', rv_ask:'Waiting for your check — quick confirm', rv_asklink:'Needs linking — open to continue',
@@ -1293,6 +1293,14 @@ async function ikReconcile(){
     // while its (same) job is already committed — the "status never syncs" bug.
     const twins=IK.filter(x=>x.hash===h);
     if(r.status==='committed'||r.status==='done'){          // landed in the registry → ✓
+      // Was this row ALREADY there before we declared? Then this file never travelled — it was a
+      // duplicate of something already committed. It must come out of the declaration, or the law
+      // reports a loss for a file that is safely in the registry.
+      const dAt=_ikBatchAt[j&&j.batch];
+      if(dAt && r.created_at && new Date(r.created_at) < dAt){
+        twins.forEach(x=>{ if(x.batch && !x._undeclared){ x._undeclared=true; ikUndeclare(x.batch,1); } });
+        twins.forEach(x=>{ x.preexisting=true; });
+      }
       twins.forEach(x=>{x.state='landed';x.stage=null;}); delete _ikPending[h]; changed=true;
     } else if(r.status==='failed'){                          // quality gate / read refused it → ✕
       twins.forEach(x=>{x.state='refused';x.err=r.error_msg||'';}); delete _ikPending[h]; changed=true;
@@ -1480,7 +1488,7 @@ function ikStateTxt(j){
   if(j.state==='queued')return t('ik_queued');
   if(j.state==='uploading')return j.pct+'%';
   if(j.state==='processing')return j.stage?ikStageTxt(j.stage):t('ik_processing');
-  if(j.state==='landed')return '✓ '+t('ik_landed');
+  if(j.state==='landed')return '✓ '+t(j.preexisting?'ik_pre':'ik_landed');
   if(j.state==='split')return '✓ '+t('ik_split',j.splitN||0);   // a packet: split into N documents (its children flow on their own)
   if(j.state==='refused')return '✕ '+t('ik_refused');
   if(j.state==='review')return '';                    // the Review button fills the slot instead
@@ -1830,13 +1838,23 @@ async function pqRetry(jobId){
    arrived. `declared_total` is that outside number: the client says what it is about to send, and
    settle_batches() compares it to what actually reached the ledger.
    Best-effort: if the stamp fails the files still pump — we lose the verdict, not the work. */
+/* declared_total is the ONE number that comes from outside the database, so it has to mean
+   "what I am about to send" — not "what I picked". The moment it counts a file that never
+   travels, the law reports a loss that did not happen. */
+const _ikBatchAt={};                    // batch id → when it was declared (to spot pre-existing rows)
 async function ikStampBatch(n){
   const id=`B${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+  _ikBatchAt[id]=new Date();
   try{
     const {data:{user}}=await sb.auth.getUser();
     await sb.from('intake_batches').insert({batch_id:id, declared_total:n, declared_by:user?.email||null});
   }catch(_){ /* no verdict for this batch; the pump is unaffected */ }
   return id;
+}
+/* Take a file back OUT of the declaration — it is not going to travel after all. */
+async function ikUndeclare(batch, n){
+  if(!batch || !n) return;
+  try{ await sb.rpc('intake_undeclare', {p_batch:batch, p_n:n}); }catch(_){}
 }
 /* ── the hand-off: a browser is the wrong place to hold hours of pending work ────────────────
    With a big drop only IK_PIPELINE files are moving and the rest are File handles in this page's
@@ -1976,11 +1994,19 @@ function ikBigDropAsk(n){
 async function ikAdd(files){
   const list=Array.from(files);
   if(list.length>=IK_BIG && !await ikBigDropAsk(list.length)) return;
-  const batch=await ikStampBatch(list.length);
+  // Validate FIRST, declare second. A file this page refuses (wrong type, too large) never reaches
+  // the ledger, so counting it in declared_total was reporting a loss the moment it was chosen.
+  const vetted=[];
   for(const f of list){
+    const bad = (!IK_OK.test(f.type) && !/\.(xlsx|docx)$/i.test(f.name)) ? t('ik_bad')
+              : (f.size>IK_MAX) ? t('ik_big') : '';
+    vetted.push([f,bad]);
+  }
+  const sending=vetted.filter(([,bad])=>!bad).length;
+  const batch=sending ? await ikStampBatch(sending) : null;
+  for(const [f,bad] of vetted){
     const job={id:++_ikSeq, file:f, state:'queued', pct:0, err:'', batch};
-    if(!IK_OK.test(f.type) && !/\.(xlsx|docx)$/i.test(f.name)) {job.state='failed'; job.err=t('ik_bad')}  // .xlsx/.docx by name: some OSes give them an empty MIME
-    else if(f.size>IK_MAX) {job.state='failed'; job.err=t('ik_big')}
+    if(bad){ job.state='failed'; job.err=bad; }     // refused here; never declared, never counted
     IK.push(job);
   }
   ikRender(); ikPump();                              // queue drains IK_CONC at a time
@@ -4128,6 +4154,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v181';
+window.__APP_VER = 'v182';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
