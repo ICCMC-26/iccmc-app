@@ -1834,7 +1834,7 @@ const AGENT_VER_KEY='iccmc_agent_version';
 /* The version of the uploader this site ships. Keep it equal to TOOL_VERSION in pump.py.
    Storing which version was taken turns one hopeful guess ("they probably have it") into three
    honest states: they have nothing, they have an OLD one, or they have this one. */
-const TOOL_V='1.2';
+const TOOL_V='1.3';
 
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
@@ -3779,6 +3779,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v167';
+window.__APP_VER = 'v168';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
