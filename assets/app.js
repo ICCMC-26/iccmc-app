@@ -66,7 +66,7 @@ const I18N={
     lg_pending:'أوراق ممسوحة بانتظار المطابقة', lg_no_pending:'لا أوراق بانتظار المطابقة — أدخِل دفعة يدويًا أدناه',
     lg_proposal:'دفعة مقترحة', lg_provisional:'مؤقتة — بانتظار المنح', lg_ambiguous:'غامضة — راجِع يدويًا',
     lg_left:n=>`بقي ${n}`,
-    lg_next_case:'الدفعة التالية ›', lg_batch_of:(i,n)=>`دفعة ${i} من ${n}`, lg_next_batch:n=>`التالية — بقيت ${n}`,
+    lg_next_batch:n=>`بقي ${n}`,
     lg_all_done:'اكتملت كل الدفعات ✓', lg_next:'التالي ›', lg_prev:'‹ السابق', lg_of:(i,n)=>`${i} من ${n}`,
     lg_last:'آخر ورقة', lg_papers_lbl:'الأوراق:', lg_confirm_commit:'تأكيد وحفظ الدفعة', lg_view:'عرض',
     lg_manh_need:'اكتب رقم المنح لهذه الدفعة', lg_manual_h:'إدخال يدوي', lg_names_ocr:n=>`${n} اسم من المسح`,
@@ -175,7 +175,7 @@ const I18N={
     lg_pending:'Scanned papers awaiting matching', lg_no_pending:'None awaiting — enter a batch manually below',
     lg_proposal:'Proposed batch', lg_provisional:'provisional — awaiting grant', lg_ambiguous:'ambiguous — review manually',
     lg_left:n=>`${n} left`,
-    lg_next_case:'Next batch ›', lg_batch_of:(i,n)=>`batch ${i} of ${n}`, lg_next_batch:n=>`next — ${n} to go`,
+    lg_next_batch:n=>`${n} left`,
     lg_all_done:'All batches done ✓', lg_next:'Next ›', lg_prev:'‹ Back', lg_of:(i,n)=>`${i} of ${n}`,
     lg_last:'last paper', lg_papers_lbl:'Papers:', lg_confirm_commit:'Confirm & save batch', lg_view:'view',
     lg_manh_need:'Type the grant number for this batch', lg_manual_h:'Manual entry', lg_names_ocr:n=>`${n} names from scan`,
@@ -3755,6 +3755,39 @@ const PAPER_STAMPS={taahud:[['taahud','lg_st_taahud']],
   istimara:[['istco','lg_st_ist_co'],['istmo','lg_st_ist_mo']], manh:[['manh','lg_st_manh']]};
 let _lrQueue={pos:1,total:1};
 let _lrAll=[];
+/* The reviewer walks FILES, not batches.
+
+   Grouping papers into batches is the assembler's job — it happens on the way in and again on
+   commit, and it is right that it does. It was wrong to make a person navigate it: «دفعة 2 من 4»
+   asked them to hold a structure in their head that the backend already knows, and a batch of one
+   paper looked like a dead end. There is one question a reviewer needs answered — where am I, out
+   of how many — and one action: next.
+
+   So the drawer keeps a flat list of every pending paper, and switching the underlying batch is
+   something it does quietly when the walk crosses a boundary. */
+let _lrFlat=[], _lrPos=0;
+function _lrBuildFlat(batches){
+  const flat=[];
+  for(const b of (batches||[])){
+    b.papers.sort((x,y)=>ptOrd(x.type)-ptOrd(y.type));
+    for(const p of b.papers) flat.push({paper:p, batch:b});
+  }
+  return flat;
+}
+function _lrGoFlat(i){
+  if(!_lrFlat.length) return;
+  i=Math.max(0,Math.min(_lrFlat.length-1,i));
+  const {paper,batch}=_lrFlat[i];
+  if(batch!==_lrBatch){
+    batch._stamps=batch._stamps||{}; batch._epFill=batch._epFill||{};
+    if(batch._showAll===undefined) batch._showAll=false;
+    _lrBatch=batch; _lrRot={}; _lrZoom=1;      // a different document → its own rotation/zoom
+  }
+  _lrIdx=Math.max(0,_lrBatch.papers.indexOf(paper));
+  _lrPos=i;
+  renderLegalReview();
+  const sc=$('#lr-scan'); if(sc)sc.scrollTop=0;
+}
 /* Keep the queue in step with «الوارد» while the drawer is open.
 
    _lrAll is assembled when the drawer opens, so anything that landed afterwards was invisible to
@@ -3780,20 +3813,25 @@ async function _lrRefreshQueue(){
   try{ papers=await loadLegalPending(); }catch(_){ return; }
   const {batches}= papers.length ? legalAssemble(papers) : {batches:[]};
   _lrAll=batches;
-  // where does the batch on screen sit in the refreshed queue?
-  const shown=new Set((_lrBatch&&_lrBatch.papers||[]).map(p=>p.scan_hash).filter(Boolean));
-  const at=batches.findIndex(b=>b.papers.some(p=>shown.has(p.scan_hash)));
-  _lrQueue={pos:(at<0?_lrQueue.pos:at+1), total:batches.length||_lrQueue.total};
+  const cur=_lrFlat[_lrPos] && _lrFlat[_lrPos].paper;
+  _lrFlat=_lrBuildFlat(batches);
+  // hold the reviewer's PLACE, not their index: the list can grow or shrink underneath them
+  if(cur){
+    const at=_lrFlat.findIndex(f=>f.paper.scan_hash===cur.scan_hash);
+    if(at>=0) _lrPos=at;
+  }
+  _lrPos=Math.max(0,Math.min(_lrPos,Math.max(0,_lrFlat.length-1)));
   lrPaintQueue();
 }
-/* repaint ONLY the counters — re-rendering the whole drawer would throw away half-typed input */
+/* repaint ONLY the counter and the two buttons — re-rendering the drawer would throw away
+   half-typed input and any stamp the reviewer had just ticked */
 function lrPaintQueue(){
-  const q=$('#ikreview .lr-q');
-  if(q) q.textContent=t('lg_batch_of',_lrQueue.pos,_lrQueue.total);
-  const w=$('#ikreview .lr-walk-q');
-  if(w) w.textContent=t('lg_batch_of',_lrQueue.pos,_lrQueue.total);
-  const nx=$('#ikreview [data-lrgo="batch"]');
-  if(nx) nx.disabled=!((_lrAll||[]).length>_lrQueue.pos);
+  const tot=_lrFlat.length, at=_lrPos+1;
+  const n=$('#ikreview .lr-walk-n');
+  if(n && tot) n.textContent=t('lg_of',at,tot);
+  const prev=$('#ikreview [data-lrgo="-1"]'), next=$('#ikreview [data-lrgo="1"]');
+  if(prev) prev.disabled = at<=1;
+  if(next) next.disabled = at>=tot;
 }
 
 async function openLegalReview(hash){
@@ -3802,13 +3840,15 @@ async function openLegalReview(hash){
   const {batches}=legalAssemble(papers);
   let bi=batches.findIndex(b=>b.papers.some(p=>p.scan_hash&&p.scan_hash===hash));
   if(bi<0)bi=0;
-  _lrQueue={pos:bi+1, total:batches.length};   // where this batch sits in the work waiting
-  _lrAll=batches;                              // the queue, kept so the NEXT one needs no round trip
+  _lrAll=batches;
+  _lrFlat=_lrBuildFlat(batches);
+  _lrQueue={pos:bi+1, total:batches.length};   // kept for the commit path; not shown to the user
   _lrBatch=batches[bi]; _lrBatch._num=undefined; _lrBatch._stamps={}; _lrRot={}; _lrZoom=1;
   // fixed logical order تعهد · استمارة · منح; the DOM order + `dir` make it read right-to-left in AR,
   // left-to-right in EN automatically (the segmented control is a flex row that follows the language).
   _lrBatch.papers.sort((a,b)=>ptOrd(a.type)-ptOrd(b.type));   // registry order (G6)
   _lrIdx=Math.max(0,_lrBatch.papers.findIndex(p=>p.scan_hash===hash));
+  _lrPos=Math.max(0,_lrFlat.findIndex(f=>f.paper.scan_hash===hash));
   renderLegalReview();
   $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
   lrLive();
@@ -3845,22 +3885,15 @@ function renderLegalReview(){
   // and said nothing about where you were in it. Reviewing is sequential — one paper, confirm,
   // the next — so the control is now the position itself: which paper this is, how many remain,
   // and one button to move on. The paper is NAMED rather than chosen from a set of look-alikes.
-  const _n=papers.length, _at=_lrIdx+1, _left=_n-_at;
-  // On the LAST paper, «التالي» must not go dead: a one-paper batch disabled it entirely, which
-  // read as "there is nothing more" while two dozen papers were still waiting. At the end of a
-  // batch the same button moves to the next BATCH, and only stops when the queue is truly empty.
-  const _more=(_lrAll||[]).length>_lrQueue.pos;
-  const _endOfBatch=_lrIdx>=_n-1;
-  const _nextLbl=_endOfBatch ? t('lg_next_case') : t('lg_next');
-  const _nextOff=_endOfBatch && !_more;
+  // ONE number: which file, out of how many waiting. No batches on screen.
+  const _tot=_lrFlat.length||papers.length, _at=(_lrFlat.length?_lrPos:_lrIdx)+1;
   const seg=`<div class="lr-walk">
-      <button class="lr-nav" data-lrgo="-1" ${_lrIdx<=0?'disabled':''}>${t('lg_prev')}</button>
+      <button class="lr-nav" data-lrgo="-1" ${_at<=1?'disabled':''}>${t('lg_prev')}</button>
       <div class="lr-walk-mid">
         <div class="lr-walk-t">${tl[cur.type]||cur.type}</div>
-        <div class="lr-walk-n">${t('lg_of',_at,_n)}${_left?` · ${t('lg_left',_left)}`:` · ${t('lg_last')}`}</div>
-        <div class="lr-walk-q">${t('lg_batch_of',_lrQueue.pos,_lrQueue.total)}</div>
+        <div class="lr-walk-n">${t('lg_of',_at,_tot)}</div>
       </div>
-      <button class="lr-nav go" data-lrgo="${_endOfBatch?'batch':'1'}" ${_nextOff?'disabled':''}>${_nextLbl}</button>
+      <button class="lr-nav go" data-lrgo="1" ${_at>=_tot?'disabled':''}>${t('lg_next')}</button>
     </div>`;
   // ONLY this paper's expected stamp(s), OFF by default — the human verifies each on the scan, then
   // ticks it (nothing is auto-trusted). We zoom to what needs checking; the human confirms.
@@ -3872,7 +3905,6 @@ function renderLegalReview(){
     <div class="rvw-bar"><button class="icon ik-close" id="lr-close" title="${t('t_close')}">✕</button>
       <span class="rvw-t">⚖ ${t('lg_h')}${b.provisional?` · ${t('lg_provisional')}`:''}</span>
       <span style="flex:1"></span>
-      <span class="rvw-fn lr-q">${t('lg_batch_of',_lrQueue.pos,_lrQueue.total)}</span>
       <span class="rvw-fn">${t('lg_names_ocr',rows.length)}</span></div>
     <div class="rvw-body">
       <div class="rvw-scan" id="lr-scan">${t('rv_loading')}</div>
@@ -3895,24 +3927,8 @@ function renderLegalReview(){
   // moving must PRESERVE what was typed/ticked on the paper being left — _lrRead does that,
   // and it is why every one of these paths calls it before changing the index
   $('#ikreview').querySelectorAll('[data-lrgo]').forEach(btn=>btn.onclick=()=>{
-    _lrRead();                       // never lose what was ticked/typed on the paper being left
-    if(btn.dataset.lrgo==='batch'){  // end of this batch → the next case, without committing
-      (async ()=>{
-        let i=_lrQueue.pos;          // pos is 1-based, so this is the NEXT index
-        if(i>=(_lrAll||[]).length){  // cached queue spent — ask the bucket before giving up
-          btn.disabled=true;
-          await _lrRefreshQueue();
-          btn.disabled=false;
-          i=_lrQueue.pos;
-        }
-        if(i<(_lrAll||[]).length) _lrShowBatch(_lrAll[i], i+1, _lrAll.length);
-        else toast(t('lg_all_done'));
-      })();
-      return;
-    }
-    _lrIdx=Math.min(papers.length-1, Math.max(0, _lrIdx+(+btn.dataset.lrgo)));
-    renderLegalReview();
-    const sc=$('#lr-scan'); if(sc)sc.scrollTop=0;      // the next scan starts at its top
+    _lrRead();                              // never lose what was ticked/typed on the paper being left
+    _lrGoFlat((_lrFlat.length?_lrPos:_lrIdx)+(+btn.dataset.lrgo));
   });
   lrPaintScan(cur);
 }
@@ -3996,9 +4012,10 @@ async function lrAfterCommit(){
   const done=_lrBatch;
   const rest=(_lrAll||[]).filter(b=>b!==done);
   _lrAll=rest;
-  if(rest.length){ _lrShowBatch(rest[0],1,rest.length); toast(t('lg_next_batch',rest.length)); }
-  else { toast(t('lg_all_done')); closeIkReview(); }
+  _lrFlat=_lrBuildFlat(rest);
   ikRender(); search($('#q')?$('#q').value:'');
+  if(_lrFlat.length){ _lrPos=0; _lrGoFlat(0); toast(t('lg_next_batch',_lrFlat.length)); }
+  else { toast(t('lg_all_done')); closeIkReview(); }
   _lrReconcile();                       // deliberately NOT awaited — the screen is already right
 }
 
@@ -4008,98 +4025,15 @@ async function _lrReconcile(){
   const open=$('#ikreview')&&$('#ikreview').classList.contains('on');
   const {batches}= papers.length ? legalAssemble(papers) : {batches:[]};
   _lrAll=batches;
+  const cur=_lrFlat[_lrPos] && _lrFlat[_lrPos].paper;
+  _lrFlat=_lrBuildFlat(batches);
   if(!open) return;
-  if(!batches.length){ toast(t('lg_all_done')); closeIkReview(); return; }
-  // is the batch on screen still pending? compare by the papers it is made of
-  const shown=new Set((_lrBatch&&_lrBatch.papers||[]).map(p=>p.scan_hash).filter(Boolean));
-  const alive=batches.findIndex(b=>b.papers.some(p=>shown.has(p.scan_hash)));
-  if(alive<0) _lrShowBatch(batches[0],1,batches.length);            // it was absorbed → move on
-  else if(_lrQueue.total!==batches.length){                          // same batch, truer count
-    _lrQueue={pos:alive+1,total:batches.length};
-    const q=$('#ikreview .lr-q'); if(q)q.textContent=t('lg_batch_of',_lrQueue.pos,_lrQueue.total);
-  }
+  if(!_lrFlat.length){ toast(t('lg_all_done')); closeIkReview(); return; }
+  const at=cur ? _lrFlat.findIndex(f=>f.paper.scan_hash===cur.scan_hash) : -1;
+  if(at>=0){ _lrPos=at; lrPaintQueue(); }      // same file, truer count
+  else _lrGoFlat(0);                           // the file we were on is gone → the next one
 }
 
-async function lrCommit(){
-  const b=_lrBatch; if(!b)return; _lrRead();
-  let rows=proposalRows(b);
-  if(b._epFill) rows=rows.map(r=>{ const f=r.serial!=null&&b._epFill[+r.serial]; return f?{...r,name:f}:r; });   // apply the filled endpoint names
-  const ep=legalEndpoints(rows), hasManh=b.papers.some(p=>p.type==='manh');
-  const _loneManh=b.papers.length===1 && b.papers[0].type==='manh';
-  const _canConn=(ep.fSerial!=null&&ep.lSerial!=null)&&!!(ep.fName||ep.lName);   // منح-matchable: interval + ≥1 endpoint name
-  if(!_loneManh && !_canConn){ toast(t('lr_endname_need'));   // block only when NOTHING can connect (no interval / both ends blank)
-    const inp=[...document.querySelectorAll('#ikreview .lr-epname')].find(x=>!x.value.trim()); if(inp)inp.focus(); return; }
-  let id=(b._num||'').trim();
-  const s=b._stamps||{};
-  const stamps={ taahud:!!s.taahud, istco:!!s.istco, istmo:!!s.istmo, manh:!!s.manh };
-  if(!id){
-    if(hasManh){ toast(t('lg_need_id'));               // a منح is here → jump to it to type the number
-      const mi=b.papers.findIndex(p=>p.type==='manh'); if(mi>=0){_lrIdx=mi; renderLegalReview();} return; }
-    let tgt=await findMergeTarget(rows);               // shares passports with a committed provisional batch?
-    if(!tgt) tgt=await findWaitingManh(ep, rows);       // OR a منح that committed BEFORE its roster (waiting)
-    if(tgt){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
-      try{ const res=await commitMerged(b.papers, rows, tgt, stamps);
-        b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-        toast(t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`);
-        await lrAfterCommit(); }
-      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
-      return; }
-    id=provKey(ep); }
-  if(hasManh && b.papers.length===1 && id){             // a lone منح → complete a matching provisional batch
-    const cands=manhCandidates(b.papers[0], await loadProvisionalBatches());
-    if(cands.length===1){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
-      try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id, reviewRot(cands[0].rot));
-        b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-        await lrAfterCommit(); }
-      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
-      return; } }
-  const manh=b.papers.find(p=>p.type==='manh')||{};
-  const scans={taahud:(b.papers.find(p=>p.type==='taahud')||{}).scan_path,
-    istimara:(b.papers.find(p=>p.type==='istimara')||{}).scan_path, manh:manh.scan_path};
-  const btn=$('#lr-save'); if(btn){btn.disabled=true;btn.textContent=t('lg_saving');}
-  try{
-    const res=await commitLegalBatch({batch_id:id, manh_date:(b._mdate||manh.manh_date)||null,
-      interval_from:manh.interval_from??ep.fSerial, interval_to:manh.interval_to??ep.lSerial, rows, scans, stamps,
-      first_name:ep.fName, last_name:ep.lName, first_passport:ep.fPass, last_passport:ep.lPass, provisional:!hasManh,
-      rot: reviewRot(null),                              // the reviewer's rotations → saved so print/عرض match
-      paperIds:b.papers.map(p=>p.paper_id).filter(Boolean)});
-    b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-    toast((hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`);
-    await lrAfterCommit();
-  }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(btn){btn.disabled=false;btn.textContent=t('lg_confirm_commit');} }
-}
-
-$('#ik-list').addEventListener('click',e=>{
-  const vt=e.target.closest('[data-ikview]'); if(vt){ _ikView=vt.dataset.ikview; ikRender(); return }   // compact ⇄ detailed
-  const lr=e.target.closest('[data-legalreview]'); if(lr){openLegalReview(lr.getAttribute('data-legalreview'));return}
-  const kr=e.target.closest('[data-kidreview]'); if(kr){openKidReview(kr.getAttribute('data-kidreview'));return}   // a packet child's review
-  const pt=e.target.closest('[data-pktoggle]'); if(pt){ const jj=IK.find(x=>x.id===+pt.dataset.pktoggle);          // collapse/expand a family
-    if(jj){ jj.pkOpen=(jj.pkOpen===false); ikRender(); } return }
-  const rv=e.target.closest('[data-review]'); if(rv){openIkReview(+rv.dataset.review);return}
-  const rm=e.target.closest('[data-rm]'); if(rm){ikRemove(+rm.dataset.rm);return}
-  const rt=e.target.closest('[data-retry]'); if(rt)ikRetry(+rt.dataset.retry);
-});
-$('#q').addEventListener('input',onType);
-$('#filters').addEventListener('click',e=>{
-  const sub=e.target.closest('[data-inc]'); if(sub){ INC_SIDE=sub.dataset.inc; render(LAST); return; }   // pick passport/visa side
-  const c=e.target.closest('[data-f]'); if(c){ if(c.dataset.f!=='incomplete') INC_SIDE='all'; FILTER=c.dataset.f; render(LAST); }  // leaving incomplete resets the side
-});
-$('#results').addEventListener('click',e=>{
-  const pr=e.target.closest('[data-lawprint]');       // print straight from the card, without opening it
-  if(pr){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(pr.dataset.lawprint)); if(b)printBatch(b); return; }
-  const lb=e.target.closest('[data-batch]'); if(lb){openLawBatch(lb.dataset.batch);return}
-  const row=e.target.closest('.row'); if(row&&row.dataset.id)openEmployee(row.dataset.id);});
-$('#detail').addEventListener('click',e=>{const _lg=e.target.closest('[data-lawgo]');if(_lg){gotoLawBatch(_lg.dataset.lawgo);return;}if(e.target.closest('.d-close'))closeEmployee();if(e.target.closest('.d-print'))printEmployee();
-  const f=e.target.closest('.d-face');if(f&&f.dataset.url)openLightbox(f.dataset.url)});
-$('#lightbox').addEventListener('click',()=>$('#lightbox').classList.remove('on'));
-document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
-  if($('#lightbox').classList.contains('on'))$('#lightbox').classList.remove('on');
-  else if($('#istimara').classList.contains('on'))istRequestClose();
-  else if($('#legalform').classList.contains('on'))legalClose();
-  else if($('#ikreview').classList.contains('on'))closeIkReview();
-  else if($('#detail').classList.contains('on'))closeEmployee();
-  else if($('#intake').classList.contains('on'))closeIntake()});
-applyLang();
 /* resume a remembered session */
 (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session&&session.user)enterApp()}catch(_){}})();
 /* BOOT-BEACON — the LAST line. It is true ONLY if the whole script executed with no mid-file halt
@@ -4109,6 +4043,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v178';
+window.__APP_VER = 'v179';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
