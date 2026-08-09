@@ -1872,7 +1872,7 @@ const AGENT_VER_KEY='iccmc_agent_version';
 /* The version of the uploader this site ships. Keep it equal to TOOL_VERSION in pump.py.
    Storing which version was taken turns one hopeful guess ("they probably have it") into three
    honest states: they have nothing, they have an OLD one, or they have this one. */
-const TOOL_V='1.3';
+const TOOL_V='1.4';
 
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
@@ -2787,7 +2787,12 @@ function istRowStatusTxt(r){
    and putting it in a roster of employees would be a lie about what the document is.
 
    Adoption necessarily happens AFTER the read: a file's type is not knowable until it has been
-   read, so nothing is guessed from a filename. */
+   read, so nothing is guessed from a filename.
+
+   It watches updated_at, not created_at, so a passport ALREADY in the registry counts too. Picking
+   an existing employee is not a mistake to be questioned — the uploader touches that row instead
+   of re-uploading it, and this is where that touch is answered: the person appears in the table
+   with no second read, no duplicate, and nothing asked. */
 let _istAgentTimer=null, _istAgentSince=null, _istAgentSeen=new Set(), _istAgentCount=0;
 
 function istOpenAgent(){
@@ -2828,9 +2833,9 @@ async function istAgentPoll(){
   try{
     const {data,error}=await sb.from('scan_jobs')
       .select('job_id,status,fields,doc_type,image_hash,image_path,field_conf,flagged,error_msg')
-      .eq('source','pump').gte('created_at',_istAgentSince)
+      .eq('source','pump').gte('updated_at',_istAgentSince)
       .in('doc_type',['passport','national_id'])      // ONLY passports join the table
-      .order('created_at',{ascending:true});
+      .order('updated_at',{ascending:true});
     if(error) return; jobs=data||[];
   }catch(_){ return; }
   let added=0;
@@ -4123,6 +4128,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v179';
+window.__APP_VER = 'v181';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
