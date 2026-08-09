@@ -73,6 +73,7 @@ const I18N={
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
     dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
     dz_agent_nope:'لم تُفتح — شغّلها مرة على جهازك أولاً، أو حمِّلها من هنا',
+    dz_agent_new:'يوجد تحديث لأداة الرفع — حمِّل النسخة الأحدث',
     big_open:'افتح أداة الرفع', big_opening:'…يُفتح على جهازك',
     big_nope:'لم تُفتح؟ شغّلها مرة على جهازك أولاً — أو حمِّلها من جديد', big_have:'الأداة موجودة على جهازك — افتحها وأفلِت ملفاتك فيها.',
     big_get:'حمِّل أداة الرفع', big_anyway:'إلغاء', big_note:'بعد الرفع بالأداة، افتح الموقع مرة واحدة لتُودَع الملفات النظيفة.',
@@ -169,6 +170,7 @@ const I18N={
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
     dz_agent_open:'Big batch? Open the uploader on your machine',
     dz_agent_nope:'It did not open — run it once on your machine first, or download it here',
+    dz_agent_new:'A newer uploader is available — download the update',
     big_open:'Open the uploader', big_opening:'…opening on your machine',
     big_nope:"Didn't open? Download it again", big_have:'You already have the uploader — open it and drop your files there.',
     big_get:'Get the uploader', big_anyway:'Cancel', big_note:'After it finishes, open the site once so the clean files are committed.',
@@ -1781,36 +1783,48 @@ const IK_BIG=IK_PIPELINE+1;
    "Has it" is remembered locally when the download is taken. That is a guess, not knowledge — the
    browser is not allowed to look at the disk — so the fallback is always reachable. */
 const AGENT_KEY='iccmc_agent_downloaded';
-/* The quiet line under the drop zone says the RIGHT verb. Offering "download" to someone who
-   already has the tool is asking them to fetch a second copy of something they own; once it is
-   on the machine the only useful action is to open it. Same line, same place — different job. */
+const AGENT_VER_KEY='iccmc_agent_version';
+/* The version of the uploader this site ships. Keep it equal to TOOL_VERSION in pump.py.
+   Storing which version was taken turns one hopeful guess ("they probably have it") into three
+   honest states: they have nothing, they have an OLD one, or they have this one. */
+const TOOL_V='1.1';
+
+function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
+function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
+function agentGot(){ try{ localStorage.setItem(AGENT_KEY,'1');
+                          localStorage.setItem(AGENT_VER_KEY,TOOL_V); }catch(_){} }
+/* three states, one line */
+function agentState(){
+  if(!agentHave()) return 'none';
+  return agentVer()===TOOL_V ? 'current' : 'stale';
+}
+
 function paintAgentLink(){
   const a=document.querySelector('.dz-agent'); if(!a) return;
   const ic=a.querySelector('.dz-agent-i'), lb=a.querySelector('#dz-agent-t');
-  const have=agentHave();
-  if(have){
+  const st=agentState();
+  const asDownload=()=>{ a.setAttribute('download','افتح أداة الرفع.pyw');
+                         a.setAttribute('href','ICCMC-uploader.pyw'); };
+  if(st==='current'){
     if(ic)ic.textContent='⇱'; if(lb)lb.textContent=t('dz_agent_open');
-    a.removeAttribute('download'); a.removeAttribute('href');   // JS opens it, see below
+    a.removeAttribute('download'); a.removeAttribute('href');   // JS opens it, see openAgent
+  }else if(st==='stale'){
+    if(ic)ic.textContent='⟳'; if(lb)lb.textContent=t('dz_agent_new');
+    asDownload();
   }else{
     if(ic)ic.textContent='⤓'; if(lb)lb.textContent=t('dz_agent');
-    a.setAttribute('download','افتح أداة الرفع.pyw');
-    a.setAttribute('href','ICCMC-uploader.pyw');
+    asDownload();
   }
   if(!a._wired){ a._wired=1; a.addEventListener('click',e=>{
-    if(!agentHave()){ agentGot(); setTimeout(paintAgentLink,600); return; }  // let the download run
+    if(agentState()!=='current'){ agentGot(); setTimeout(paintAgentLink,600); return; }  // downloading
     // An <a href="custom-scheme:"> is NOT reliable: Chrome drops the navigation silently when it
-    // does not like the context, and the user is left pressing a link that does nothing. Assigning
-    // location.href inside the click — the same path the big-drop dialog already uses — is the
-    // form browsers actually honour for an external protocol.
+    // dislikes the context — it never even reaches the "Open this app?" prompt, so the user gets a
+    // dead click and the browser records no decision. Assigning location.href inside the click is
+    // the form browsers actually honour.
     e.preventDefault();
     openAgent(a);
   }); }
 }
-/* Fire the protocol, then tell the truth about it.
-
-   The page is never informed whether the handler existed, so silence is indistinguishable from
-   success. Rather than guess, the line says it is opening, and if the window has not taken focus
-   away from this page shortly after, it offers the download instead of leaving a dead click. */
 function openAgent(anchor){
   const lb=anchor.querySelector('#dz-agent-t'), was=lb?lb.textContent:'';
   if(lb)lb.textContent=t('big_opening');
@@ -1826,12 +1840,7 @@ function openAgent(anchor){
     anchor.setAttribute('download','افتح أداة الرفع.pyw');
     anchor.setAttribute('href','ICCMC-uploader.pyw');
     const ic=anchor.querySelector('.dz-agent-i'); if(ic)ic.textContent='⤓';
-    anchor._wired=0; paintAgentLinkRewire(anchor);
   },2500);
-}
-function paintAgentLinkRewire(a){
-  if(a._wired) return; a._wired=1;
-  a.addEventListener('click',()=>{ agentGot(); setTimeout(paintAgentLink,600); });
 }
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentGot(){ try{ localStorage.setItem(AGENT_KEY,'1'); }catch(_){} }
@@ -3723,6 +3732,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v162';
+window.__APP_VER = 'v163';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
