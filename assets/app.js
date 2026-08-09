@@ -1687,22 +1687,12 @@ function pqRender(){
        <span class="pq-sub">${PQ.page+1} / ${pages} · ${PQ.total}</span>
        <button ${PQ.page>=pages-1?'disabled':''} data-pqp="1">›</button>` : '';
   pqBadge();          // keep the top-bar badge tied to the RENDER, not to one code path —
-  pqInvariant();      // otherwise any repaint outside pqLoad leaves it stale
 }
 
-/* The conservation law, shown where the work is: the most recent SETTLED batch keeps its frozen
-   verdict, so it stays honest no matter what is deleted afterwards. */
-async function pqInvariant(){
-  const el=$('#pq-inv'); if(!el) return;
-  try{
-    const {data}=await sb.from('intake_batches')
-      .select('declared_total,pumped,committed,review,refused,verdict,settled_at')
-      .not('settled_at','is',null).order('settled_at',{ascending:false}).limit(1);
-    const b=data&&data[0];
-    el.textContent=b ? `${b.pumped} = ${b.committed}+${b.review}+${b.refused} · ${b.verdict}` : '';
-    el.style.color=b&&b.verdict!=='PASS' ? '#ff8080' : '';
-  }catch(_){ el.textContent=''; }
-}
+/* The conservation-law badge that used to sit in this header is gone. It reported the LAST
+   SETTLED batch, which is not what someone reading this list is asking about — they are looking
+   at the files in front of them, and each row already carries its own state. A number describing
+   a different, older batch beside those rows invited exactly the wrong reading. */
 
 /* Real deletion — the section IS the window onto the database, so removing a card removes the
    row. Safe because NOTHING in review or refused is in the registry yet: no employee, no visa,
@@ -3622,6 +3612,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v155';
+window.__APP_VER = 'v156';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
