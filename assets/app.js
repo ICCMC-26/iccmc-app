@@ -1791,7 +1791,7 @@ function ikBigDropAsk(n){
       <div class="ikbig-s">${have?t('big_have'):t('big_why')}</div>
       <div class="ikbig-b">
         ${have ? `<button class="ikbig-go" data-open>⇱ ${t('big_open')}</button>`
-               : `<a class="ikbig-go" href="iccmc-uploader.zip" download>⤓ ${t('big_get')}</a>`}
+               : `<a class="ikbig-go" href="ICCMC-uploader.pyw" download="افتح أداة الرفع.pyw">⤓ ${t('big_get')}</a>`}
         <button class="ikbig-alt">${t('big_anyway')}</button>
       </div>
       <div class="ikbig-n">${t('big_note')}</div>
@@ -1807,7 +1807,7 @@ function ikBigDropAsk(n){
         // the page is never told whether it worked, so offer the way out rather than guess
         setTimeout(()=>{
           const n2=w.querySelector('.ikbig-n');
-          if(n2) n2.innerHTML=`<a class="ikbig-re" href="iccmc-uploader.zip" download>${t('big_nope')}</a>`;
+          if(n2) n2.innerHTML=`<a class="ikbig-re" href="ICCMC-uploader.pyw" download="افتح أداة الرفع.pyw">${t('big_nope')}</a>`;
         },2500);
       };
     }else{
@@ -3660,6 +3660,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v159';
+window.__APP_VER = 'v160';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
