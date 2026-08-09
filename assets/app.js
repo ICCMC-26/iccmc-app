@@ -72,8 +72,9 @@ const I18N={
     big_files:'ملف — دفعة كبيرة', big_why:'المتصفح يفقد الطابور عند التحديث أو الإغلاق. أداة الرفع تجعل الطابور مجلدًا على قرصك، فيصمد أمام التحديث وانقطاع النت وإعادة التشغيل.',
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
     dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
+    dz_agent_nope:'لم تُفتح — شغّلها مرة على جهازك أولاً، أو حمِّلها من هنا',
     big_open:'افتح أداة الرفع', big_opening:'…يُفتح على جهازك',
-    big_nope:'لم تُفتح؟ حمِّلها من جديد', big_have:'الأداة موجودة على جهازك — افتحها وأفلِت ملفاتك فيها.',
+    big_nope:'لم تُفتح؟ شغّلها مرة على جهازك أولاً — أو حمِّلها من جديد', big_have:'الأداة موجودة على جهازك — افتحها وأفلِت ملفاتك فيها.',
     big_get:'حمِّل أداة الرفع', big_anyway:'إلغاء', big_note:'بعد الرفع بالأداة، افتح الموقع مرة واحدة لتُودَع الملفات النظيفة.',
     pq_btn:'الوارد', pq_h:'الوارد — ما لم يُودَع بعد',
     pq_rev:'قيد المراجعة', pq_ref:'مرفوض',
@@ -167,6 +168,7 @@ const I18N={
     big_files:'files — that is a big batch', big_why:'The browser loses the queue on refresh or close. The uploader makes the queue a folder on your disk, so it survives refresh, connection drops and restarts.',
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
     dz_agent_open:'Big batch? Open the uploader on your machine',
+    dz_agent_nope:'It did not open — run it once on your machine first, or download it here',
     big_open:'Open the uploader', big_opening:'…opening on your machine',
     big_nope:"Didn't open? Download it again", big_have:'You already have the uploader — open it and drop your files there.',
     big_get:'Get the uploader', big_anyway:'Cancel', big_note:'After it finishes, open the site once so the clean files are committed.',
@@ -1785,18 +1787,51 @@ const AGENT_KEY='iccmc_agent_downloaded';
 function paintAgentLink(){
   const a=document.querySelector('.dz-agent'); if(!a) return;
   const ic=a.querySelector('.dz-agent-i'), lb=a.querySelector('#dz-agent-t');
-  if(agentHave()){
+  const have=agentHave();
+  if(have){
     if(ic)ic.textContent='⇱'; if(lb)lb.textContent=t('dz_agent_open');
-    a.removeAttribute('download'); a.setAttribute('href','iccmc-uploader://open');
+    a.removeAttribute('download'); a.removeAttribute('href');   // JS opens it, see below
   }else{
     if(ic)ic.textContent='⤓'; if(lb)lb.textContent=t('dz_agent');
     a.setAttribute('download','افتح أداة الرفع.pyw');
     a.setAttribute('href','ICCMC-uploader.pyw');
   }
-  if(!a._wired){ a._wired=1;
-    // taking the download is what marks it as owned — then the line becomes "open"
-    a.addEventListener('click',()=>{ if(!agentHave()){ agentGot(); setTimeout(paintAgentLink,600); } });
-  }
+  if(!a._wired){ a._wired=1; a.addEventListener('click',e=>{
+    if(!agentHave()){ agentGot(); setTimeout(paintAgentLink,600); return; }  // let the download run
+    // An <a href="custom-scheme:"> is NOT reliable: Chrome drops the navigation silently when it
+    // does not like the context, and the user is left pressing a link that does nothing. Assigning
+    // location.href inside the click — the same path the big-drop dialog already uses — is the
+    // form browsers actually honour for an external protocol.
+    e.preventDefault();
+    openAgent(a);
+  }); }
+}
+/* Fire the protocol, then tell the truth about it.
+
+   The page is never informed whether the handler existed, so silence is indistinguishable from
+   success. Rather than guess, the line says it is opening, and if the window has not taken focus
+   away from this page shortly after, it offers the download instead of leaving a dead click. */
+function openAgent(anchor){
+  const lb=anchor.querySelector('#dz-agent-t'), was=lb?lb.textContent:'';
+  if(lb)lb.textContent=t('big_opening');
+  let left=false;
+  const mark=()=>{left=true;};
+  window.addEventListener('blur',mark,{once:true});
+  document.addEventListener('visibilitychange',mark,{once:true});
+  try{ location.href='iccmc-uploader://open'; }catch(_){}
+  setTimeout(()=>{
+    window.removeEventListener('blur',mark);
+    if(left){ if(lb)lb.textContent=was; return; }        // it opened — put the label back
+    if(lb)lb.textContent=t('dz_agent_nope');             // it did not — offer the file
+    anchor.setAttribute('download','افتح أداة الرفع.pyw');
+    anchor.setAttribute('href','ICCMC-uploader.pyw');
+    const ic=anchor.querySelector('.dz-agent-i'); if(ic)ic.textContent='⤓';
+    anchor._wired=0; paintAgentLinkRewire(anchor);
+  },2500);
+}
+function paintAgentLinkRewire(a){
+  if(a._wired) return; a._wired=1;
+  a.addEventListener('click',()=>{ agentGot(); setTimeout(paintAgentLink,600); });
 }
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentGot(){ try{ localStorage.setItem(AGENT_KEY,'1'); }catch(_){} }
@@ -1822,11 +1857,19 @@ function ikBigDropAsk(n){
     if(have){
       go.onclick=()=>{
         go.textContent=t('big_opening'); go.disabled=true;
-        location.href='iccmc-uploader://open';
-        // the page is never told whether it worked, so offer the way out rather than guess
+        // Losing focus is the one signal the page DOES get when another program takes over. It is
+        // not proof, but it is far better than the old unconditional fallback, which announced
+        // "didn't open?" even when the window was already up.
+        let left=false; const mark=()=>{left=true;};
+        window.addEventListener('blur',mark,{once:true});
+        document.addEventListener('visibilitychange',mark,{once:true});
+        try{ location.href='iccmc-uploader://open'; }catch(_){}
         setTimeout(()=>{
+          window.removeEventListener('blur',mark);
+          if(left){ go.textContent='⇱ '+t('big_open'); go.disabled=false; return; }
           const n2=w.querySelector('.ikbig-n');
           if(n2) n2.innerHTML=`<a class="ikbig-re" href="ICCMC-uploader.pyw" download="افتح أداة الرفع.pyw">${t('big_nope')}</a>`;
+          go.textContent='⇱ '+t('big_open'); go.disabled=false;
         },2500);
       };
     }else{
@@ -3680,6 +3723,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v161';
+window.__APP_VER = 'v162';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
