@@ -3679,37 +3679,9 @@ async function openLegalReview(hash){
   renderLegalReview();
   $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
 }
-/* The منح date is written day/month/year on the paper, and a native <input type="date"> renders
-   in the BROWSER's locale — on this machine en-US, so it showed mm/dd/yyyy. That mismatch is not
-   cosmetic: 03/04 is the 3rd of April on the document and the 4th of March in the field, and
-   nothing on screen says which one you are looking at. The locale cannot be overridden (the lang
-   attribute does not touch it), so the field becomes plain text in the paper's own order, stored
-   as ISO exactly as before. */
-function dmyFromIso(iso){
-  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||'')); 
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
-}
-function isoFromDmy(v){
-  const m=/^\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})\s*$/.exec(String(v||''));
-  if(!m) return '';
-  const d=+m[1], mo=+m[2], y=+m[3];
-  if(d<1||d>31||mo<1||mo>12) return '';            // refuse nonsense rather than store it
-  return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-}
-/* type the digits, the slashes appear */
-function dmyMask(inp){
-  inp.addEventListener('input',()=>{
-    const d=inp.value.replace(/\D/g,'').slice(0,8);
-    inp.value = d.length>4 ? `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`
-              : d.length>2 ? `${d.slice(0,2)}/${d.slice(2)}` : d;
-  });
-}
-
 function _lrRead(){ const b=_lrBatch; if(!b)return;
   const n=$('#lr-num'); if(n){ b._num=n.value; if(b.manh)b.manh.manh_number=n.value; }
-  // the field holds day/month/year; everything downstream keeps receiving ISO
-  const md=$('#lr-mdate'); if(md){ const iso=isoFromDmy(md.value);
-    b._mdate=iso; if(b.manh)b.manh.manh_date=iso; }
+  const md=$('#lr-mdate'); if(md){ b._mdate=md.value; if(b.manh)b.manh.manh_date=md.value; }
   b._stamps=b._stamps||{};
   document.querySelectorAll('#ikreview [data-st]').forEach(c=>{ b._stamps[c.dataset.st]=c.checked; }); // merge — keep other papers' ticks
   b._epFill=b._epFill||{};   // endpoint names the OCR missed, typed here this review
@@ -3773,8 +3745,7 @@ function renderLegalReview(){
         ${seg}
         ${isManh?`<div class="rfield"><label>${t('lg_id')}</label>
           <input id="lr-num" inputmode="numeric" value="${esc(num)}" placeholder="${esc(t('lg_manh_need'))}"></div>
-          <div class="rfield"><label>${LANG==='ar'?'تاريخ المنح':'Grant date'}</label><input id="lr-mdate" type="text" inputmode="numeric" maxlength="10" dir="ltr"
-            placeholder="dd/mm/yyyy" value="${esc(dmyFromIso(isoDate(mdate)))}"></div>`
+          <div class="rfield"><label>${LANG==='ar'?'تاريخ المنح':'Grant date'}</label><input id="lr-mdate" type="date" value="${esc(isoDate(mdate))}"></div>`
           :`<div class="lr-hint">${num?`${esc(t('lg_id'))}: <b>${esc(num)}</b>`:esc(hasManh?t('lg_manh_need'):t('lg_manh_opt'))}</div>`}
         ${gapFields}
         <div class="rvw-check-h">${t('lg_stamps')} — ${tl[cur.type]||cur.type}</div>
@@ -3783,7 +3754,6 @@ function renderLegalReview(){
       </div>
     </div>
     <div class="rvw-foot"><button class="rvw-add" id="lr-save">${(hasManh||num)?t('lg_confirm_commit'):t('lg_anchor')}</button></div>`;
-  { const md=$('#lr-mdate'); if(md) dmyMask(md); }
   $('#lr-close').onclick=closeIkReview;
   $('#lr-save').onclick=lrCommit;
   { const ab=$('#lr-all'); if(ab)ab.onclick=()=>{ _lrRead(); _lrBatch._showAll=!_lrBatch._showAll; renderLegalReview(); }; }
@@ -3995,6 +3965,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v175';
+window.__APP_VER = 'v176';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

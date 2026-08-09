@@ -339,10 +339,6 @@
   .dz-agent .dz-agent-i{font-size:14px;line-height:1}
   /* destructive, so it is stated in red and kept quiet until hovered — never a primary button */
   /* one paper at a time: where you are, what is left, and the way forward */
-  /* the grant date reads like the native picker it replaced — digits left-to-right, slashes in
-     place — only in the paper's own day/month/year order */
-  #lr-mdate{font-variant-numeric:tabular-nums;letter-spacing:.5px}
-  #lr-mdate::placeholder{letter-spacing:1px;opacity:.55}
   .lr-walk{display:flex;align-items:center;gap:10px;margin-bottom:14px}
   .lr-walk-mid{flex:1;text-align:center;min-width:0}
   .lr-walk-t{font-size:16px;font-weight:700;color:var(--ink);white-space:nowrap;
