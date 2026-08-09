@@ -65,10 +65,11 @@ const I18N={
     lg_present:'موجود', lg_missing:'ناقص', lg_nostamp:'بلا ختم', lg_covered:'مشمول ضمن',
     lg_pending:'أوراق ممسوحة بانتظار المطابقة', lg_no_pending:'لا أوراق بانتظار المطابقة — أدخِل دفعة يدويًا أدناه',
     lg_proposal:'دفعة مقترحة', lg_provisional:'مؤقتة — بانتظار المنح', lg_ambiguous:'غامضة — راجِع يدويًا',
-    lg_papers_lbl:'الأوراق:', lg_confirm_commit:'تأكيد وحفظ الدفعة', lg_view:'عرض',
+    lg_left:n=>`بقي ${n}`, lg_next:'التالي ›', lg_prev:'‹ السابق', lg_of:(i,n)=>`${i} من ${n}`,
+    lg_last:'آخر ورقة', lg_papers_lbl:'الأوراق:', lg_confirm_commit:'تأكيد وحفظ الدفعة', lg_view:'عرض',
     lg_manh_need:'اكتب رقم المنح لهذه الدفعة', lg_manual_h:'إدخال يدوي', lg_names_ocr:n=>`${n} اسم من المسح`,
     lg_saved_prov:'حُفظت دفعة مؤقتة ✓ ', lg_adopt:(n,b)=>`المنح ${n} يُكمل الدفعة: ${b}`, lg_adopt_do:'أكمِل الدفعة بهذا المنح',
-    lg_adopted:'اكتملت الدفعة برقم المنح ✓ ', lg_adopt_amb:'منح يطابق أكثر من دفعة — اختر الصحيحة:', lg_manh_opt:'رقم المنح (اختياري الآن)', lg_anchor:'ثبّت الدفعة مؤقتًا', lg_merged:'دُمجت في الدفعة: ',
+    lg_adopted:'اكتملت الدفعة برقم المنح ✓ ', lg_adopt_amb:'منح يطابق أكثر من دفعة — اختر الصحيحة:', lg_manh_opt:'رقم المنح (اختياري الآن)', lg_anchor:'حفظ الدفعة (بانتظار المنح)', lg_merged:'دُمجت في الدفعة: ',
     big_files:'ملف — دفعة كبيرة', big_why:'المتصفح يفقد الطابور عند التحديث أو الإغلاق. أداة الرفع تجعل الطابور مجلدًا على قرصك، فيصمد أمام التحديث وانقطاع النت وإعادة التشغيل.',
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
     dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
@@ -166,10 +167,11 @@ const I18N={
     lg_present:'present', lg_missing:'missing', lg_nostamp:'no stamp', lg_covered:'covered in',
     lg_pending:'Scanned papers awaiting matching', lg_no_pending:'None awaiting — enter a batch manually below',
     lg_proposal:'Proposed batch', lg_provisional:'provisional — awaiting grant', lg_ambiguous:'ambiguous — review manually',
-    lg_papers_lbl:'Papers:', lg_confirm_commit:'Confirm & save batch', lg_view:'view',
+    lg_left:n=>`${n} left`, lg_next:'Next ›', lg_prev:'‹ Back', lg_of:(i,n)=>`${i} of ${n}`,
+    lg_last:'last paper', lg_papers_lbl:'Papers:', lg_confirm_commit:'Confirm & save batch', lg_view:'view',
     lg_manh_need:'Type the grant number for this batch', lg_manual_h:'Manual entry', lg_names_ocr:n=>`${n} names from scan`,
     lg_saved_prov:'Provisional batch saved ✓ ', lg_adopt:(n,b)=>`Grant ${n} completes: ${b}`, lg_adopt_do:'Complete this batch with the grant',
-    lg_adopted:'Batch completed with its grant number ✓ ', lg_adopt_amb:'Grant matches more than one batch — pick the right one:', lg_manh_opt:'Grant number (optional now)', lg_anchor:'Anchor provisionally', lg_merged:'Merged into batch: ',
+    lg_adopted:'Batch completed with its grant number ✓ ', lg_adopt_amb:'Grant matches more than one batch — pick the right one:', lg_manh_opt:'Grant number (optional now)', lg_anchor:'Save batch (awaiting grant)', lg_merged:'Merged into batch: ',
     big_files:'files — that is a big batch', big_why:'The browser loses the queue on refresh or close. The uploader makes the queue a folder on your disk, so it survives refresh, connection drops and restarts.',
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
     dz_agent_open:'Big batch? Open the uploader on your machine',
@@ -3629,7 +3631,19 @@ function renderLegalReview(){
   const tl=Object.fromEntries(ptKeys().map(k=>[k,ptLabel(k)]));   // registry-driven labels (G6)
   // the paper switch = a clear SEGMENTED CONTROL at the top of the confirm panel; it drives BOTH the
   // scan shown AND which stamps you confirm.
-  const seg=papers.map((p,i)=>`<button class="lr-seg${i===_lrIdx?' on':''}" data-lr="${i}">${tl[p.type]||p.type}</button>`).join('');
+  // A chip per paper meant a row of near-identical «الاستمارة» buttons that grew with the batch
+  // and said nothing about where you were in it. Reviewing is sequential — one paper, confirm,
+  // the next — so the control is now the position itself: which paper this is, how many remain,
+  // and one button to move on. The paper is NAMED rather than chosen from a set of look-alikes.
+  const _n=papers.length, _at=_lrIdx+1, _left=_n-_at;
+  const seg=`<div class="lr-walk">
+      <button class="lr-nav" data-lrgo="-1" ${_lrIdx<=0?'disabled':''}>${t('lg_prev')}</button>
+      <div class="lr-walk-mid">
+        <div class="lr-walk-t">${tl[cur.type]||cur.type}</div>
+        <div class="lr-walk-n">${t('lg_of',_at,_n)}${_left?` · ${t('lg_left',_left)}`:` · ${t('lg_last')}`}</div>
+      </div>
+      <button class="lr-nav go" data-lrgo="1" ${_lrIdx>=_n-1?'disabled':''}>${t('lg_next')}</button>
+    </div>`;
   // ONLY this paper's expected stamp(s), OFF by default — the human verifies each on the scan, then
   // ticks it (nothing is auto-trusted). We zoom to what needs checking; the human confirms.
   const stampChk=(PAPER_STAMPS[cur.type]||[]).map(([k,lab])=>{
@@ -3643,7 +3657,7 @@ function renderLegalReview(){
     <div class="rvw-body">
       <div class="rvw-scan" id="lr-scan">${t('rv_loading')}</div>
       <div class="rvw-side">
-        <div class="lr-seg-wrap">${seg}</div>
+        ${seg}
         ${isManh?`<div class="rfield"><label>${t('lg_id')}</label>
           <input id="lr-num" inputmode="numeric" value="${esc(num)}" placeholder="${esc(t('lg_manh_need'))}"></div>
           <div class="rfield"><label>${LANG==='ar'?'تاريخ المنح':'Grant date'}</label><input id="lr-mdate" type="date" value="${esc(isoDate(mdate))}"></div>`
@@ -3658,7 +3672,14 @@ function renderLegalReview(){
   $('#lr-close').onclick=closeIkReview;
   $('#lr-save').onclick=lrCommit;
   { const ab=$('#lr-all'); if(ab)ab.onclick=()=>{ _lrRead(); _lrBatch._showAll=!_lrBatch._showAll; renderLegalReview(); }; }
-  $('#ikreview').querySelectorAll('[data-lr]').forEach(btn=>btn.onclick=()=>{ _lrRead(); _lrIdx=+btn.dataset.lr; renderLegalReview(); });
+  // moving must PRESERVE what was typed/ticked on the paper being left — _lrRead does that,
+  // and it is why every one of these paths calls it before changing the index
+  $('#ikreview').querySelectorAll('[data-lrgo]').forEach(btn=>btn.onclick=()=>{
+    _lrRead();
+    _lrIdx=Math.min(papers.length-1, Math.max(0, _lrIdx+(+btn.dataset.lrgo)));
+    renderLegalReview();
+    const sc=$('#lr-scan'); if(sc)sc.scrollTop=0;      // the next scan starts at its top
+  });
   lrPaintScan(cur);
 }
 async function lrPaintScan(paper){
@@ -3779,6 +3800,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v168';
+window.__APP_VER = 'v169';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}

@@ -338,6 +338,19 @@
   .dz-agent:hover{color:var(--copper)}
   .dz-agent .dz-agent-i{font-size:14px;line-height:1}
   /* destructive, so it is stated in red and kept quiet until hovered — never a primary button */
+  /* one paper at a time: where you are, what is left, and the way forward */
+  .lr-walk{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .lr-walk-mid{flex:1;text-align:center;min-width:0}
+  .lr-walk-t{font-size:16px;font-weight:700;color:var(--ink);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .lr-walk-n{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:2px}
+  .lr-nav{flex:none;border:1px solid var(--line);background:transparent;color:var(--ink2);
+    font:inherit;font-size:13px;font-weight:600;cursor:pointer;border-radius:10px;padding:8px 14px;
+    transition:border-color .12s,color .12s,background .12s}
+  .lr-nav:hover:not(:disabled){border-color:var(--copper);color:var(--copper)}
+  .lr-nav.go{border-color:var(--copper);color:var(--copper)}
+  .lr-nav.go:hover:not(:disabled){background:var(--copper);color:#1a1206}
+  .lr-nav:disabled{opacity:.35;cursor:default}
   .pq-wipe{margin-inline-start:auto;border:1px solid transparent;background:transparent;
     color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;border-radius:9px;
     padding:5px 11px;transition:color .12s,border-color .12s,background .12s}
@@ -519,11 +532,7 @@
   .lg-manh2{margin-top:6px;border-top:1px solid var(--line);padding-top:14px}
   @media(max-width:560px){.lg-prop-stamps{grid-template-columns:1fr}}
   /* inline legal review — a clear SEGMENTED CONTROL (paper switch) + per-paper stamps */
-  .lr-seg-wrap{display:flex;border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:6px}
-  .lr-seg{flex:1;background:transparent;border:none;border-inline-start:1px solid var(--line);
-    color:var(--muted);padding:11px 8px;cursor:pointer;font-size:13.5px;font-weight:700;min-height:44px}
-  .lr-seg:first-child{border-inline-start:none}
-  .lr-seg.on{background:var(--copper);color:#1a1206}
+  /* .lr-seg* removed with the segmented control it styled — the review walks now */
   .lr-hint{font-size:12.5px;color:var(--muted)} .lr-hint b{color:var(--ink);font-family:var(--mono)}
   .lr-stamps{display:flex;flex-direction:column;gap:10px}
   /* legal review scan viewer — the WHOLE paper, upright, freely pannable (scroll). The منح opens gently
