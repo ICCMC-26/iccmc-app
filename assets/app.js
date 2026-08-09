@@ -74,7 +74,8 @@ const I18N={
     dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
     dz_agent_nope:'لم تُفتح — شغّلها مرة على جهازك أولاً، أو حمِّلها من هنا',
     dz_agent_new:'يوجد تحديث لأداة الرفع — حمِّل النسخة الأحدث',
-    big_open:'افتح أداة الرفع', big_opening:'…يُفتح على جهازك',
+    big_open:'افتح أداة الرفع', big_update:'حمِّل التحديث',
+    big_stale:'نسختك من أداة الرفع أقدم من الحالية. حمِّل التحديث ثم شغّله مرة واحدة.', big_opening:'…يُفتح على جهازك',
     big_nope:'لم تُفتح؟ شغّلها مرة على جهازك أولاً — أو حمِّلها من جديد', big_have:'الأداة موجودة على جهازك — افتحها وأفلِت ملفاتك فيها.',
     big_get:'حمِّل أداة الرفع', big_anyway:'إلغاء', big_note:'بعد الرفع بالأداة، افتح الموقع مرة واحدة لتُودَع الملفات النظيفة.',
     pq_btn:'الوارد', pq_h:'الوارد — ما لم يُودَع بعد',
@@ -171,7 +172,8 @@ const I18N={
     dz_agent_open:'Big batch? Open the uploader on your machine',
     dz_agent_nope:'It did not open — run it once on your machine first, or download it here',
     dz_agent_new:'A newer uploader is available — download the update',
-    big_open:'Open the uploader', big_opening:'…opening on your machine',
+    big_open:'Open the uploader', big_update:'Download the update',
+    big_stale:'Your copy of the uploader is older than the current one. Download the update, then run it once.', big_opening:'…opening on your machine',
     big_nope:"Didn't open? Download it again", big_have:'You already have the uploader — open it and drop your files there.',
     big_get:'Get the uploader', big_anyway:'Cancel', big_note:'After it finishes, open the site once so the clean files are committed.',
     pq_btn:'Inbox', pq_h:'Inbox — not committed yet',
@@ -1847,14 +1849,17 @@ function agentGot(){ try{ localStorage.setItem(AGENT_KEY,'1'); }catch(_){} }
 
 function ikBigDropAsk(n){
   return new Promise(resolve=>{
-    const have=agentHave();
+    // agentSTATE, not agentHave: an old copy is not "has it". The line under the drop zone
+    // already tells that person to update, and offering them "open" here would be the same
+    // question answered two different ways on one screen.
+    const st=agentState(), have=(st==='current');
     const w=document.createElement('div'); w.className='ikbig-w';
     w.innerHTML=`<div class="ikbig">
       <div class="ikbig-h">${n} ${t('big_files')}</div>
-      <div class="ikbig-s">${have?t('big_have'):t('big_why')}</div>
+      <div class="ikbig-s">${have?t('big_have'):(st==='stale'?t('big_stale'):t('big_why'))}</div>
       <div class="ikbig-b">
         ${have ? `<button class="ikbig-go" data-open>⇱ ${t('big_open')}</button>`
-               : `<a class="ikbig-go" href="ICCMC-uploader.pyw" download="افتح أداة الرفع.pyw">⤓ ${t('big_get')}</a>`}
+               : `<a class="ikbig-go" href="ICCMC-uploader.pyw" download="افتح أداة الرفع.pyw">${st==='stale'?'⟳ '+t('big_update'):'⤓ '+t('big_get')}</a>`}
         <button class="ikbig-alt">${t('big_anyway')}</button>
       </div>
       <div class="ikbig-n">${t('big_note')}</div>
@@ -3732,6 +3737,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v163';
+window.__APP_VER = 'v164';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
