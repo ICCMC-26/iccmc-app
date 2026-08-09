@@ -3194,18 +3194,33 @@ async function loadLegalPending(){
     const {data,error}=await sb.from('legal_papers').select('*')
       .is('batch_id',null).neq('match_status','committed');
     if(error) return [];
-    const papers=(data||[]).map(mapPaperRow);
-    if(!papers.length) return papers;
-    const hashes=[...new Set(papers.map(p=>p.scan_hash).filter(Boolean))];
+    let rows=data||[];
+    if(!rows.length) return [];
+
+    // 1 · only files still sitting in «الوارد» — the inbox is the authority on what is outstanding
+    const hashes=[...new Set(rows.map(r=>r.scan_hash).filter(Boolean))];
     if(!hashes.length) return [];
     const live=new Set();
+    let verified=true;
     for(let i=0;i<hashes.length;i+=200){          // chunked: an in() list has a URL length limit
       const {data:js,error:e2}=await sb.from('scan_jobs').select('image_hash')
         .in('image_hash',hashes.slice(i,i+200)).eq('status','legal-review');
-      if(e2) return papers;                        // cannot verify → show everything rather than
-      (js||[]).forEach(r=>live.add(r.image_hash)); // silently hide work that may be real
+      if(e2){ verified=false; break; }            // cannot verify → do not hide work that may be real
+      (js||[]).forEach(x=>live.add(x.image_hash));
     }
-    return papers.filter(p=>p.scan_hash && live.has(p.scan_hash));
+    if(verified) rows=rows.filter(r=>r.scan_hash && live.has(r.scan_hash));
+
+    // 2 · ONE FILE = ONE PAPER. A file read more than once — a re-pump, a worker retry — leaves a
+    // legal_papers row per read, so five files arrived as thirteen papers: the same استمارة three
+    // times over, each an identical 1-27 roster. Reviewing duplicates of one document is not
+    // review, it is the same decision asked repeatedly. Deduped on the RAW row, because
+    // mapPaperRow drops created_at and "newest wins" needs it.
+    const byFile=new Map();
+    for(const r of rows){
+      const prev=byFile.get(r.scan_hash);
+      if(!prev || String(r.created_at||'') > String(prev.created_at||'')) byFile.set(r.scan_hash,r);
+    }
+    return [...byFile.values()].map(mapPaperRow);
   }catch(_){ return []; } }
 /* merge a proposal's papers into one roster: تعهد gives names+passports (trusted), استمارة enriches
    the same person (matched by passport) with expiry+profession. */
@@ -3758,8 +3773,8 @@ function renderLegalReview(){
         ${seg}
         ${isManh?`<div class="rfield"><label>${t('lg_id')}</label>
           <input id="lr-num" inputmode="numeric" value="${esc(num)}" placeholder="${esc(t('lg_manh_need'))}"></div>
-          <div class="rfield"><label>${LANG==='ar'?'تاريخ المنح':'Grant date'}</label><input id="lr-mdate" type="text" inputmode="numeric" maxlength="10"
-            placeholder="${LANG==='ar'?'يوم/شهر/سنة':'dd/mm/yyyy'}" value="${esc(dmyFromIso(isoDate(mdate)))}"></div>`
+          <div class="rfield"><label>${LANG==='ar'?'تاريخ المنح':'Grant date'}</label><input id="lr-mdate" type="text" inputmode="numeric" maxlength="10" dir="ltr"
+            placeholder="dd/mm/yyyy" value="${esc(dmyFromIso(isoDate(mdate)))}"></div>`
           :`<div class="lr-hint">${num?`${esc(t('lg_id'))}: <b>${esc(num)}</b>`:esc(hasManh?t('lg_manh_need'):t('lg_manh_opt'))}</div>`}
         ${gapFields}
         <div class="rvw-check-h">${t('lg_stamps')} — ${tl[cur.type]||cur.type}</div>
@@ -3980,6 +3995,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v174';
+window.__APP_VER = 'v175';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
