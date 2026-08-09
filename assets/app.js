@@ -966,12 +966,28 @@ async function scanImage(path){
 // portrait) and stands ONLY that page up — a page already upright is never touched (no byproduct).
 // rot = extra degrees the USER asked for (0/90/180/270), added to the page's own rotation. No auto-guess:
 // a fallible detector wrongly flips upright TABLES (grid lines look like vertical text), so the human drives it.
+/* Rendered pages, kept for a moment.
+
+   Every visit re-signed a URL, re-downloaded the PDF and re-rasterised every page at 6× DPI, so
+   stepping back to the paper you just left paid the full cost again. Storage paths here are
+   CONTENT-ADDRESSED (the file name is the hash), so a path can never point at different bytes —
+   which is what makes caching them safe rather than merely fast.
+
+   Deliberately tiny: these are JPEG data URLs at 6× DPI, several MB per page. Three entries covers
+   the paper you are on, the one behind and the one ahead; more would trade a stall for a memory
+   problem, which is not a trade worth making. */
+const _scanCache=new Map(), SCAN_CACHE_MAX=3;
+function _scanKey(path,rot,scale){ return path+'|'+rot+'|'+scale; }
 async function scanImagesAll(path, rot, scale){
   rot=rot||0; scale=scale||3.5;                       // print uses 3.5; the review passes a higher DPI for deeper sharp zoom
   if(!path)return [];
   if(/\.(xlsx|docx)$/i.test(path)) return [];         // Word/Excel isn't an image → rendered as its own office page
+  const _k=_scanKey(path,rot,scale);
+  if(_scanCache.has(_k)){                             // touch it so the newest stays longest
+    const hit=_scanCache.get(_k); _scanCache.delete(_k); _scanCache.set(_k,hit); return hit;
+  }
   const url=await docUrl(path); if(!url)return [];
-  if(!/\.pdf$/i.test(path)) return [url];             // already an image → one page
+  if(!/\.pdf$/i.test(path)){ _scanRemember(_k,[url]); return [url]; }   // already an image → one page
   try{
     await ensurePdfjs();
     if(!window.pdfjsLib)return [];
@@ -989,8 +1005,14 @@ async function scanImagesAll(path, rot, scale){
       out.push(c.toDataURL('image/jpeg',0.95));
       c.width=c.height=0;                             // free the canvas promptly (multi-page big rosters)
     }
+    _scanRemember(_k,out);
     return out;
   }catch(e){ console.warn('pdf render all',e); return []; }
+}
+function _scanRemember(key,imgs){
+  if(!imgs||!imgs.length) return;                     // never cache a failure as if it were a result
+  _scanCache.set(key,imgs);
+  while(_scanCache.size>SCAN_CACHE_MAX) _scanCache.delete(_scanCache.keys().next().value);
 }
 /* ── printable-document REGISTRY ─────────────────────────────────────────────
    ADD A MOLD HERE and it flows automatically into the details report (a card),
@@ -3158,9 +3180,33 @@ function mapPaperRow(r){
     interval_from:r.interval_from, interval_to:r.interval_to,
     first_name:r.first_name, last_name:r.last_name,
     stamp_company:r.stamp_company, stamp_ministry:r.stamp_ministry}; }
+/* Papers waiting to be reviewed — and ONLY those whose file is still sitting in «الوارد».
+
+   "not yet batched" alone was too generous. It also returned papers whose scan job had been
+   committed, retried, or deleted outright, so the drawer offered work the inbox no longer listed
+   and could not account for: 24 papers against 5 files, 8 of them with no scan job left at all.
+   Reviewing one of those writes a batch from a document nobody can open any more.
+
+   The inbox is the authority on what is outstanding, so the scan jobs decide. Papers are matched
+   by content hash, which is the same key the ledger and the deduplication use. */
 async function loadLegalPending(){
-  try{ const {data,error}=await sb.from('legal_papers').select('*').is('batch_id',null).neq('match_status','committed');
-    if(error)return []; return (data||[]).map(mapPaperRow); }catch(_){ return []; } }
+  try{
+    const {data,error}=await sb.from('legal_papers').select('*')
+      .is('batch_id',null).neq('match_status','committed');
+    if(error) return [];
+    const papers=(data||[]).map(mapPaperRow);
+    if(!papers.length) return papers;
+    const hashes=[...new Set(papers.map(p=>p.scan_hash).filter(Boolean))];
+    if(!hashes.length) return [];
+    const live=new Set();
+    for(let i=0;i<hashes.length;i+=200){          // chunked: an in() list has a URL length limit
+      const {data:js,error:e2}=await sb.from('scan_jobs').select('image_hash')
+        .in('image_hash',hashes.slice(i,i+200)).eq('status','legal-review');
+      if(e2) return papers;                        // cannot verify → show everything rather than
+      (js||[]).forEach(r=>live.add(r.image_hash)); // silently hide work that may be real
+    }
+    return papers.filter(p=>p.scan_hash && live.has(p.scan_hash));
+  }catch(_){ return []; } }
 /* merge a proposal's papers into one roster: تعهد gives names+passports (trusted), استمارة enriches
    the same person (matched by passport) with expiry+profession. */
 function proposalRows(prop){
@@ -3741,6 +3787,23 @@ function renderLegalReview(){
   });
   lrPaintScan(cur);
 }
+/* Render the NEXT paper while this one is being read.
+
+   The reviewer spends seconds on a paper and the rasterise takes a moment, so the wait can be
+   spent instead of watched — «التالي» then paints from the cache. Only ONE ahead, and only after
+   the current page is on screen, so it never competes with what the user is waiting for. */
+function _lrPrefetchNext(){
+  try{
+    const b=_lrBatch; if(!b||!b.papers) return;
+    const nxt=b.papers[_lrIdx+1]; if(!nxt||!nxt.scan_path) return;
+    if(/\.(xlsx|docx)$/i.test(nxt.scan_path)) return;        // office pages take a different path
+    const key=_scanKey(nxt.scan_path,0,6);
+    if(_scanCache.has(key)) return;
+    const go=()=>{ scanImagesAll(nxt.scan_path,0,6).catch(()=>{}); };
+    (window.requestIdleCallback||(f=>setTimeout(f,300)))(go, {timeout:1500});
+  }catch(_){}
+}
+
 async function lrPaintScan(paper){
   const box=$('#lr-scan'); if(!box)return;
   if(!paper||!paper.scan_path){ box.textContent=t('rv_noscan'); return; }
@@ -3753,7 +3816,7 @@ async function lrPaintScan(paper){
   // raster ONCE at rot=0 — the user's manual turn is applied as an INSTANT css transform inside _lrImgView
   // (no pdf.js re-render per press → the flip is immediate; print still bakes the saved rot independently).
   const imgs = src ? await scanImagesAll(src, 0, 6) : [];   // 6× DPI for the review → deeper sharp zoom (a big roster's cells)
-  if(imgs.length){ _lrImgView(box, imgs, paper); return; }
+  if(imgs.length){ _lrImgView(box, imgs, paper); _lrPrefetchNext(); return; }
   // FALLBACK — no PDF sibling yet (or an .xlsx that didn't render): the in-app docx-preview, now wrapped in
   // the SAME grab-pan + zoom viewer as the image path so the review is never a dead pane. Only if the doc
   // itself won't render do we drop to the download panel.
@@ -3917,6 +3980,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v172';
+window.__APP_VER = 'v174';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
