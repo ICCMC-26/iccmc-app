@@ -71,6 +71,7 @@ const I18N={
     lg_adopted:'اكتملت الدفعة برقم المنح ✓ ', lg_adopt_amb:'منح يطابق أكثر من دفعة — اختر الصحيحة:', lg_manh_opt:'رقم المنح (اختياري الآن)', lg_anchor:'ثبّت الدفعة مؤقتًا', lg_merged:'دُمجت في الدفعة: ',
     big_files:'ملف — دفعة كبيرة', big_why:'المتصفح يفقد الطابور عند التحديث أو الإغلاق. أداة الرفع تجعل الطابور مجلدًا على قرصك، فيصمد أمام التحديث وانقطاع النت وإعادة التشغيل.',
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
+    dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
     big_open:'افتح أداة الرفع', big_opening:'…يُفتح على جهازك',
     big_nope:'لم تُفتح؟ حمِّلها من جديد', big_have:'الأداة موجودة على جهازك — افتحها وأفلِت ملفاتك فيها.',
     big_get:'حمِّل أداة الرفع', big_anyway:'إلغاء', big_note:'بعد الرفع بالأداة، افتح الموقع مرة واحدة لتُودَع الملفات النظيفة.',
@@ -165,6 +166,7 @@ const I18N={
     lg_adopted:'Batch completed with its grant number ✓ ', lg_adopt_amb:'Grant matches more than one batch — pick the right one:', lg_manh_opt:'Grant number (optional now)', lg_anchor:'Anchor provisionally', lg_merged:'Merged into batch: ',
     big_files:'files — that is a big batch', big_why:'The browser loses the queue on refresh or close. The uploader makes the queue a folder on your disk, so it survives refresh, connection drops and restarts.',
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
+    dz_agent_open:'Big batch? Open the uploader on your machine',
     big_open:'Open the uploader', big_opening:'…opening on your machine',
     big_nope:"Didn't open? Download it again", big_have:'You already have the uploader — open it and drop your files there.',
     big_get:'Get the uploader', big_anyway:'Cancel', big_note:'After it finishes, open the site once so the clean files are committed.',
@@ -221,9 +223,7 @@ function applyLang(){
     if($('#pend')&&$('#pend').classList.contains('on'))pqRender(); }
   $('#ik-h').textContent=t('add');
   $('#dz-t').textContent=t('dz_t'); $('#dz-s').textContent=t('dz_s');
-  { const _a=$('#dz-agent-t'); if(_a)_a.textContent=t('dz_agent'); }
-  { const _l=document.querySelector('.dz-agent');
-    if(_l && !_l._wired){ _l._wired=1; _l.addEventListener('click',()=>agentGot()); } }
+  paintAgentLink();
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
   paintSort();                                            // re-label the sort control for the new language
   if(LAWMODE)renderLaw(LAWLAST); else render(LAST);       // re-label result chrome (law or employees)
@@ -1779,6 +1779,25 @@ const IK_BIG=IK_PIPELINE+1;
    "Has it" is remembered locally when the download is taken. That is a guess, not knowledge — the
    browser is not allowed to look at the disk — so the fallback is always reachable. */
 const AGENT_KEY='iccmc_agent_downloaded';
+/* The quiet line under the drop zone says the RIGHT verb. Offering "download" to someone who
+   already has the tool is asking them to fetch a second copy of something they own; once it is
+   on the machine the only useful action is to open it. Same line, same place — different job. */
+function paintAgentLink(){
+  const a=document.querySelector('.dz-agent'); if(!a) return;
+  const ic=a.querySelector('.dz-agent-i'), lb=a.querySelector('#dz-agent-t');
+  if(agentHave()){
+    if(ic)ic.textContent='⇱'; if(lb)lb.textContent=t('dz_agent_open');
+    a.removeAttribute('download'); a.setAttribute('href','iccmc-uploader://open');
+  }else{
+    if(ic)ic.textContent='⤓'; if(lb)lb.textContent=t('dz_agent');
+    a.setAttribute('download','افتح أداة الرفع.pyw');
+    a.setAttribute('href','ICCMC-uploader.pyw');
+  }
+  if(!a._wired){ a._wired=1;
+    // taking the download is what marks it as owned — then the line becomes "open"
+    a.addEventListener('click',()=>{ if(!agentHave()){ agentGot(); setTimeout(paintAgentLink,600); } });
+  }
+}
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentGot(){ try{ localStorage.setItem(AGENT_KEY,'1'); }catch(_){} }
 
@@ -1811,7 +1830,8 @@ function ikBigDropAsk(n){
         },2500);
       };
     }else{
-      go.onclick=()=>{ agentGot(); setTimeout(()=>close(false),400); };   // let the download start
+      go.onclick=()=>{ agentGot(); paintAgentLink();
+                       setTimeout(()=>close(false),400); };   // let the download start
     }
     w.onclick=e=>{ if(e.target===w) close(false); };
   });
@@ -3660,6 +3680,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v160';
+window.__APP_VER = 'v161';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
