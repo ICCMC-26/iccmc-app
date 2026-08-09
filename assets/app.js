@@ -66,7 +66,7 @@ const I18N={
     lg_pending:'أوراق ممسوحة بانتظار المطابقة', lg_no_pending:'لا أوراق بانتظار المطابقة — أدخِل دفعة يدويًا أدناه',
     lg_proposal:'دفعة مقترحة', lg_provisional:'مؤقتة — بانتظار المنح', lg_ambiguous:'غامضة — راجِع يدويًا',
     lg_left:n=>`بقي ${n}`,
-    lg_batch_of:(i,n)=>`دفعة ${i} من ${n}`, lg_next_batch:n=>`التالية — بقيت ${n}`,
+    lg_next_case:'الدفعة التالية ›', lg_batch_of:(i,n)=>`دفعة ${i} من ${n}`, lg_next_batch:n=>`التالية — بقيت ${n}`,
     lg_all_done:'اكتملت كل الدفعات ✓', lg_next:'التالي ›', lg_prev:'‹ السابق', lg_of:(i,n)=>`${i} من ${n}`,
     lg_last:'آخر ورقة', lg_papers_lbl:'الأوراق:', lg_confirm_commit:'تأكيد وحفظ الدفعة', lg_view:'عرض',
     lg_manh_need:'اكتب رقم المنح لهذه الدفعة', lg_manual_h:'إدخال يدوي', lg_names_ocr:n=>`${n} اسم من المسح`,
@@ -170,7 +170,7 @@ const I18N={
     lg_pending:'Scanned papers awaiting matching', lg_no_pending:'None awaiting — enter a batch manually below',
     lg_proposal:'Proposed batch', lg_provisional:'provisional — awaiting grant', lg_ambiguous:'ambiguous — review manually',
     lg_left:n=>`${n} left`,
-    lg_batch_of:(i,n)=>`batch ${i} of ${n}`, lg_next_batch:n=>`next — ${n} to go`,
+    lg_next_case:'Next batch ›', lg_batch_of:(i,n)=>`batch ${i} of ${n}`, lg_next_batch:n=>`next — ${n} to go`,
     lg_all_done:'All batches done ✓', lg_next:'Next ›', lg_prev:'‹ Back', lg_of:(i,n)=>`${i} of ${n}`,
     lg_last:'last paper', lg_papers_lbl:'Papers:', lg_confirm_commit:'Confirm & save batch', lg_view:'view',
     lg_manh_need:'Type the grant number for this batch', lg_manual_h:'Manual entry', lg_names_ocr:n=>`${n} names from scan`,
@@ -2133,7 +2133,8 @@ $('#pend').addEventListener('click',e=>{
    takes the identical commit path (anchor ladder, whitelists, gates) — one behaviour, not two. */
 async function pqReview(jobId){
   const r=PQ.rows.find(x=>x.job_id===jobId); if(!r) return;
-  if(String(r.status)==='legal-review'){ pqClose(); openLegalReview(r.image_hash||''); return; }
+  if(String(r.status)==='legal-review'){ _rvFromPend=true; pqClose();
+    openLegalReview(r.image_hash||''); return; }
   const {data}=await sb.from('scan_jobs').select('*').eq('job_id',jobId).limit(1);
   const job=data&&data[0];
   if(!job){ toast(t('pq_gone')); await pqLoad(); return; }
@@ -2149,7 +2150,7 @@ async function pqReview(jobId){
     IK.push(jk);
   }
   jk.job=job; jk.state='review'; jk.needsBoard=(job.status==='needs-linking');
-  pqClose(); openIkReview(jk.id);
+  _rvFromPend=true; pqClose(); openIkReview(jk.id);
 }
 $('#dz-input').addEventListener('change',e=>{ikAdd(e.target.files);e.target.value=''});
 (()=>{ const dz=$('#dz');
@@ -2425,8 +2426,14 @@ function openIkReview(id){
   ikBuildReview();
   $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
 }
+/* Closing returns you to where you CAME FROM. Opening a card from «الوارد» closes that section
+   first (the drawer is the same one the intake list uses), so ✕ used to drop the reviewer onto
+   the employees list — a different place from the one they were working in, with their position
+   in the queue lost. */
+let _rvFromPend=false;
 function closeIkReview(){ $('#ikreview').classList.remove('on'); document.body.style.overflow='';
-  if(_rvJob)_rvJob._scanUrl=null; _rvJob=null; }
+  if(_rvJob)_rvJob._scanUrl=null; _rvJob=null;
+  if(_rvFromPend){ _rvFromPend=false; pqOpen(); } }
 async function ikDoAdd(forcePid){
   const fpid=(typeof forcePid==='string')?forcePid:undefined;   // guard: onclick may pass an event
   const jk=_rvJob, j=jk.job, f={...(j.fields||{})};
@@ -3672,13 +3679,20 @@ function renderLegalReview(){
   // the next — so the control is now the position itself: which paper this is, how many remain,
   // and one button to move on. The paper is NAMED rather than chosen from a set of look-alikes.
   const _n=papers.length, _at=_lrIdx+1, _left=_n-_at;
+  // On the LAST paper, «التالي» must not go dead: a one-paper batch disabled it entirely, which
+  // read as "there is nothing more" while two dozen papers were still waiting. At the end of a
+  // batch the same button moves to the next BATCH, and only stops when the queue is truly empty.
+  const _more=(_lrAll||[]).length>_lrQueue.pos;
+  const _endOfBatch=_lrIdx>=_n-1;
+  const _nextLbl=_endOfBatch ? t('lg_next_case') : t('lg_next');
+  const _nextOff=_endOfBatch && !_more;
   const seg=`<div class="lr-walk">
       <button class="lr-nav" data-lrgo="-1" ${_lrIdx<=0?'disabled':''}>${t('lg_prev')}</button>
       <div class="lr-walk-mid">
         <div class="lr-walk-t">${tl[cur.type]||cur.type}</div>
         <div class="lr-walk-n">${t('lg_of',_at,_n)}${_left?` · ${t('lg_left',_left)}`:` · ${t('lg_last')}`}</div>
       </div>
-      <button class="lr-nav go" data-lrgo="1" ${_lrIdx>=_n-1?'disabled':''}>${t('lg_next')}</button>
+      <button class="lr-nav go" data-lrgo="${_endOfBatch?'batch':'1'}" ${_nextOff?'disabled':''}>${_nextLbl}</button>
     </div>`;
   // ONLY this paper's expected stamp(s), OFF by default — the human verifies each on the scan, then
   // ticks it (nothing is auto-trusted). We zoom to what needs checking; the human confirms.
@@ -3715,7 +3729,12 @@ function renderLegalReview(){
   // moving must PRESERVE what was typed/ticked on the paper being left — _lrRead does that,
   // and it is why every one of these paths calls it before changing the index
   $('#ikreview').querySelectorAll('[data-lrgo]').forEach(btn=>btn.onclick=()=>{
-    _lrRead();
+    _lrRead();                       // never lose what was ticked/typed on the paper being left
+    if(btn.dataset.lrgo==='batch'){  // end of this batch → the next case, without committing
+      const i=_lrQueue.pos;          // pos is 1-based, so this is the NEXT index
+      if(i<(_lrAll||[]).length) _lrShowBatch(_lrAll[i], i+1, _lrAll.length);
+      return;
+    }
     _lrIdx=Math.min(papers.length-1, Math.max(0, _lrIdx+(+btn.dataset.lrgo)));
     renderLegalReview();
     const sc=$('#lr-scan'); if(sc)sc.scrollTop=0;      // the next scan starts at its top
@@ -3761,7 +3780,9 @@ async function lrPaintScan(paper){
 
    Returns how many batches remain, or 0 when the queue is empty. */
 function _lrShowBatch(b, pos, total){
-  b._num=undefined; b._mdate=undefined; b._stamps={}; b._epFill={}; b._showAll=false;
+  // initialise only what has never been touched — moving between cases must not erase ticks
+  b._stamps=b._stamps||{}; b._epFill=b._epFill||{};
+  if(b._showAll===undefined) b._showAll=false;
   _lrBatch=b; _lrRot={}; _lrZoom=1;
   _lrBatch.papers.sort((a,c)=>ptOrd(a.type)-ptOrd(c.type));
   _lrIdx=0;
@@ -3896,6 +3917,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v171';
+window.__APP_VER = 'v172';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
