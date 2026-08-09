@@ -65,7 +65,9 @@ const I18N={
     lg_present:'موجود', lg_missing:'ناقص', lg_nostamp:'بلا ختم', lg_covered:'مشمول ضمن',
     lg_pending:'أوراق ممسوحة بانتظار المطابقة', lg_no_pending:'لا أوراق بانتظار المطابقة — أدخِل دفعة يدويًا أدناه',
     lg_proposal:'دفعة مقترحة', lg_provisional:'مؤقتة — بانتظار المنح', lg_ambiguous:'غامضة — راجِع يدويًا',
-    lg_left:n=>`بقي ${n}`, lg_next:'التالي ›', lg_prev:'‹ السابق', lg_of:(i,n)=>`${i} من ${n}`,
+    lg_left:n=>`بقي ${n}`,
+    lg_batch_of:(i,n)=>`دفعة ${i} من ${n}`, lg_next_batch:n=>`التالية — بقيت ${n}`,
+    lg_all_done:'اكتملت كل الدفعات ✓', lg_next:'التالي ›', lg_prev:'‹ السابق', lg_of:(i,n)=>`${i} من ${n}`,
     lg_last:'آخر ورقة', lg_papers_lbl:'الأوراق:', lg_confirm_commit:'تأكيد وحفظ الدفعة', lg_view:'عرض',
     lg_manh_need:'اكتب رقم المنح لهذه الدفعة', lg_manual_h:'إدخال يدوي', lg_names_ocr:n=>`${n} اسم من المسح`,
     lg_saved_prov:'حُفظت دفعة مؤقتة ✓ ', lg_adopt:(n,b)=>`المنح ${n} يُكمل الدفعة: ${b}`, lg_adopt_do:'أكمِل الدفعة بهذا المنح',
@@ -167,7 +169,9 @@ const I18N={
     lg_present:'present', lg_missing:'missing', lg_nostamp:'no stamp', lg_covered:'covered in',
     lg_pending:'Scanned papers awaiting matching', lg_no_pending:'None awaiting — enter a batch manually below',
     lg_proposal:'Proposed batch', lg_provisional:'provisional — awaiting grant', lg_ambiguous:'ambiguous — review manually',
-    lg_left:n=>`${n} left`, lg_next:'Next ›', lg_prev:'‹ Back', lg_of:(i,n)=>`${i} of ${n}`,
+    lg_left:n=>`${n} left`,
+    lg_batch_of:(i,n)=>`batch ${i} of ${n}`, lg_next_batch:n=>`next — ${n} to go`,
+    lg_all_done:'All batches done ✓', lg_next:'Next ›', lg_prev:'‹ Back', lg_of:(i,n)=>`${i} of ${n}`,
     lg_last:'last paper', lg_papers_lbl:'Papers:', lg_confirm_commit:'Confirm & save batch', lg_view:'view',
     lg_manh_need:'Type the grant number for this batch', lg_manual_h:'Manual entry', lg_names_ocr:n=>`${n} names from scan`,
     lg_saved_prov:'Provisional batch saved ✓ ', lg_adopt:(n,b)=>`Grant ${n} completes: ${b}`, lg_adopt_do:'Complete this batch with the grant',
@@ -3589,12 +3593,14 @@ async function _lrOfficeView(box, paper){
 // STANDARD): تعهد=company · استمارة=company+ministry · منح=ministry. The human unticks a missing one.
 const PAPER_STAMPS={taahud:[['taahud','lg_st_taahud']],
   istimara:[['istco','lg_st_ist_co'],['istmo','lg_st_ist_mo']], manh:[['manh','lg_st_manh']]};
+let _lrQueue={pos:1,total:1};
 async function openLegalReview(hash){
   const papers=_legalMock||await loadLegalPending();
   if(!papers.length){ toast(t('lg_no_pending')); return; }
   const {batches}=legalAssemble(papers);
   let bi=batches.findIndex(b=>b.papers.some(p=>p.scan_hash&&p.scan_hash===hash));
   if(bi<0)bi=0;
+  _lrQueue={pos:bi+1, total:batches.length};   // where this batch sits in the work waiting
   _lrBatch=batches[bi]; _lrBatch._num=undefined; _lrBatch._stamps={}; _lrRot={}; _lrZoom=1;
   // fixed logical order تعهد · استمارة · منح; the DOM order + `dir` make it read right-to-left in AR,
   // left-to-right in EN automatically (the segmented control is a flex row that follows the language).
@@ -3653,7 +3659,9 @@ function renderLegalReview(){
   $('#ikreview').innerHTML=`
     <div class="rvw-bar"><button class="icon ik-close" id="lr-close" title="${t('t_close')}">✕</button>
       <span class="rvw-t">⚖ ${t('lg_h')}${b.provisional?` · ${t('lg_provisional')}`:''}</span>
-      <span style="flex:1"></span><span class="rvw-fn">${t('lg_names_ocr',rows.length)}</span></div>
+      <span style="flex:1"></span>
+      <span class="rvw-fn lr-q">${t('lg_batch_of',_lrQueue.pos,_lrQueue.total)}</span>
+      <span class="rvw-fn">${t('lg_names_ocr',rows.length)}</span></div>
     <div class="rvw-body">
       <div class="rvw-scan" id="lr-scan">${t('rv_loading')}</div>
       <div class="rvw-side">
@@ -3711,6 +3719,39 @@ async function lrPaintScan(paper){
   }
   box.textContent=t('rv_noscan');
 }
+/* After a batch is saved, go straight to the next one waiting.
+
+   Closing back to the list made every batch a round trip — open, confirm, find the next card,
+   open again — and that cost is paid once per batch, so it is the whole difference between
+   reviewing ten and reviewing a hundred. The pending set is re-read from the database rather
+   than advanced in memory: committing may absorb papers into another batch, so what is left is
+   a question only the database can answer.
+
+   Returns how many batches remain, or 0 when the queue is empty. */
+async function lrOpenNext(){
+  let papers=[];
+  try{ papers=await loadLegalPending(); }catch(_){ papers=[]; }
+  if(!papers.length) return 0;
+  const {batches}=legalAssemble(papers);
+  if(!batches.length) return 0;
+  const b=batches[0];
+  // a fresh batch starts fresh: nothing ticked, nothing typed, first paper
+  b._num=undefined; b._mdate=undefined; b._stamps={}; b._epFill={}; b._showAll=false;
+  _lrBatch=b; _lrRot={}; _lrZoom=1;
+  _lrBatch.papers.sort((a,c)=>ptOrd(a.type)-ptOrd(c.type));
+  _lrIdx=0;
+  _lrQueue={pos:1, total:batches.length};
+  renderLegalReview();
+  const sc=$('#lr-scan'); if(sc)sc.scrollTop=0;
+  return batches.length;
+}
+async function lrAfterCommit(){
+  const left=await lrOpenNext();
+  ikRender(); search($('#q')?$('#q').value:'');
+  if(left) toast(t('lg_next_batch',left));
+  else { toast(t('lg_all_done')); closeIkReview(); }
+}
+
 async function lrCommit(){
   const b=_lrBatch; if(!b)return; _lrRead();
   let rows=proposalRows(b);
@@ -3732,7 +3773,7 @@ async function lrCommit(){
       try{ const res=await commitMerged(b.papers, rows, tgt, stamps);
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
         toast(t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`);
-        closeIkReview(); ikRender(); search($('#q')?$('#q').value:''); }
+        await lrAfterCommit(); }
       catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
       return; }
     id=provKey(ep); }
@@ -3741,7 +3782,7 @@ async function lrCommit(){
     if(cands.length===1){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
       try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id, reviewRot(cands[0].rot));
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-        closeIkReview(); ikRender(); search($('#q')?$('#q').value:''); }
+        await lrAfterCommit(); }
       catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
       return; } }
   const manh=b.papers.find(p=>p.type==='manh')||{};
@@ -3756,7 +3797,7 @@ async function lrCommit(){
       paperIds:b.papers.map(p=>p.paper_id).filter(Boolean)});
     b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
     toast((hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`);
-    closeIkReview(); ikRender(); search($('#q')?$('#q').value:'');
+    await lrAfterCommit();
   }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(btn){btn.disabled=false;btn.textContent=t('lg_confirm_commit');} }
 }
 
@@ -3800,6 +3841,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v169';
+window.__APP_VER = 'v170';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
