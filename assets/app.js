@@ -4034,6 +4034,86 @@ async function _lrReconcile(){
   else _lrGoFlat(0);                           // the file we were on is gone → the next one
 }
 
+async function lrCommit(){
+  const b=_lrBatch; if(!b)return; _lrRead();
+  let rows=proposalRows(b);
+  if(b._epFill) rows=rows.map(r=>{ const f=r.serial!=null&&b._epFill[+r.serial]; return f?{...r,name:f}:r; });   // apply the filled endpoint names
+  const ep=legalEndpoints(rows), hasManh=b.papers.some(p=>p.type==='manh');
+  const _loneManh=b.papers.length===1 && b.papers[0].type==='manh';
+  const _canConn=(ep.fSerial!=null&&ep.lSerial!=null)&&!!(ep.fName||ep.lName);   // منح-matchable: interval + ≥1 endpoint name
+  if(!_loneManh && !_canConn){ toast(t('lr_endname_need'));   // block only when NOTHING can connect (no interval / both ends blank)
+    const inp=[...document.querySelectorAll('#ikreview .lr-epname')].find(x=>!x.value.trim()); if(inp)inp.focus(); return; }
+  let id=(b._num||'').trim();
+  const s=b._stamps||{};
+  const stamps={ taahud:!!s.taahud, istco:!!s.istco, istmo:!!s.istmo, manh:!!s.manh };
+  if(!id){
+    if(hasManh){ toast(t('lg_need_id'));               // a منح is here → jump to it to type the number
+      const mi=b.papers.findIndex(p=>p.type==='manh'); if(mi>=0){_lrIdx=mi; renderLegalReview();} return; }
+    let tgt=await findMergeTarget(rows);               // shares passports with a committed provisional batch?
+    if(!tgt) tgt=await findWaitingManh(ep, rows);       // OR a منح that committed BEFORE its roster (waiting)
+    if(tgt){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
+      try{ const res=await commitMerged(b.papers, rows, tgt, stamps);
+        b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
+        toast(t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`);
+        await lrAfterCommit(); }
+      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
+      return; }
+    id=provKey(ep); }
+  if(hasManh && b.papers.length===1 && id){             // a lone منح → complete a matching provisional batch
+    const cands=manhCandidates(b.papers[0], await loadProvisionalBatches());
+    if(cands.length===1){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
+      try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id, reviewRot(cands[0].rot));
+        b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
+        await lrAfterCommit(); }
+      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
+      return; } }
+  const manh=b.papers.find(p=>p.type==='manh')||{};
+  const scans={taahud:(b.papers.find(p=>p.type==='taahud')||{}).scan_path,
+    istimara:(b.papers.find(p=>p.type==='istimara')||{}).scan_path, manh:manh.scan_path};
+  const btn=$('#lr-save'); if(btn){btn.disabled=true;btn.textContent=t('lg_saving');}
+  try{
+    const res=await commitLegalBatch({batch_id:id, manh_date:(b._mdate||manh.manh_date)||null,
+      interval_from:manh.interval_from??ep.fSerial, interval_to:manh.interval_to??ep.lSerial, rows, scans, stamps,
+      first_name:ep.fName, last_name:ep.lName, first_passport:ep.fPass, last_passport:ep.lPass, provisional:!hasManh,
+      rot: reviewRot(null),                              // the reviewer's rotations → saved so print/عرض match
+      paperIds:b.papers.map(p=>p.paper_id).filter(Boolean)});
+    b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
+    toast((hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`);
+    await lrAfterCommit();
+  }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(btn){btn.disabled=false;btn.textContent=t('lg_confirm_commit');} }
+}
+
+$('#ik-list').addEventListener('click',e=>{
+  const vt=e.target.closest('[data-ikview]'); if(vt){ _ikView=vt.dataset.ikview; ikRender(); return }   // compact ⇄ detailed
+  const lr=e.target.closest('[data-legalreview]'); if(lr){openLegalReview(lr.getAttribute('data-legalreview'));return}
+  const kr=e.target.closest('[data-kidreview]'); if(kr){openKidReview(kr.getAttribute('data-kidreview'));return}   // a packet child's review
+  const pt=e.target.closest('[data-pktoggle]'); if(pt){ const jj=IK.find(x=>x.id===+pt.dataset.pktoggle);          // collapse/expand a family
+    if(jj){ jj.pkOpen=(jj.pkOpen===false); ikRender(); } return }
+  const rv=e.target.closest('[data-review]'); if(rv){openIkReview(+rv.dataset.review);return}
+  const rm=e.target.closest('[data-rm]'); if(rm){ikRemove(+rm.dataset.rm);return}
+  const rt=e.target.closest('[data-retry]'); if(rt)ikRetry(+rt.dataset.retry);
+});
+$('#q').addEventListener('input',onType);
+$('#filters').addEventListener('click',e=>{
+  const sub=e.target.closest('[data-inc]'); if(sub){ INC_SIDE=sub.dataset.inc; render(LAST); return; }   // pick passport/visa side
+  const c=e.target.closest('[data-f]'); if(c){ if(c.dataset.f!=='incomplete') INC_SIDE='all'; FILTER=c.dataset.f; render(LAST); }  // leaving incomplete resets the side
+});
+$('#results').addEventListener('click',e=>{
+  const pr=e.target.closest('[data-lawprint]');       // print straight from the card, without opening it
+  if(pr){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(pr.dataset.lawprint)); if(b)printBatch(b); return; }
+  const lb=e.target.closest('[data-batch]'); if(lb){openLawBatch(lb.dataset.batch);return}
+  const row=e.target.closest('.row'); if(row&&row.dataset.id)openEmployee(row.dataset.id);});
+$('#detail').addEventListener('click',e=>{const _lg=e.target.closest('[data-lawgo]');if(_lg){gotoLawBatch(_lg.dataset.lawgo);return;}if(e.target.closest('.d-close'))closeEmployee();if(e.target.closest('.d-print'))printEmployee();
+  const f=e.target.closest('.d-face');if(f&&f.dataset.url)openLightbox(f.dataset.url)});
+$('#lightbox').addEventListener('click',()=>$('#lightbox').classList.remove('on'));
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
+  if($('#lightbox').classList.contains('on'))$('#lightbox').classList.remove('on');
+  else if($('#istimara').classList.contains('on'))istRequestClose();
+  else if($('#legalform').classList.contains('on'))legalClose();
+  else if($('#ikreview').classList.contains('on'))closeIkReview();
+  else if($('#detail').classList.contains('on'))closeEmployee();
+  else if($('#intake').classList.contains('on'))closeIntake()});
+applyLang();
 /* resume a remembered session */
 (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session&&session.user)enterApp()}catch(_){}})();
 /* BOOT-BEACON — the LAST line. It is true ONLY if the whole script executed with no mid-file halt
