@@ -73,7 +73,7 @@ const I18N={
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
     big_open:'افتح أداة الرفع', big_opening:'…يُفتح على جهازك',
     big_nope:'لم تُفتح؟ حمِّلها من جديد', big_have:'الأداة موجودة على جهازك — افتحها وأفلِت ملفاتك فيها.',
-    big_get:'حمِّل أداة الرفع', big_anyway:'تابع من المتصفح', big_note:'بعد الرفع بالأداة، افتح الموقع مرة واحدة لتُودَع الملفات النظيفة.',
+    big_get:'حمِّل أداة الرفع', big_anyway:'إلغاء', big_note:'بعد الرفع بالأداة، افتح الموقع مرة واحدة لتُودَع الملفات النظيفة.',
     pq_btn:'الوارد', pq_h:'الوارد — ما لم يُودَع بعد',
     pq_rev:'قيد المراجعة', pq_ref:'مرفوض',
     pq_rev_s:'ملفات تنتظر تأكيدك قبل أن تُودَع', pq_ref_s:'ملفات لم تُقبل — السبب مذكور مع كل ملف',
@@ -167,7 +167,7 @@ const I18N={
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
     big_open:'Open the uploader', big_opening:'…opening on your machine',
     big_nope:"Didn't open? Download it again", big_have:'You already have the uploader — open it and drop your files there.',
-    big_get:'Get the uploader', big_anyway:'Continue in the browser', big_note:'After it finishes, open the site once so the clean files are committed.',
+    big_get:'Get the uploader', big_anyway:'Cancel', big_note:'After it finishes, open the site once so the clean files are committed.',
     pq_btn:'Inbox', pq_h:'Inbox — not committed yet',
     pq_rev:'Pending review', pq_ref:'Refused',
     pq_rev_s:'Files waiting for your confirmation before they are committed',
@@ -1755,21 +1755,26 @@ async function ikStampBatch(n){
    to let a page re-read your disk without you choosing again. (Google's own Cloud Console cancels
    an upload on refresh for the same reason.) So above a threshold we stop and offer the folder
    uploader, where the queue is files on a disk instead.
-   It is a CHOICE, not a block: «تابع من المتصفح» is always there, because a wrong guess about the
-   threshold must never stop someone doing their work. */
+   It is a BLOCK, not a suggestion. It used to be a choice — «تابع من المتصفح» sat beside the
+   download — but an option we already know loses the queue is not a kindness when the batch is
+   big enough for that loss to hurt. The threshold is the pipeline width, so nothing is blocked
+   that the browser can actually carry. */
 // EXACTLY the pipeline width + 1. Up to IK_PIPELINE every file is genuinely in flight; the
 // first file beyond it is only a File handle in this page's memory, which the browser revokes on
 // refresh. So this is not a taste threshold — it is the precise point where the browser stops
 // being able to keep its promise, and where the folder queue starts being the honest answer.
 const IK_BIG=IK_PIPELINE+1;
-/* Two doors, chosen by whether the tool is already on this machine.
+/* Above IK_PIPELINE the browser cannot keep its promise, so this is a GATE, not a suggestion:
+   the tool, or cancel. It used to offer "continue in the browser", and that option was the
+   problem — it let someone choose the path we already know loses their queue on a refresh, and
+   the cost lands later, on a batch big enough to hurt.
 
    HAVE IT → the primary action OPENS it, through the iccmc-uploader: protocol the tool claims for
    itself on first run. A page cannot start a program any other way; this is the one route browsers
    sanction, and if the protocol is not registered the navigation simply does nothing — which is
    why a "didn't open?" fallback appears a moment later instead of leaving the user staring.
 
-   DON'T → download, as before.
+   DON'T → download it.
 
    "Has it" is remembered locally when the download is taken. That is a guess, not knowledge — the
    browser is not allowed to look at the disk — so the fallback is always reachable. */
@@ -1793,7 +1798,7 @@ function ikBigDropAsk(n){
     </div>`;
     document.body.appendChild(w);
     const close=v=>{ w.remove(); resolve(v); };
-    w.querySelector('.ikbig-alt').onclick=()=>close(true);        // proceed in the browser
+    w.querySelector('.ikbig-alt').onclick=()=>close(false);       // cancel — nothing is added
     const go=w.querySelector('.ikbig-go');
     if(have){
       go.onclick=()=>{
@@ -3655,6 +3660,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v158';
+window.__APP_VER = 'v159';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
