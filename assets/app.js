@@ -1551,12 +1551,26 @@ function ikPump(){
    Two buckets, because both need a home: قيد المراجعة (work owed) and مرفوض (with its reason).
    Committed files need no surface here — they are already employees, searchable in the app.  */
 const PQ_SIZE=50;
-const PQ={bucket:'review', kind:'all', page:0, rows:[], total:0, counts:[], countsLoaded:false, seq:0, loading:false};
+const PQ={bucket:'review', kind:'all', page:0, rows:[], total:0, counts:[], countsLoaded:false, seq:0, loading:false, timer:null};
 const PQ_KINDS=[['all','pq_all'],['legal','pq_legal'],['passport','pq_pass'],['visa','pq_visa']];
 
 async function pqOpen(){ $('#pend').classList.add('on'); document.body.style.overflow='hidden';
-  PQ.loading=true; pqRender(); await pqLoad(); }
-function pqClose(){ $('#pend').classList.remove('on'); document.body.style.overflow=''; }
+  PQ.loading=true; pqRender(); await pqLoad(); pqLive(); }
+function pqClose(){ $('#pend').classList.remove('on'); document.body.style.overflow='';
+  if(PQ.timer){ clearInterval(PQ.timer); PQ.timer=null; } }
+/* Files arrive from OUTSIDE this browser — the folder uploader puts them in the bucket and the
+   worker files them — so a section that only refreshed on a click showed a stale queue and made
+   the uploader feel disconnected from the app. While it is OPEN and the tab is VISIBLE, re-read
+   every few seconds. Skipped when hidden, so it costs nothing in the background. */
+const PQ_LIVE_MS=5000;
+function pqLive(){
+  if(PQ.timer) return;
+  PQ.timer=setInterval(()=>{
+    if(document.visibilityState!=='visible') return;
+    if(!$('#pend').classList.contains('on')){ clearInterval(PQ.timer); PQ.timer=null; return; }
+    if(!PQ.loading) pqLoad();          // refreshes the counts too, so the chips stay honest
+  }, PQ_LIVE_MS);
+}
 
 /* Why this is shaped the way it is — the first version FELT slow on every chip click:
      · it re-fetched the COUNTS on each click, though counts don't change when you change a
@@ -3608,6 +3622,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v154';
+window.__APP_VER = 'v155';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
