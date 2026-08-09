@@ -2155,8 +2155,9 @@ $('#pend').addEventListener('click',e=>{
    takes the identical commit path (anchor ladder, whitelists, gates) — one behaviour, not two. */
 async function pqReview(jobId){
   const r=PQ.rows.find(x=>x.job_id===jobId); if(!r) return;
-  if(String(r.status)==='legal-review'){ _rvFromPend=true; pqClose();
-    openLegalReview(r.image_hash||''); return; }
+  // «الوارد» stays open UNDERNEATH. Closing it first left the employees page on screen for the
+  // whole round trip — a flash of somewhere the reviewer never asked to go.
+  if(String(r.status)==='legal-review'){ _rvFromPend=true; openLegalReview(r.image_hash||''); return; }
   const {data}=await sb.from('scan_jobs').select('*').eq('job_id',jobId).limit(1);
   const job=data&&data[0];
   if(!job){ toast(t('pq_gone')); await pqLoad(); return; }
@@ -2172,7 +2173,7 @@ async function pqReview(jobId){
     IK.push(jk);
   }
   jk.job=job; jk.state='review'; jk.needsBoard=(job.status==='needs-linking');
-  _rvFromPend=true; pqClose(); openIkReview(jk.id);
+  _rvFromPend=true; openIkReview(jk.id);
 }
 $('#dz-input').addEventListener('change',e=>{ikAdd(e.target.files);e.target.value=''});
 (()=>{ const dz=$('#dz');
@@ -2455,7 +2456,11 @@ function openIkReview(id){
 let _rvFromPend=false;
 function closeIkReview(){ $('#ikreview').classList.remove('on'); document.body.style.overflow='';
   if(_rvJob)_rvJob._scanUrl=null; _rvJob=null;
-  if(_rvFromPend){ _rvFromPend=false; pqOpen(); } }
+  // «الوارد» was never closed, so there is nothing to reopen — only the scroll lock to restore,
+  // since the drawer's own close would otherwise unlock the page behind it.
+  if(_rvFromPend){ _rvFromPend=false;
+    if($('#pend').classList.contains('on')){ document.body.style.overflow='hidden'; pqLoad(); }
+    else pqOpen(); } }
 async function ikDoAdd(forcePid){
   const fpid=(typeof forcePid==='string')?forcePid:undefined;   // guard: onclick may pass an event
   const jk=_rvJob, j=jk.job, f={...(j.fields||{})};
@@ -3663,6 +3668,47 @@ const PAPER_STAMPS={taahud:[['taahud','lg_st_taahud']],
   istimara:[['istco','lg_st_ist_co'],['istmo','lg_st_ist_mo']], manh:[['manh','lg_st_manh']]};
 let _lrQueue={pos:1,total:1};
 let _lrAll=[];
+/* Keep the queue in step with «الوارد» while the drawer is open.
+
+   _lrAll is assembled when the drawer opens, so anything that landed afterwards was invisible to
+   it: «الدفعة التالية» would stop at a boundary that no longer existed, and the counter described
+   a bucket that had since grown. The inbox refreshes itself every few seconds for exactly this
+   reason; the review queue now does the same.
+
+   The batch ON SCREEN is never swapped out from under the reviewer — only the list behind it and
+   the count are refreshed. Being moved mid-decision would be worse than a stale number. */
+const LR_LIVE_MS=8000;
+let _lrTimer=null;
+function lrLive(){
+  if(_lrTimer) return;
+  _lrTimer=setInterval(async ()=>{
+    const open=$('#ikreview')&&$('#ikreview').classList.contains('on');
+    if(!open || !_lrBatch){ clearInterval(_lrTimer); _lrTimer=null; return; }
+    if(document.visibilityState!=='visible') return;
+    await _lrRefreshQueue();
+  }, LR_LIVE_MS);
+}
+async function _lrRefreshQueue(){
+  let papers=[];
+  try{ papers=await loadLegalPending(); }catch(_){ return; }
+  const {batches}= papers.length ? legalAssemble(papers) : {batches:[]};
+  _lrAll=batches;
+  // where does the batch on screen sit in the refreshed queue?
+  const shown=new Set((_lrBatch&&_lrBatch.papers||[]).map(p=>p.scan_hash).filter(Boolean));
+  const at=batches.findIndex(b=>b.papers.some(p=>shown.has(p.scan_hash)));
+  _lrQueue={pos:(at<0?_lrQueue.pos:at+1), total:batches.length||_lrQueue.total};
+  lrPaintQueue();
+}
+/* repaint ONLY the counters — re-rendering the whole drawer would throw away half-typed input */
+function lrPaintQueue(){
+  const q=$('#ikreview .lr-q');
+  if(q) q.textContent=t('lg_batch_of',_lrQueue.pos,_lrQueue.total);
+  const w=$('#ikreview .lr-walk-q');
+  if(w) w.textContent=t('lg_batch_of',_lrQueue.pos,_lrQueue.total);
+  const nx=$('#ikreview [data-lrgo="batch"]');
+  if(nx) nx.disabled=!((_lrAll||[]).length>_lrQueue.pos);
+}
+
 async function openLegalReview(hash){
   const papers=_legalMock||await loadLegalPending();
   if(!papers.length){ toast(t('lg_no_pending')); return; }
@@ -3678,6 +3724,7 @@ async function openLegalReview(hash){
   _lrIdx=Math.max(0,_lrBatch.papers.findIndex(p=>p.scan_hash===hash));
   renderLegalReview();
   $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
+  lrLive();
 }
 function _lrRead(){ const b=_lrBatch; if(!b)return;
   const n=$('#lr-num'); if(n){ b._num=n.value; if(b.manh)b.manh.manh_number=n.value; }
@@ -3724,6 +3771,7 @@ function renderLegalReview(){
       <div class="lr-walk-mid">
         <div class="lr-walk-t">${tl[cur.type]||cur.type}</div>
         <div class="lr-walk-n">${t('lg_of',_at,_n)}${_left?` · ${t('lg_left',_left)}`:` · ${t('lg_last')}`}</div>
+        <div class="lr-walk-q">${t('lg_batch_of',_lrQueue.pos,_lrQueue.total)}</div>
       </div>
       <button class="lr-nav go" data-lrgo="${_endOfBatch?'batch':'1'}" ${_nextOff?'disabled':''}>${_nextLbl}</button>
     </div>`;
@@ -3762,8 +3810,17 @@ function renderLegalReview(){
   $('#ikreview').querySelectorAll('[data-lrgo]').forEach(btn=>btn.onclick=()=>{
     _lrRead();                       // never lose what was ticked/typed on the paper being left
     if(btn.dataset.lrgo==='batch'){  // end of this batch → the next case, without committing
-      const i=_lrQueue.pos;          // pos is 1-based, so this is the NEXT index
-      if(i<(_lrAll||[]).length) _lrShowBatch(_lrAll[i], i+1, _lrAll.length);
+      (async ()=>{
+        let i=_lrQueue.pos;          // pos is 1-based, so this is the NEXT index
+        if(i>=(_lrAll||[]).length){  // cached queue spent — ask the bucket before giving up
+          btn.disabled=true;
+          await _lrRefreshQueue();
+          btn.disabled=false;
+          i=_lrQueue.pos;
+        }
+        if(i<(_lrAll||[]).length) _lrShowBatch(_lrAll[i], i+1, _lrAll.length);
+        else toast(t('lg_all_done'));
+      })();
       return;
     }
     _lrIdx=Math.min(papers.length-1, Math.max(0, _lrIdx+(+btn.dataset.lrgo)));
@@ -3965,6 +4022,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v176';
+window.__APP_VER = 'v177';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
