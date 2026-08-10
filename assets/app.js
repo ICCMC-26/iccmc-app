@@ -4169,6 +4169,22 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v184';
+// ONE number, and it is not typed here. The badge on the login gate is READ from the
+// <script src="assets/app.js?v=N"> tag that loaded this very file, so it reports the build the
+// browser actually fetched rather than a constant somebody has to remember to bump.
+//
+// It had drifted to v184 while the app was being served as ?v=189 — five releases stale, because
+// the cache-buster is impossible to forget (nothing updates without it) and a second, duplicate
+// version string is easy to. Deriving one from the other removes the discipline from the loop:
+// they cannot disagree, because there is only one of them.
+window.__APP_VER = (function(){
+  try{
+    var s = document.currentScript;
+    if(!s){ s = Array.prototype.slice.call(document.scripts).filter(function(x){
+      return /assets\/app\.js/.test(x.src||''); }).pop(); }
+    var v = s && new URL(s.src, location.href).searchParams.get('v');
+    return v ? 'v'+v : 'v?';
+  }catch(_){ return 'v?'; }
+})();
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
