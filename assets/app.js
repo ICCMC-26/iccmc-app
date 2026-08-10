@@ -76,7 +76,7 @@ const I18N={
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
     dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
     dz_agent_nope:'المتصفح لم يسمح بفتحها — افتحها من اختصار «ICCMC Uploader» على سطح المكتب',
-    dz_agent_new:'يوجد تحديث لأداة الرفع — حمِّل النسخة الأحدث',
+    dz_agent_new:'يوجد تحديث لأداة الرفع — حمِّل النسخة الأحدث', dz_agent_upd:'تحديث متاح',
     big_open:'افتح أداة الرفع', big_update:'حمِّل التحديث',
     big_stale:'نسختك من أداة الرفع أقدم من الحالية. حمِّل التحديث ثم شغّله مرة واحدة.', big_opening:'…يُفتح على جهازك',
     big_nope:'لم تُفتح؟ افتحها من اختصار «ICCMC Uploader» على سطح المكتب', big_have:'الأداة على جهازك — افتحها من اختصار «ICCMC Uploader» على سطح المكتب وأفلِت ملفاتك فيها.',
@@ -185,7 +185,7 @@ const I18N={
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
     dz_agent_open:'Big batch? Open the uploader on your machine',
     dz_agent_nope:'The browser would not open it — use the «ICCMC Uploader» shortcut on your Desktop',
-    dz_agent_new:'A newer uploader is available — download the update',
+    dz_agent_new:'A newer uploader is available — download the update', dz_agent_upd:'update available',
     big_open:'Open the uploader', big_update:'Download the update',
     big_stale:'Your copy of the uploader is older than the current one. Download the update, then run it once.', big_opening:'…opening on your machine',
     big_nope:'Did not open? Use the «ICCMC Uploader» shortcut on your Desktop', big_have:'You already have the uploader — open it and drop your files there.',
@@ -1890,7 +1890,7 @@ const AGENT_VER_KEY='iccmc_agent_version';
 /* The version of the uploader this site ships. Keep it equal to TOOL_VERSION in pump.py.
    Storing which version was taken turns one hopeful guess ("they probably have it") into three
    honest states: they have nothing, they have an OLD one, or they have this one. */
-const TOOL_V='1.4';
+const TOOL_V='1.5';
 
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
@@ -1906,20 +1906,20 @@ function paintAgentLink(){
   const a=document.querySelector('.dz-agent'); if(!a) return;
   const ic=a.querySelector('.dz-agent-i'), lb=a.querySelector('#dz-agent-t');
   const st=agentState();
-  const asDownload=()=>{ a.setAttribute('download','افتح أداة الرفع.pyw');
-                         a.setAttribute('href','ICCMC-uploader.pyw'); };
-  if(st==='current'){
-    if(ic)ic.textContent='⇱'; if(lb)lb.textContent=t('dz_agent_open');
-    a.removeAttribute('download'); a.removeAttribute('href');   // JS opens it, see openAgent
-  }else if(st==='stale'){
-    if(ic)ic.textContent='⟳'; if(lb)lb.textContent=t('dz_agent_new');
-    asDownload();
-  }else{
+  if(st==='none'){
     if(ic)ic.textContent='⤓'; if(lb)lb.textContent=t('dz_agent');
-    asDownload();
+    a.setAttribute('download','افتح أداة الرفع.pyw');
+    a.setAttribute('href','ICCMC-uploader.pyw');
+  }else{
+    // HAVE IT — including an OLDER copy. Telling someone who owns the tool to download it again is
+    // the wrong instruction: they came to open it. An update is worth mentioning, never worth
+    // replacing the action with. «open» stays the action; «تحديث متاح» is a quiet aside.
+    if(ic)ic.textContent='⇱';
+    if(lb)lb.textContent=t('dz_agent_open')+(st==='stale'?' · '+t('dz_agent_upd'):'');
+    a.removeAttribute('download'); a.removeAttribute('href');   // JS opens it, see openAgent
   }
   if(!a._wired){ a._wired=1; a.addEventListener('click',e=>{
-    if(agentState()!=='current'){ agentGot(); setTimeout(paintAgentLink,600); return; }  // downloading
+    if(agentState()==='none'){ agentGot(); setTimeout(paintAgentLink,600); return; }  // downloading
     // An <a href="custom-scheme:"> is NOT reliable: Chrome drops the navigation silently when it
     // dislikes the context — it never even reaches the "Open this app?" prompt, so the user gets a
     // dead click and the browser records no decision. Assigning location.href inside the click is
@@ -1950,7 +1950,7 @@ function ikBigDropAsk(n){
     // agentSTATE, not agentHave: an old copy is not "has it". The line under the drop zone
     // already tells that person to update, and offering them "open" here would be the same
     // question answered two different ways on one screen.
-    const st=agentState(), have=(st==='current');
+    const st=agentState(), have=(st!=='none');   // an older copy still OPENS; no need to re-download
     const w=document.createElement('div'); w.className='ikbig-w';
     w.innerHTML=`<div class="ikbig">
       <div class="ikbig-h">${n} ${t('big_files')}</div>
@@ -4154,6 +4154,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v182';
+window.__APP_VER = 'v183';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
