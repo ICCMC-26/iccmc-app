@@ -75,7 +75,7 @@ const I18N={
     big_files:'ملف — دفعة كبيرة', big_why:'المتصفح يفقد الطابور عند التحديث أو الإغلاق. أداة الرفع تجعل الطابور مجلدًا على قرصك، فيصمد أمام التحديث وانقطاع النت وإعادة التشغيل.',
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
     dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
-    dz_agent_nope:'المتصفح لم يسمح بفتحها — افتحها من اختصار «ICCMC Uploader» في مجلد التنزيلات',
+    dz_agent_nope:'لم تُفتح؟ وافِق على طلب المتصفح، أو افتحها من اختصار «ICCMC Uploader» في مجلد التنزيلات',
     dz_agent_new:'يوجد تحديث لأداة الرفع — حمِّل النسخة الأحدث', dz_agent_upd:'تحديث متاح',
     big_open:'افتح أداة الرفع', big_update:'حمِّل التحديث',
     big_stale:'نسختك من أداة الرفع أقدم من الحالية. حمِّل التحديث ثم شغّله مرة واحدة.', big_opening:'…يُفتح على جهازك',
@@ -184,7 +184,7 @@ const I18N={
     big_files:'files — that is a big batch', big_why:'The browser loses the queue on refresh or close. The uploader makes the queue a folder on your disk, so it survives refresh, connection drops and restarts.',
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
     dz_agent_open:'Big batch? Open the uploader on your machine',
-    dz_agent_nope:'The browser would not open it — use the «ICCMC Uploader» shortcut in your Downloads folder',
+    dz_agent_nope:'Did not open? Allow the browser prompt, or use the «ICCMC Uploader» shortcut in your Downloads folder',
     dz_agent_new:'A newer uploader is available — download the update', dz_agent_upd:'update available',
     big_open:'Open the uploader', big_update:'Download the update',
     big_stale:'Your copy of the uploader is older than the current one. Download the update, then run it once.', big_opening:'…opening on your machine',
@@ -1939,14 +1939,22 @@ function openAgent(anchor){
   window.addEventListener('blur',mark,{once:true});
   document.addEventListener('visibilitychange',mark,{once:true});
   try{ location.href='iccmc-uploader://open'; }catch(_){}
+  // We CANNOT know whether it opened. Chrome's "Open ICCMC Uploader?" prompt is browser-modal:
+  // it fires no blur and no visibilitychange, so a person reading that prompt looks exactly like
+  // a person whose browser refused. The old code waited 2.5s, decided it had failed, announced
+  // "the browser would not open it" over the top of a prompt that was working — and then
+  // REPLACED this link with a download. That is where thirteen copies of the tool in one
+  // Downloads folder came from: every honest retry fetched another file.
+  //
+  // So the timer no longer renders a verdict. It offers help, phrased as a question, and the
+  // link stays an OPEN link so a second click tries again instead of downloading.
   setTimeout(()=>{
     window.removeEventListener('blur',mark);
+    document.removeEventListener('visibilitychange',mark);
     if(left){ if(lb)lb.textContent=was; return; }        // it opened — put the label back
-    if(lb)lb.textContent=t('dz_agent_nope');             // it did not — offer the file
-    anchor.setAttribute('download','افتح أداة الرفع.pyw');
-    anchor.setAttribute('href','ICCMC-uploader.pyw');
-    const ic=anchor.querySelector('.dz-agent-i'); if(ic)ic.textContent='⤓';
-  },2500);
+    if(lb)lb.textContent=t('dz_agent_nope');
+    setTimeout(()=>{ if(lb&&lb.textContent===t('dz_agent_nope')) lb.textContent=was; },12000);
+  },4000);
 }
 function ikBigDropAsk(n){
   return new Promise(resolve=>{
