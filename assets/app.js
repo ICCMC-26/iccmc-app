@@ -75,11 +75,11 @@ const I18N={
     big_files:'ملف — دفعة كبيرة', big_why:'المتصفح يفقد الطابور عند التحديث أو الإغلاق. أداة الرفع تجعل الطابور مجلدًا على قرصك، فيصمد أمام التحديث وانقطاع النت وإعادة التشغيل.',
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
     dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
-    dz_agent_nope:'لم تُفتح؟ وافِق على طلب المتصفح، أو افتحها من اختصار «ICCMC Uploader» في مجلد التنزيلات',
+    dz_agent_nope:'لم تُفتح؟ اضغط زر ابدأ واكتب ICCMC — أو افتح اختصار «ICCMC Uploader» من مجلد التنزيلات',
     dz_agent_new:'يوجد تحديث لأداة الرفع — حمِّل النسخة الأحدث', dz_agent_upd:'تحديث متاح',
     big_open:'افتح أداة الرفع', big_update:'حمِّل التحديث',
     big_stale:'نسختك من أداة الرفع أقدم من الحالية. حمِّل التحديث ثم شغّله مرة واحدة.', big_opening:'…يُفتح على جهازك',
-    big_nope:'لم تُفتح؟ افتحها من اختصار «ICCMC Uploader» في مجلد التنزيلات', big_have:'الأداة على جهازك — افتحها من اختصار «ICCMC Uploader» في مجلد التنزيلات وأفلِت ملفاتك فيها.',
+    big_nope:'لم تُفتح؟ اضغط ابدأ واكتب ICCMC', big_have:'الأداة على جهازك — اضغط ابدأ واكتب ICCMC، ثم أفلِت ملفاتك فيها.',
     big_get:'حمِّل أداة الرفع', big_anyway:'إلغاء', big_note:'بعد الرفع بالأداة، افتح الموقع مرة واحدة لتُودَع الملفات النظيفة.',
     pq_btn:'الوارد', pq_h:'الوارد — ما لم يُودَع بعد',
     pq_rev:'قيد المراجعة', pq_ref:'مرفوض',
@@ -184,11 +184,11 @@ const I18N={
     big_files:'files — that is a big batch', big_why:'The browser loses the queue on refresh or close. The uploader makes the queue a folder on your disk, so it survives refresh, connection drops and restarts.',
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
     dz_agent_open:'Big batch? Open the uploader on your machine',
-    dz_agent_nope:'Did not open? Allow the browser prompt, or use the «ICCMC Uploader» shortcut in your Downloads folder',
+    dz_agent_nope:'Did not open? Press Start and type ICCMC — or use the «ICCMC Uploader» shortcut in Downloads',
     dz_agent_new:'A newer uploader is available — download the update', dz_agent_upd:'update available',
     big_open:'Open the uploader', big_update:'Download the update',
     big_stale:'Your copy of the uploader is older than the current one. Download the update, then run it once.', big_opening:'…opening on your machine',
-    big_nope:'Did not open? Use the «ICCMC Uploader» shortcut in your Downloads folder', big_have:'You already have the uploader — open it and drop your files there.',
+    big_nope:'Did not open? Press Start and type ICCMC', big_have:'You already have the uploader — open it and drop your files there.',
     big_get:'Get the uploader', big_anyway:'Cancel', big_note:'After it finishes, open the site once so the clean files are committed.',
     pq_btn:'Inbox', pq_h:'Inbox — not committed yet',
     pq_rev:'Pending review', pq_ref:'Refused',
@@ -1890,7 +1890,7 @@ const AGENT_VER_KEY='iccmc_agent_version';
 /* The version of the uploader this site ships. Keep it equal to TOOL_VERSION in pump.py.
    Storing which version was taken turns one hopeful guess ("they probably have it") into three
    honest states: they have nothing, they have an OLD one, or they have this one. */
-const TOOL_V='1.10';
+const TOOL_V='1.11';
 
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
