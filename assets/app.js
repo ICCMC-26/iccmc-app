@@ -1890,7 +1890,7 @@ const AGENT_VER_KEY='iccmc_agent_version';
 /* The version of the uploader this site ships. Keep it equal to TOOL_VERSION in pump.py.
    Storing which version was taken turns one hopeful guess ("they probably have it") into three
    honest states: they have nothing, they have an OLD one, or they have this one. */
-const TOOL_V='1.5';
+const TOOL_V='1.6';
 
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
@@ -1906,20 +1906,23 @@ function paintAgentLink(){
   const a=document.querySelector('.dz-agent'); if(!a) return;
   const ic=a.querySelector('.dz-agent-i'), lb=a.querySelector('#dz-agent-t');
   const st=agentState();
-  if(st==='none'){
+  const download=()=>{ a.setAttribute('download','افتح أداة الرفع.pyw');
+                       a.setAttribute('href','ICCMC-uploader.pyw'); };
+  // THREE states, THREE actions. One line that both offered to open and mentioned an update was
+  // asking the reader to work out which of two things it meant. Each state now says exactly one
+  // thing and does exactly that thing.
+  if(st==='none'){                                    // 1 · does not have it → get it
     if(ic)ic.textContent='⤓'; if(lb)lb.textContent=t('dz_agent');
-    a.setAttribute('download','افتح أداة الرفع.pyw');
-    a.setAttribute('href','ICCMC-uploader.pyw');
-  }else{
-    // HAVE IT — including an OLDER copy. Telling someone who owns the tool to download it again is
-    // the wrong instruction: they came to open it. An update is worth mentioning, never worth
-    // replacing the action with. «open» stays the action; «تحديث متاح» is a quiet aside.
-    if(ic)ic.textContent='⇱';
-    if(lb)lb.textContent=t('dz_agent_open')+(st==='stale'?' · '+t('dz_agent_upd'):'');
+    download();
+  }else if(st==='stale'){                             // 2 · has an old one → update it
+    if(ic)ic.textContent='⟳'; if(lb)lb.textContent=t('dz_agent_new');
+    download();
+  }else{                                              // 3 · has this one → open it
+    if(ic)ic.textContent='⇱'; if(lb)lb.textContent=t('dz_agent_open');
     a.removeAttribute('download'); a.removeAttribute('href');   // JS opens it, see openAgent
   }
   if(!a._wired){ a._wired=1; a.addEventListener('click',e=>{
-    if(agentState()==='none'){ agentGot(); setTimeout(paintAgentLink,600); return; }  // downloading
+    if(agentState()!=='current'){ agentGot(); setTimeout(paintAgentLink,600); return; }  // downloading
     // An <a href="custom-scheme:"> is NOT reliable: Chrome drops the navigation silently when it
     // dislikes the context — it never even reaches the "Open this app?" prompt, so the user gets a
     // dead click and the browser records no decision. Assigning location.href inside the click is
@@ -1950,7 +1953,7 @@ function ikBigDropAsk(n){
     // agentSTATE, not agentHave: an old copy is not "has it". The line under the drop zone
     // already tells that person to update, and offering them "open" here would be the same
     // question answered two different ways on one screen.
-    const st=agentState(), have=(st!=='none');   // an older copy still OPENS; no need to re-download
+    const st=agentState(), have=(st==='current');   // three states: get · update · open
     const w=document.createElement('div'); w.className='ikbig-w';
     w.innerHTML=`<div class="ikbig">
       <div class="ikbig-h">${n} ${t('big_files')}</div>
@@ -2097,7 +2100,11 @@ function openKidReview(jobId){
   ikBuildReview(); $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
 }
 const IK_COMPACT_AT=20;                // ≥ this many files in ONE intake → auto-compact (a screenful, above the 12-wide pipe)
-let _ikView='auto';                    // 'auto' | 'compact' | 'detailed' — the count picks the default, the user overrides either way
+/* The view is a PREFERENCE, so it outlives the batch. It used to reset to 'auto' on every load,
+   so someone who works in مُوجز had to choose it again for each drop. */
+const IK_VIEW_KEY='iccmc_ik_view';
+let _ikView=(()=>{ try{ return localStorage.getItem(IK_VIEW_KEY)||'auto'; }catch(_){ return 'auto'; } })();
+function ikSetView(v){ _ikView=v; try{ localStorage.setItem(IK_VIEW_KEY,v); }catch(_){} }                    // 'auto' | 'compact' | 'detailed' — the count picks the default, the user overrides either way
 function ikCompact(){ return _ikView==='compact' || (_ikView==='auto' && IK.length>=IK_COMPACT_AT); }
 /* one card = one file row — extracted so compact + detailed render the EXACT same card. */
 function ikRowHtml(j){ return `<div class="ik-row ${j.state}" data-id="${j.id}">
@@ -4115,7 +4122,7 @@ async function lrCommit(){
 }
 
 $('#ik-list').addEventListener('click',e=>{
-  const vt=e.target.closest('[data-ikview]'); if(vt){ _ikView=vt.dataset.ikview; ikRender(); return }   // compact ⇄ detailed
+  const vt=e.target.closest('[data-ikview]'); if(vt){ ikSetView(vt.dataset.ikview); ikRender(); return }   // compact ⇄ detailed, remembered
   const lr=e.target.closest('[data-legalreview]'); if(lr){openLegalReview(lr.getAttribute('data-legalreview'));return}
   const kr=e.target.closest('[data-kidreview]'); if(kr){openKidReview(kr.getAttribute('data-kidreview'));return}   // a packet child's review
   const pt=e.target.closest('[data-pktoggle]'); if(pt){ const jj=IK.find(x=>x.id===+pt.dataset.pktoggle);          // collapse/expand a family
@@ -4154,6 +4161,6 @@ window.__APP_BOOTED = true;
 try{ if(typeof PERF!=='undefined' && !PERF.lazyPdf) ensurePdfjs(); }catch(_){}   // #5: flag off => eager-load like before
 // ── BUILD STAMP: the version of the app.js ACTUALLY LOADED. Must match the ?v in index.html. If the
 //    login screen shows an older build than what was just pushed, the DEPLOY is stale (not the code). ──
-window.__APP_VER = 'v183';
+window.__APP_VER = 'v184';
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
      console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
