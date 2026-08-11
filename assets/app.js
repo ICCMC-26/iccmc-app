@@ -408,8 +408,15 @@ async function searchLegalBatches(q){
     || b.members.some(m=>String(m.passport_no||'').toLowerCase().includes(ql)||String(m.name_as_written||'').toLowerCase().includes(ql)));
   return rows.sort((a,c)=>String(c.batch_id).localeCompare(String(a.batch_id),undefined,{numeric:true}));
 }
-function lawPaperStatus(b){   // registry-driven: {key → '–'|'✓'|'⚑'} for every paper type
-  const o={}; ptKeys().forEach(k=>{ const x=batchPaper(b,k); o[k]= !x.present?'–':(x.trusted?'✓':'⚑'); }); return o; }
+function lawPaperStatus(b){   // registry-driven: {key → HTML mark} for every paper type
+  // A paper that ARRIVED keeps its tick even when its stamp is missing: «✓⚑» says both things at
+  // once — it is here, and it is not yet stamped. A lone ⚑ was being read as "absent", because
+  // that is exactly what a solitary flag looks like sitting in a row of ticks.
+  // Marked up (not bare glyphs) so the two facts carry their own colours — green for arrived,
+  // amber for unstamped — reusing the dossier's classes, which already have screen AND print rules.
+  const OK=`<span class="lg-ok">✓</span>`, WARN=`<span class="lg-warn" title="${esc(t('lg_nostamp'))}">⚑</span>`;
+  const o={}; ptKeys().forEach(k=>{ const x=batchPaper(b,k);
+    o[k]= !x.present ? `<span class="lg-miss">–</span>` : (x.trusted ? OK : OK+WARN); }); return o; }
 let _LBL={};   // #Phase2: batch_id -> v_legal_batch_link row (connection + status)
 let _LVISA={};   // #Review: person_id -> their current visa row (to flag static batches near an active visa)
 async function loadLegalLinks(ids){
@@ -3387,8 +3394,12 @@ function legalCard(legal){
     if(cls==='past') return;                    // past → history card
     seen[id]=1; items.push({m,b,cls}); });
   if(!items.length) return '';
+  // A PAPER THAT ARRIVED KEEPS ITS TICK. Showing only ⚑ for "present but unstamped" read from
+  // across the room as "not here" — the same glyph a reader uses to mean absent. The two facts are
+  // separate and both are worth saying: ✓ the paper reached us, ⚑ its stamp is still missing.
   const paper=(present,trusted)=> !present ? `<span class="lg-miss">–</span>`
-    : (trusted?`<span class="lg-ok">✓</span>`:`<span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
+    : (trusted ? `<span class="lg-ok">✓</span>`
+               : `<span class="lg-ok">✓</span><span class="lg-warn" title="${t('lg_nostamp')}">⚑</span>`);
   const rows=items.map(({m,b,cls})=>`<div class="lg-row">
       <div class="lg-bid" data-lawgo="${esc(b.batch_id||m.batch_id)}" style="cursor:pointer">⚖ ${esc(batchName(b.batch_id?b:{...b,batch_id:m.batch_id}))} ${batchMarker(b.batch_id||m.batch_id,b,cls)}</div>
       <div class="lg-meta">${t('lg_serial')} ${esc(m.serial??'—')}${(b.interval_from!=null&&b.interval_to!=null)?` · ${t('lg_covered')} ${esc(b.interval_from)}–${esc(b.interval_to)}`:''}</div>
