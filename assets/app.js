@@ -322,6 +322,7 @@ function batchPaper(b,k){
   return { scan, present:!!(scan||anyStamp), trusted: need.length?marks.every(Boolean):!!scan };
 }
 loadPaperTypes();   // fire once now (refreshes again on SIGNED_IN); pre-auth failure just keeps the default
+loadAgentVersion(); // ask what is REALLY installed; a pre-auth failure just keeps the local guess
 
 /* ── theme ───────────────────────────────────────────────────────────────── */
 (()=>{try{if(localStorage.getItem('iccmc_theme')==='light')document.documentElement.dataset.theme='light'}catch(_){}})();
@@ -1594,7 +1595,7 @@ function ikWatchBacklog(){
   }, IK_DRAIN_MS);
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') ikResync(); });
-if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){ ikResync(); ikWatchBacklog(); loadPaperTypes(); } });   // (app.js has no LIVE flag — sb is always created)
+if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){ ikResync(); ikWatchBacklog(); loadPaperTypes(); loadAgentVersion(); } });   // (app.js has no LIVE flag — sb is always created)
 
 // the OCR-line stages, shown live on a processing row so the paper's movement is visible
 const IK_STAGE_L={'captured':['التُقط','captured'],'raw-uploaded':['حُفظت الصورة','image saved'],
@@ -2060,8 +2061,25 @@ function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(
 function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
 function agentGot(){ try{ localStorage.setItem(AGENT_KEY,'1');
                           localStorage.setItem(AGENT_VER_KEY,TOOL_V); }catch(_){} }
+/* WHAT IS ACTUALLY INSTALLED — reported by the tool, not guessed by this page.
+   localStorage records the version this page OFFERED at the moment the link was clicked. That is
+   not the same thing as the version that ended up running: a click that put 2.6 in the Downloads
+   folder marked the user "current" while 2.6 was still the copy being launched — and from then on
+   no update was ever offered again. A browser cannot see the disk, so it must not claim to.
+   The uploader stamps its own TOOL_VERSION on every batch it declares, so the newest batch tells
+   the truth. Read once at boot; until it answers we fall back to the old guess. */
+let AGENT_REPORTED='';
+async function loadAgentVersion(){
+  try{
+    const {data}=await sb.from('intake_batches').select('tool_version,declared_at')
+      .not('tool_version','is',null).order('declared_at',{ascending:false}).limit(1);
+    const v=(data&&data[0]&&data[0].tool_version||'').trim();
+    if(v && v!==AGENT_REPORTED){ AGENT_REPORTED=v; paintAgentLink(); }
+  }catch(_){/* offline / no rows → keep the local guess */}
+}
 /* three states, one line */
 function agentState(){
+  if(AGENT_REPORTED) return AGENT_REPORTED===TOOL_V ? 'current' : 'stale';   // a FACT beats a guess
   if(!agentHave()) return 'none';
   return agentVer()===TOOL_V ? 'current' : 'stale';
 }
