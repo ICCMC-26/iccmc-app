@@ -4003,6 +4003,13 @@ function renderLegalReview(){
   { const ab=$('#lr-all'); if(ab)ab.onclick=()=>{ _lrRead(); _lrBatch._showAll=!_lrBatch._showAll; renderLegalReview(); }; }
   // moving must PRESERVE what was typed/ticked on the paper being left — _lrRead does that,
   // and it is why every one of these paths calls it before changing the index
+  // Bound HERE, on the review pane, alongside the walk arrows — not on #ik-list. The first
+  // version delegated from the inbox list, an element this pane is not inside, so the bin was
+  // drawn, looked live, and was never wired to anything.
+  $('#ikreview').querySelectorAll('[data-lrdrop]').forEach(btn=>btn.onclick=()=>{
+    const cur=_lrFlat[_lrPos] && _lrFlat[_lrPos].paper;
+    if(cur && confirm(t('lr_drop_q'))) lrDropCurrent(cur);
+  });
   $('#ikreview').querySelectorAll('[data-lrgo]').forEach(btn=>btn.onclick=()=>{
     _lrRead();                              // never lose what was ticked/typed on the paper being left
     _lrGoFlat((_lrFlat.length?_lrPos:_lrIdx)+(+btn.dataset.lrgo));
@@ -4125,7 +4132,14 @@ async function lrCommit(){
   const stamps={ taahud:!!s.taahud, istco:!!s.istco, istmo:!!s.istmo, manh:!!s.manh };
   if(!id){
     if(hasManh){ toast(t('lg_need_id'));               // a منح is here → jump to it to type the number
-      const mi=b.papers.findIndex(p=>p.type==='manh'); if(mi>=0){_lrIdx=mi; renderLegalReview();} return; }
+      const mi=b.papers.findIndex(p=>p.type==='manh'); if(mi>=0){_lrIdx=mi; renderLegalReview();}
+      // SHOW the block on the field itself. A toast that fades is the same as no message when the
+      // reader is looking at the button they just pressed — it read as "commit does nothing".
+      // The منح number is typed by a human on purpose: the OCR is not allowed to guess it.
+      const ni=$('#lr-num');
+      if(ni){ ni.classList.add('need'); ni.focus();
+              ni.addEventListener('input',()=>ni.classList.remove('need'),{once:true}); }
+      return; }
     let tgt=await findMergeTarget(rows);               // shares passports with a committed provisional batch?
     if(!tgt) tgt=await findWaitingManh(ep, rows);       // OR a منح that committed BEFORE its roster (waiting)
     if(tgt){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
@@ -4162,16 +4176,6 @@ async function lrCommit(){
 
 $('#ik-list').addEventListener('click',e=>{
   const vt=e.target.closest('[data-ikview]'); if(vt){ ikSetView(vt.dataset.ikview); ikRender(); return }   // compact ⇄ detailed, remembered
-  // Delete the paper IN FRONT OF YOU, without leaving the review. Reviewing is where you can
-  // actually see that a scan is junk; making the reviewer close the pane, find the row and delete
-  // it there is why bad scans got confirmed instead. Same deletion as the row's bin — an inbox
-  // item that never entered the registry — never a committed record.
-  const lrd=e.target.closest('[data-lrdrop]');
-  if(lrd){
-    const cur=_lrFlat[_lrPos] && _lrFlat[_lrPos].paper;
-    if(cur && confirm(t('lr_drop_q'))) lrDropCurrent(cur);
-    return;
-  }
   const lr=e.target.closest('[data-legalreview]'); if(lr){openLegalReview(lr.getAttribute('data-legalreview'));return}
   const kr=e.target.closest('[data-kidreview]'); if(kr){openKidReview(kr.getAttribute('data-kidreview'));return}   // a packet child's review
   const pt=e.target.closest('[data-pktoggle]'); if(pt){ const jj=IK.find(x=>x.id===+pt.dataset.pktoggle);          // collapse/expand a family

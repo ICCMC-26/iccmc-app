@@ -1024,3 +1024,8 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
     padding:11px 18px;font:inherit;font-size:14px;cursor:pointer}
   .ikbig-alt:hover{border-color:var(--copper)}
   .ikbig-n{font-size:12px;color:var(--muted);margin-top:16px;line-height:1.6}
+
+  /* a field that is BLOCKING the commit says so where the eye already is — on the field, not in
+     a toast that has gone by the time you look up */
+  #lr-num.need{border-color:var(--warn)!important;background:rgba(247,182,79,.10)!important;
+    box-shadow:0 0 0 3px rgba(247,182,79,.16)}
