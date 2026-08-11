@@ -362,10 +362,16 @@
     padding:5px 11px;transition:color .12s,border-color .12s,background .12s}
   .pq-wipe:hover{color:var(--red);border-color:var(--red);background:rgba(255,77,89,.08)}
   .pq-wipe:disabled{opacity:.6;cursor:default}
-  /* the START-REVIEW button sits beside the count, in the app's own accent — it is the primary
-     action of this panel, unlike the wipe beside it which is destructive and stays quiet */
-  .pq-start{margin-inline-start:12px;color:var(--copper);border-color:rgba(197,149,107,.45)}
-  .pq-start:hover{color:var(--ink);border-color:var(--copper);background:rgba(197,149,107,.12)}
+  /* START REVIEW — the PRIMARY action of this panel, so it is drawn like «مراجعة ›» itself:
+     a solid copper border and a tinted fill, which reads as a button from across the room.
+     It deliberately does NOT reuse .pq-wipe: that class carries a red hover for a destructive
+     action, and inheriting it made the one button that starts work look like the one that
+     destroys it. Colour is a promise about what a control does. */
+  .pq-start{margin-inline-start:auto;flex:none;border:1px solid var(--copper);
+    background:rgba(197,149,107,.12);color:var(--copper);cursor:pointer;font:inherit;
+    font-size:12.5px;font-weight:700;border-radius:9px;padding:6px 13px;
+    transition:background .12s,color .12s}
+  .pq-start:hover{background:var(--copper);color:#1a1206}
   /* the bin INSIDE the review walk — same size as the nav buttons, red only on hover so it can
      never be pressed by reflex while moving through the queue */
   .lr-drop{color:var(--ink2);border-color:transparent;min-width:auto;padding:6px 10px}

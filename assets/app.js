@@ -1729,7 +1729,7 @@ function pqRender(){
   if(bar){
     let sr=bar.querySelector('#pq-startrev');
     if(isRev && PQ.total){
-      if(!sr){ sr=document.createElement('button'); sr.id='pq-startrev'; sr.className='pq-wipe pq-start';
+      if(!sr){ sr=document.createElement('button'); sr.id='pq-startrev'; sr.className='pq-start';
                sr.onclick=()=>openLegalReview(''); bar.appendChild(sr); }
       sr.textContent='▸ '+t('pq_start');
     }else if(sr){ sr.remove(); }
