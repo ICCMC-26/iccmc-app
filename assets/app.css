@@ -1030,6 +1030,11 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   #lr-num.need,#lr-mdate.need{border-color:var(--warn)!important;background:rgba(247,182,79,.10)!important;
     box-shadow:0 0 0 3px rgba(247,182,79,.16)}
 
+  /* a scan that could not be rasterised still gets its page, and says why — an absent page would
+     make the dossier look complete while a document the employee holds is missing from it */
+  .pv-failed{display:flex;align-items:center;justify-content:center;min-height:60vh;padding:0 12%;
+    text-align:center;line-height:1.9;font-size:13px;color:#555;border:1px dashed #bbb;border-radius:10px}
+
   /* the missing-grant-date prompt on a committed batch — amber, because the batch is incomplete,
      not broken. It disappears the moment a date exists, and can never reappear as an "edit". */
   .lb-nodate{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 2px;

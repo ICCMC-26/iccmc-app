@@ -48,6 +48,7 @@ const I18N={
     dv_order:(a,b)=>`«${a}» بعد «${b}» — راجِع التواريخ.`, dv_future:a=>`«${a}» في المستقبل — تحقّق منه.`,
     pv_company:'الشركة الدولية الصينية للميكانيك والبناء', pv_title:'سجل وثائق الموظف',
     pv_generated:'صدر بتاريخ', pv_conf:'سري — للاستخدام الداخلي', pv_contents:'المحتويات',
+    pv_scan_failed:'تعذّر عرض هذه الوثيقة للطباعة — الملف محفوظ ويمكن فتحه من السجل.',
     pv_report:'تقرير التفاصيل', pv_passport:'صورة الجواز الأصلية', pv_photo:'الصورة الشخصية', pv_visa:'صورة التأشيرة الأصلية',
     lg_h:'دفعة قانونية', lg_sub:'المنح + التعهد + الاستمارة كمجموعة واحدة تشترك بتسلسل واحد',
     lg_id:'رقم المنح (معرّف الدفعة)', lg_id_ph:'مثال: 22491 — يُكتب يدويًا',
@@ -165,6 +166,7 @@ const I18N={
     dv_order:(a,b)=>`“${a}” is after “${b}” — check the dates.`, dv_future:a=>`“${a}” is in the future — check it.`,
     pv_company:'International Chinese Company for Mechanics and Construction', pv_title:'Employee Document Record',
     pv_generated:'Generated', pv_conf:'Confidential — internal use only', pv_contents:'Contents',
+    pv_scan_failed:'This document could not be rendered for print — the file is stored and can be opened from the record.',
     pv_report:'Details report', pv_passport:'Original passport scan', pv_photo:'Personal photo', pv_visa:'Original visa scan',
     lg_h:'Legal batch', lg_sub:'Grant + Undertaking + Entry-form as ONE set sharing one serial order',
     lg_id:'Grant number (batch id)', lg_id_ph:'e.g. 22491 — hand-written, type it',
@@ -998,6 +1000,28 @@ async function officeDocHtml(path){
   const el=document.createElement('div');
   return (await renderOfficeDoc(path, el)) ? el.innerHTML : null;
 }
+/* A PAGE THAT WILL NOT DRAW MUST NOT TAKE THE WHOLE DOSSIER WITH IT.
+   pdf.js's render promise can hang for ever on a document it cannot rasterise — it does not throw,
+   it does not reject, it simply never settles. Measured on a real passport scan: docUrl 145ms,
+   fetch 319ms, getDocument 284ms, getPage 2ms, a normal 2083×2946 canvas… and then render never
+   returned. Because nothing was racing it, `buildDossier` waited silently for minutes and the
+   reader had no page and no reason.
+   Every render is now raced against a clock and CANCELLED when it expires, so one unrenderable page
+   costs one page instead of the whole print. */
+const SCAN_RENDER_MS=20000;
+async function _renderPage(page, ctx, viewport){
+  const task=page.render({canvasContext:ctx, viewport});
+  let timer;
+  try{
+    await Promise.race([task.promise,
+      new Promise((_,rej)=>{ timer=setTimeout(()=>rej(new Error('render-timeout')),SCAN_RENDER_MS); })]);
+    return true;
+  }catch(e){
+    try{ task.cancel(); }catch(_){}                  // free the worker, or the NEXT page queues behind this one
+    console.warn('[print] page gave up rendering:', (e&&e.message)||e);
+    return false;
+  }finally{ clearTimeout(timer); }
+}
 async function scanImage(path){
   if(!path)return null;
   if(/\.(xlsx|docx)$/i.test(path)) return null;      // Word/Excel isn't an image → rendered as its own office page
@@ -1011,7 +1035,7 @@ async function scanImage(path){
     const page=await pdf.getPage(1);
     const vp=page.getViewport({scale:3.5});
     const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
-    await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+    if(!await _renderPage(page, c.getContext('2d'), vp)) return null;
     return c.toDataURL('image/jpeg',0.95);
   }catch(e){ console.warn('pdf render',e); return null; }
 }
@@ -1057,7 +1081,8 @@ async function scanImagesAll(path, rot, scale){
       const mx=Math.max(vp.width,vp.height);          // clamp the canvas for memory (a big table at high DPI)
       if(mx>6800) vp=page.getViewport({scale:scale*6800/mx, rotation:r});
       const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
-      await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      // a page that will not draw is SKIPPED, not waited on — the rest of the paper still prints
+      if(!await _renderPage(page, c.getContext('2d'), vp)) continue;
       out.push(c.toDataURL('image/jpeg',0.95));
       c.width=c.height=0;                             // free the canvas promptly (multi-page big rosters)
     }
@@ -1147,6 +1172,9 @@ async function buildDossier(){
   // flatten to printable pages, labelling a multi-page scan «title (p/N)»; carry the highlight onto its page
   const scanPages=[];
   scanTasks.forEach((s,i)=>{ const imgs=(perTask[i]||[]).filter(Boolean);
+    // NOTHING RENDERED → say so on its own page. Dropping the page silently would print a dossier
+    // that looks complete while a document the employee HAS is simply absent from it.
+    if(!imgs.length){ scanPages.push({title:s.title, base:s.title, first:true, failed:true}); return; }
     imgs.forEach((img,pi)=>scanPages.push({title:imgs.length>1?`${s.title} (${pi+1}/${imgs.length})`:s.title, img,
       base:s.title, first:pi===0, photo:!!s.photo,
       hl: (s.hl && (s.hl.page||1)===(pi+1)) ? s.hl : null, note:s.note||null})); });
@@ -1164,6 +1192,11 @@ async function buildDossier(){
   const toc=[{k:t('pv_report'), pg:3}]; let scans='', pg=3;
   scanPages.forEach(s=>{ pg++;
     if(s.first) toc.push({k:s.base, pg});     // one clean entry per activity, at its first page
+    if(s.failed){                             // the document exists but could not be rasterised — say it plainly
+      scans+=`<div class="pg scan">${run}<div class="pv-body"><div class="pv-h2">${esc(s.title)}</div>
+        <div class="pv-failed">${esc(t('pv_scan_failed'))}</div></div>${foot(pg)}</div>`;
+      return;
+    }
     if(s.photo){                              // the personal photo → centered portrait, not a full-bleed scan
       scans+=`<div class="pg scan">${run}<div class="pv-body"><div class="pv-h2">${esc(s.title)}</div>
         <div class="pv-photowrap"><img class="pv-photoimg" src="${s.img}" alt=""></div></div>${foot(pg)}</div>`;
