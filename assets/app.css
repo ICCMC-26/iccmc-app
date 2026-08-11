@@ -362,6 +362,14 @@
     padding:5px 11px;transition:color .12s,border-color .12s,background .12s}
   .pq-wipe:hover{color:var(--red);border-color:var(--red);background:rgba(255,77,89,.08)}
   .pq-wipe:disabled{opacity:.6;cursor:default}
+  /* the START-REVIEW button sits beside the count, in the app's own accent — it is the primary
+     action of this panel, unlike the wipe beside it which is destructive and stays quiet */
+  .pq-start{margin-inline-start:12px;color:var(--copper);border-color:rgba(197,149,107,.45)}
+  .pq-start:hover{color:var(--ink);border-color:var(--copper);background:rgba(197,149,107,.12)}
+  /* the bin INSIDE the review walk — same size as the nav buttons, red only on hover so it can
+     never be pressed by reflex while moving through the queue */
+  .lr-drop{color:var(--ink2);border-color:transparent;min-width:auto;padding:6px 10px}
+  .lr-drop:hover{color:var(--red);border-color:var(--red);background:rgba(255,77,89,.08)}
   .ikbig-re{color:var(--copper);text-decoration:none;font-weight:600}
   .ikbig-re:hover{text-decoration:underline}
   button.ikbig-go{border:none;font:inherit;cursor:pointer}

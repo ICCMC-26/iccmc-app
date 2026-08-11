@@ -84,7 +84,7 @@ const I18N={
     pq_btn:'الوارد', pq_h:'الوارد — ما لم يُودَع بعد',
     pq_rev:'قيد المراجعة', pq_ref:'مرفوض',
     pq_rev_s:'ملفات تنتظر تأكيدك قبل أن تُودَع', pq_ref_s:'ملفات لم تُقبل — السبب مذكور مع كل ملف',
-    pq_all:'الكل', pq_legal:'قانوني', pq_pass:'جوازات', pq_visa:'فيزا',
+    pq_all:'الكل', pq_legal:'قانوني', pq_pass:'جوازات', pq_visa:'فيزا', pq_start:'ابدأ المراجعة من الأول', lr_drop_t:'احذف هذه الورقة من الوارد', lr_drop_q:'حذف هذه الورقة من الوارد؟ لا تدخل السجل ولا يمكن التراجع.',
     pq_none_rev:'لا شيء بانتظار المراجعة — كل شيء تم.', pq_none_ref:'لا ملفات مرفوضة.',
     pq_wipe:'حذف الكل', pq_wipe_q:n=>`حذف ${n} ملفًا من هذه القائمة نهائياً؟`+String.fromCharCode(10)
       +'تُمحى من قاعدة البيانات ولا يمكن التراجع. الملفات المُودَعة لا تتأثر.',
@@ -194,7 +194,7 @@ const I18N={
     pq_rev:'Pending review', pq_ref:'Refused',
     pq_rev_s:'Files waiting for your confirmation before they are committed',
     pq_ref_s:'Files that were not accepted — each shows its reason',
-    pq_all:'All', pq_legal:'Legal', pq_pass:'Passports', pq_visa:'Visas',
+    pq_all:'All', pq_legal:'Legal', pq_pass:'Passports', pq_visa:'Visas', pq_start:'Start review from the first', lr_drop_t:'Delete this paper from the inbox', lr_drop_q:'Delete this paper from the inbox? It never enters the registry and this cannot be undone.',
     pq_none_rev:'Nothing waiting — all clear.', pq_none_ref:'No refused files.',
     pq_wipe:'Delete all', pq_wipe_q:n=>`Permanently delete all ${n} files in this list?`+String.fromCharCode(10)
       +'They are erased from the database and cannot be recovered. Committed files are untouched.',
@@ -1722,6 +1722,18 @@ function pqRender(){
   // and it only exists while there is something to act on, so it can never be a live control
   // over an empty list.
   const bar=cnt&&cnt.parentElement;
+  // ONE button that starts the walk at the BEGINNING. Opening the review from a row started it at
+  // THAT row — and the newest row sits last, so clicking the top card opened "18 of 19" and the
+  // reviewer had to walk backwards through work they had already done. Reviewing is a queue: you
+  // start at one and go forward. The per-row buttons stay for jumping to a specific file.
+  if(bar){
+    let sr=bar.querySelector('#pq-startrev');
+    if(isRev && PQ.total){
+      if(!sr){ sr=document.createElement('button'); sr.id='pq-startrev'; sr.className='pq-wipe pq-start';
+               sr.onclick=()=>openLegalReview(''); bar.appendChild(sr); }
+      sr.textContent='▸ '+t('pq_start');
+    }else if(sr){ sr.remove(); }
+  }
   if(bar){
     let w=bar.querySelector('#pq-wipe');
     if(PQ.total){
@@ -1802,6 +1814,24 @@ async function pqWipeBucket(){
   if(error){ toast(error.message); return; }
   toast(t('pq_wiped',(data||[]).length));
   await pqLoad();          // pqLoad repaints, and pqRender refreshes the top-bar badge
+}
+
+/* Drop the paper currently open in the review, and step to the next one without leaving.
+   Deletes by scan_hash because that is what the review walk carries; the `not in (done,committed)`
+   guard is the same belt-and-braces pqDelete uses — this can only ever remove an inbox item that
+   has not entered the registry. */
+async function lrDropCurrent(paper){
+  const hash=paper&&paper.scan_hash; if(!hash) return;
+  const {error}=await sb.from('scan_jobs').delete().eq('image_hash',hash)
+                        .not('status','in','(done,committed)');
+  if(error){ toast(error.message); return; }
+  await sb.from('legal_papers').delete().eq('scan_hash',hash);
+  toast(t('pq_deleted'));
+  const wasAt=_lrPos;
+  await _lrRefreshQueue();                 // rebuild the walk from what is actually left
+  if(!_lrFlat.length){ $('#ikreview').classList.remove('on'); document.body.style.overflow=''; await pqLoad(); return; }
+  _lrGoFlat(Math.min(wasAt, _lrFlat.length-1));   // stay where you were; the next paper slides in
+  await pqLoad();
 }
 
 async function pqDelete(jobId){
@@ -3939,6 +3969,7 @@ function renderLegalReview(){
         <div class="lr-walk-t">${tl[cur.type]||cur.type}</div>
         <div class="lr-walk-n">${t('lg_of',_at,_tot)}</div>
       </div>
+      <button class="lr-nav lr-drop" data-lrdrop="1" title="${esc(t('lr_drop_t'))}">🗑</button>
       <button class="lr-nav go" data-lrgo="1" ${_at>=_tot?'disabled':''}>${t('lg_next')}</button>
     </div>`;
   // ONLY this paper's expected stamp(s), OFF by default — the human verifies each on the scan, then
@@ -4131,6 +4162,16 @@ async function lrCommit(){
 
 $('#ik-list').addEventListener('click',e=>{
   const vt=e.target.closest('[data-ikview]'); if(vt){ ikSetView(vt.dataset.ikview); ikRender(); return }   // compact ⇄ detailed, remembered
+  // Delete the paper IN FRONT OF YOU, without leaving the review. Reviewing is where you can
+  // actually see that a scan is junk; making the reviewer close the pane, find the row and delete
+  // it there is why bad scans got confirmed instead. Same deletion as the row's bin — an inbox
+  // item that never entered the registry — never a committed record.
+  const lrd=e.target.closest('[data-lrdrop]');
+  if(lrd){
+    const cur=_lrFlat[_lrPos] && _lrFlat[_lrPos].paper;
+    if(cur && confirm(t('lr_drop_q'))) lrDropCurrent(cur);
+    return;
+  }
   const lr=e.target.closest('[data-legalreview]'); if(lr){openLegalReview(lr.getAttribute('data-legalreview'));return}
   const kr=e.target.closest('[data-kidreview]'); if(kr){openKidReview(kr.getAttribute('data-kidreview'));return}   // a packet child's review
   const pt=e.target.closest('[data-pktoggle]'); if(pt){ const jj=IK.find(x=>x.id===+pt.dataset.pktoggle);          // collapse/expand a family
