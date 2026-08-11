@@ -1027,8 +1027,22 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 
   /* a field that is BLOCKING the commit says so where the eye already is — on the field, not in
      a toast that has gone by the time you look up */
-  #lr-num.need{border-color:var(--warn)!important;background:rgba(247,182,79,.10)!important;
+  #lr-num.need,#lr-mdate.need{border-color:var(--warn)!important;background:rgba(247,182,79,.10)!important;
     box-shadow:0 0 0 3px rgba(247,182,79,.16)}
+
+  /* THE COMMIT RECEIPT — above the review overlay, and it outlives the pane. Sized to be read from
+     across the desk, because "did it save?" is the one question the reviewer must never have to ask. */
+  .lr-ok{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:100000;
+    display:flex;align-items:center;gap:12px;max-width:min(760px,92vw);
+    padding:14px 18px;border-radius:14px;font-size:15px;font-weight:700;line-height:1.5;
+    color:var(--ok);border:1.5px solid var(--ok);background:rgba(99,209,138,.16);
+    backdrop-filter:blur(8px);box-shadow:0 10px 34px rgba(0,0,0,.45);animation:lrOkIn .22s ease-out}
+  .lr-ok-tick{font-size:22px;line-height:1;flex:0 0 auto}
+  .lr-ok-msg{flex:1 1 auto}
+  .lr-ok-x{flex:0 0 auto;cursor:pointer;font:inherit;font-size:12px;font-weight:700;
+    color:var(--ok);background:transparent;border:1px solid var(--ok);border-radius:8px;padding:5px 11px;opacity:.8}
+  .lr-ok-x:hover{opacity:1}
+  @keyframes lrOkIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
 
   /* the review's own status line — it STAYS, unlike a toast */
   .lr-banner{margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:13px;font-weight:700;

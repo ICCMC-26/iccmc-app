@@ -92,6 +92,10 @@ const I18N={
     pq_review:'راجِع', pq_retry:'إعادة', pq_del:'حذف نهائي', pq_noreason:'بدون سبب مسجَّل',
     pq_gone:'لم يعد موجودًا', pq_deleted:'حُذف', pq_cleared:'أُزيل السجل — أعِد إسقاط الملف الآن',
     lr_drop_done:'حُذفت الورقة نهائيًا — سجلّها وملفها', lr_drop_committed:'هذه الورقة مُودَعة في السجل — لا تُحذف من هنا',
+    lg_need_date:'أدخل تاريخ المنح.', lg_need_id_date:'أدخل رقم المنح وتاريخه.',
+    lg_ok_commit:(id,papers,total,linked)=>`أُودعت الدفعة ${id} في السجل — ${papers} ورقة · ${total} اسمًا · رُبط ${linked} منهم بموظف. تجدها الآن في «المعاملات».`,
+    lg_ok_prov:(lbl,papers,total)=>`أُودعت دفعة مؤقتة (${lbl}) — ${papers} ورقة · ${total} اسمًا. تنتظر منحها.`,
+    lg_ok_dismiss:'إغلاق',
     pq_nodet:'هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
     pq_nocommit:'لا يمكن حذف ملف مُودَع', pq_delq:n=>`حذف «${n}» نهائيًا؟`,
     law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
@@ -203,6 +207,10 @@ const I18N={
     pq_review:'Review', pq_retry:'Retry', pq_del:'Delete', pq_noreason:'no reason recorded',
     pq_gone:'No longer there', pq_deleted:'Deleted', pq_cleared:'Cleared — drop the file again now',
     lr_drop_done:'Paper torn down — its record and its file', lr_drop_committed:'This paper is committed to the registry — it is not deleted from here',
+    lg_need_date:'Enter the grant date.', lg_need_id_date:'Enter the grant number and its date.',
+    lg_ok_commit:(id,papers,total,linked)=>`Batch ${id} committed to the registry — ${papers} paper(s) · ${total} name(s) · ${linked} linked to an employee. It is in «Transactions» now.`,
+    lg_ok_prov:(lbl,papers,total)=>`Provisional batch committed (${lbl}) — ${papers} paper(s) · ${total} name(s). Waiting for its grant.`,
+    lg_ok_dismiss:'Dismiss',
     pq_nodet:'Retrying cannot help this file — it needs a clearer scan or splitting',
     pq_nocommit:'Cannot delete a committed file', pq_delq:n=>`Delete “${n}” permanently?`,
     law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
@@ -4132,6 +4140,22 @@ function lrBanner(msg, kind){
   el.textContent=msg;
   if(kind==='ok') setTimeout(()=>{ const e2=$('#lr-banner'); if(e2&&e2.textContent===msg) e2.remove(); }, 9000);
 }
+/* THE COMMIT RECEIPT. A 13px line inside the side column is not an answer to "did it save?" — it sat
+   in the corner of a full-screen reviewer and went unread. This is a card the eye cannot miss: fixed
+   at the top of the screen, above the review overlay, and it OUTLIVES the pane, so it is still there
+   after the queue empties and the reviewer is dropped back on the registry.
+   It states what actually landed — batch, papers, names, how many linked — never a bare "saved". */
+function lrCommitted(msg){
+  let el=document.getElementById('lr-ok');
+  if(!el){ el=document.createElement('div'); el.id='lr-ok'; document.body.appendChild(el); }
+  el.className='lr-ok';
+  el.innerHTML=`<span class="lr-ok-tick">✓</span><span class="lr-ok-msg"></span>
+                <button class="lr-ok-x" type="button">${esc(t('lg_ok_dismiss'))}</button>`;
+  el.querySelector('.lr-ok-msg').textContent=msg;              // textContent — never inject the batch id
+  const kill=()=>{ const e2=document.getElementById('lr-ok'); if(e2)e2.remove(); };
+  el.querySelector('.lr-ok-x').onclick=kill;
+  clearTimeout(lrCommitted._t); lrCommitted._t=setTimeout(kill, 14000);
+}
 /* A commit that FAILS must be as loud as one that succeeds. The save button re-arms, the reason stays
    on screen until the next action, and the raw error goes to the console — so "it does nothing" can
    never again be the whole story. */
@@ -4187,30 +4211,39 @@ async function lrCommit(){
   let id=(b._num||'').trim();
   const s=b._stamps||{};
   const stamps={ taahud:!!s.taahud, istco:!!s.istco, istmo:!!s.istmo, manh:!!s.manh };
+  // THE منح GATE — the grant identifies the batch, so BOTH its number and its date are required, and
+  // BOTH are named when missing. Checking the number alone let a dated-nowhere batch through, and
+  // highlighting one field while the other was also empty sent the reviewer back a second time.
+  // Neither is ever guessed by the OCR: a human reads them off the paper. That is the whole point.
+  const _mp=b.papers.find(p=>p.type==='manh');
+  const _mdate=String(b._mdate||(_mp&&_mp.manh_date)||'').trim();
+  if(hasManh && (!id || !_mdate)){
+    const why = (!id&&!_mdate) ? t('lg_need_id_date') : (!id ? t('lg_need_id') : t('lg_need_date'));
+    toast(why);
+    // Jump through _lrGoFlat, never by poking _lrIdx. Setting the DRAWN paper without moving the
+    // WALK position desynced them: the pane showed المنح while _lrFlat[_lrPos] still pointed at the
+    // الاستمارة — and the bin reads the walk position, so it deleted the paper you were NOT looking at.
+    if(_mp){ const at=_lrFlat.findIndex(f=>f.paper===_mp);
+             if(at>=0) _lrGoFlat(at);
+             else { _lrIdx=b.papers.indexOf(_mp); renderLegalReview(); } }
+    // SHOW the block on the fields themselves. A toast that fades is the same as no message when the
+    // reader is looking at the button they just pressed — it read as "commit does nothing".
+    lrBanner('⚑ '+why,'need');
+    const ni=$('#lr-num'), md=$('#lr-mdate');
+    if(ni && !id){ ni.classList.add('need');
+                   ni.addEventListener('input',()=>ni.classList.remove('need'),{once:true}); }
+    if(md && !_mdate){ md.classList.add('need');
+                   md.addEventListener('input',()=>md.classList.remove('need'),{once:true}); }
+    const first = (!id ? ni : md); if(first) first.focus();
+    return; }
   if(!id){
-    if(hasManh){ toast(t('lg_need_id'));               // a منح is here → jump to it to type the number
-      // Jump through _lrGoFlat, never by poking _lrIdx. Setting the DRAWN paper without moving the
-      // WALK position desynced them: the pane showed المنح while _lrFlat[_lrPos] still pointed at the
-      // الاستمارة — and the bin reads the walk position, so it deleted the paper you were NOT looking at.
-      const mp=b.papers.find(p=>p.type==='manh');
-      if(mp){ const at=_lrFlat.findIndex(f=>f.paper===mp);
-              if(at>=0) _lrGoFlat(at);
-              else { _lrIdx=b.papers.indexOf(mp); renderLegalReview(); } }
-      // SHOW the block on the field itself. A toast that fades is the same as no message when the
-      // reader is looking at the button they just pressed — it read as "commit does nothing".
-      // The منح number is typed by a human on purpose: the OCR is not allowed to guess it.
-      lrBanner('⚑ '+t('lg_need_id'),'need');
-      const ni=$('#lr-num');
-      if(ni){ ni.classList.add('need'); ni.focus();
-              ni.addEventListener('input',()=>ni.classList.remove('need'),{once:true}); }
-      return; }
     let tgt=await findMergeTarget(rows);               // shares passports with a committed provisional batch?
     if(!tgt) tgt=await findWaitingManh(ep, rows);       // OR a منح that committed BEFORE its roster (waiting)
     if(tgt){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
       try{ const res=await commitMerged(b.papers, rows, tgt, stamps);
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
         const _mm=t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`;
-        toast(_mm); await lrAfterCommit(); lrBanner('✓ '+_mm,'ok'); }
+        toast(_mm); await lrAfterCommit(); lrCommitted('✓ '+_mm); }
       catch(e){ lrFail(e, b0); }
       return; }
     id=provKey(ep); }
@@ -4220,7 +4253,7 @@ async function lrCommit(){
       try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id, reviewRot(cands[0].rot));
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
         const _ma=t('lg_saved')+id;                    // a lone منح completing its batch also says so
-        toast(_ma); await lrAfterCommit(); lrBanner('✓ '+_ma,'ok'); }
+        toast(_ma); await lrAfterCommit(); lrCommitted('✓ '+_ma); }
       catch(e){ lrFail(e, b0); }
       return; } }
   const manh=b.papers.find(p=>p.type==='manh')||{};
@@ -4234,13 +4267,15 @@ async function lrCommit(){
       rot: reviewRot(null),                              // the reviewer's rotations → saved so print/عرض match
       paperIds:b.papers.map(p=>p.paper_id).filter(Boolean)});
     b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-    const _m=(hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`;
-    toast(_m);
-    // ADVANCE FIRST, THEN SPEAK. The banner used to be planted before lrAfterCommit, which walks to
+    const _papers=b.papers.length;                 // read BEFORE the advance swaps the batch out
+    const _m = hasManh ? t('lg_ok_commit', id, _papers, res.total, res.linked)
+                       : t('lg_ok_prov', provLabel(ep), _papers, res.total);
+    toast(hasManh?t('lg_saved')+id:t('lg_saved_prov'));
+    // ADVANCE FIRST, THEN SPEAK. The receipt used to be planted before lrAfterCommit, which walks to
     // the next paper and rebuilds #ikreview from scratch — wiping the green message in the same tick
-    // it was drawn. The confirmation belongs on the page the reviewer actually lands on.
+    // it was drawn. The confirmation belongs on the screen the reviewer actually lands on.
     await lrAfterCommit();
-    lrBanner('✓ '+_m,'ok');
+    lrCommitted(_m);
   }catch(e){ lrFail(e, btn); }
 }
 
