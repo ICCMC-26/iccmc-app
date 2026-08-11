@@ -91,6 +91,7 @@ const I18N={
     pq_wiping:'…يُحذف', pq_wiped:n=>`حُذف ${n}`, pq_wipe_none:'لا شيء لحذفه هنا',
     pq_review:'راجِع', pq_retry:'إعادة', pq_del:'حذف نهائي', pq_noreason:'بدون سبب مسجَّل',
     pq_gone:'لم يعد موجودًا', pq_deleted:'حُذف', pq_cleared:'أُزيل السجل — أعِد إسقاط الملف الآن',
+    lr_drop_done:'حُذفت الورقة نهائيًا — سجلّها وملفها', lr_drop_committed:'هذه الورقة مُودَعة في السجل — لا تُحذف من هنا',
     pq_nodet:'هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
     pq_nocommit:'لا يمكن حذف ملف مُودَع', pq_delq:n=>`حذف «${n}» نهائيًا؟`,
     law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
@@ -201,6 +202,7 @@ const I18N={
     pq_wiping:'…deleting', pq_wiped:n=>`deleted ${n}`, pq_wipe_none:'nothing to delete here',
     pq_review:'Review', pq_retry:'Retry', pq_del:'Delete', pq_noreason:'no reason recorded',
     pq_gone:'No longer there', pq_deleted:'Deleted', pq_cleared:'Cleared — drop the file again now',
+    lr_drop_done:'Paper torn down — its record and its file', lr_drop_committed:'This paper is committed to the registry — it is not deleted from here',
     pq_nodet:'Retrying cannot help this file — it needs a clearer scan or splitting',
     pq_nocommit:'Cannot delete a committed file', pq_delq:n=>`Delete “${n}” permanently?`,
     law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
@@ -1820,13 +1822,29 @@ async function pqWipeBucket(){
    Deletes by scan_hash because that is what the review walk carries; the `not in (done,committed)`
    guard is the same belt-and-braces pqDelete uses — this can only ever remove an inbox item that
    has not entered the registry. */
+/* CLEAN TEARDOWN of one reviewed paper: its scan_jobs row, its legal_papers row, AND the file itself.
+   Deleting only the rows was a half-delete — the PDF stayed in legal/_inbox/, so the next drain read
+   it again and the paper the reviewer had just thrown away reappeared in الوارد. The file leaves the
+   inbox to _trash/ rather than being destroyed: the reviewer's intent is "this is not registry
+   material", not "shred the company's document". Idempotent — every step tolerates already-done. */
 async function lrDropCurrent(paper){
   const hash=paper&&paper.scan_hash; if(!hash) return;
+  // A committed paper is never torn down from the UI. The delete filter alone silently no-ops on one,
+  // which would have trashed the FILE of a paper still in the registry.
+  const {data:sj}=await sb.from('scan_jobs').select('job_id,status').eq('image_hash',hash);
+  if((sj||[]).some(j=>j.status==='done'||j.status==='committed')){ toast(t('lr_drop_committed')); return; }
   const {error}=await sb.from('scan_jobs').delete().eq('image_hash',hash)
                         .not('status','in','(done,committed)');
   if(error){ toast(error.message); return; }
   await sb.from('legal_papers').delete().eq('scan_hash',hash);
-  toast(t('pq_deleted'));
+  const path=paper.scan_path;
+  if(path){
+    try{ const {error:mv}=await sb.storage.from('documents').move(path,'_trash/'+path);
+         // destination already holds this hash (a previous teardown) → just drop the source
+         if(mv) await sb.storage.from('documents').remove([path]);
+    }catch(_){ try{ await sb.storage.from('documents').remove([path]); }catch(__){} }
+  }
+  toast(t('lr_drop_done'));
   const wasAt=_lrPos;
   await _lrRefreshQueue();                 // rebuild the walk from what is actually left
   if(!_lrFlat.length){ $('#ikreview').classList.remove('on'); document.body.style.overflow=''; await pqLoad(); return; }
@@ -4132,6 +4150,7 @@ async function lrAfterCommit(){
   _lrAll=rest;
   _lrFlat=_lrBuildFlat(rest);
   ikRender(); search($('#q')?$('#q').value:'');
+  pqLoad();                             // the الوارد chips are counts, not decoration — a commit moves them
   if(_lrFlat.length){ _lrPos=0; _lrGoFlat(0); toast(t('lg_next_batch',_lrFlat.length)); }
   else { toast(t('lg_all_done')); closeIkReview(); }
   _lrReconcile();                       // deliberately NOT awaited — the screen is already right
@@ -4170,7 +4189,13 @@ async function lrCommit(){
   const stamps={ taahud:!!s.taahud, istco:!!s.istco, istmo:!!s.istmo, manh:!!s.manh };
   if(!id){
     if(hasManh){ toast(t('lg_need_id'));               // a منح is here → jump to it to type the number
-      const mi=b.papers.findIndex(p=>p.type==='manh'); if(mi>=0){_lrIdx=mi; renderLegalReview();}
+      // Jump through _lrGoFlat, never by poking _lrIdx. Setting the DRAWN paper without moving the
+      // WALK position desynced them: the pane showed المنح while _lrFlat[_lrPos] still pointed at the
+      // الاستمارة — and the bin reads the walk position, so it deleted the paper you were NOT looking at.
+      const mp=b.papers.find(p=>p.type==='manh');
+      if(mp){ const at=_lrFlat.findIndex(f=>f.paper===mp);
+              if(at>=0) _lrGoFlat(at);
+              else { _lrIdx=b.papers.indexOf(mp); renderLegalReview(); } }
       // SHOW the block on the field itself. A toast that fades is the same as no message when the
       // reader is looking at the button they just pressed — it read as "commit does nothing".
       // The منح number is typed by a human on purpose: the OCR is not allowed to guess it.
@@ -4184,8 +4209,8 @@ async function lrCommit(){
     if(tgt){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
       try{ const res=await commitMerged(b.papers, rows, tgt, stamps);
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-        toast(t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`);
-        await lrAfterCommit(); }
+        const _mm=t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`;
+        toast(_mm); await lrAfterCommit(); lrBanner('✓ '+_mm,'ok'); }
       catch(e){ lrFail(e, b0); }
       return; }
     id=provKey(ep); }
@@ -4194,7 +4219,8 @@ async function lrCommit(){
     if(cands.length===1){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
       try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id, reviewRot(cands[0].rot));
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-        await lrAfterCommit(); }
+        const _ma=t('lg_saved')+id;                    // a lone منح completing its batch also says so
+        toast(_ma); await lrAfterCommit(); lrBanner('✓ '+_ma,'ok'); }
       catch(e){ lrFail(e, b0); }
       return; } }
   const manh=b.papers.find(p=>p.type==='manh')||{};
@@ -4209,8 +4235,12 @@ async function lrCommit(){
       paperIds:b.papers.map(p=>p.paper_id).filter(Boolean)});
     b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
     const _m=(hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`;
-    toast(_m); lrBanner('✓ '+_m,'ok');
+    toast(_m);
+    // ADVANCE FIRST, THEN SPEAK. The banner used to be planted before lrAfterCommit, which walks to
+    // the next paper and rebuilds #ikreview from scratch — wiping the green message in the same tick
+    // it was drawn. The confirmation belongs on the page the reviewer actually lands on.
     await lrAfterCommit();
+    lrBanner('✓ '+_m,'ok');
   }catch(e){ lrFail(e, btn); }
 }
 
