@@ -3655,7 +3655,7 @@ async function commitProposal(i){
         toast(t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`);
         if(_legalMock)_legalMock=_legalMock.filter(p=>!prop.papers.includes(p));
         await legalReload(); search($('#q')?$('#q').value:''); }
-      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
+      catch(e){ lrFail(e, b0); }
       return; }
     id=provKey(ep);                                                      // else anchor a new provisional batch
   }
@@ -3664,7 +3664,7 @@ async function commitProposal(i){
     if(cands.length===1){ const b0=card.querySelector('.lg-commit-prop'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
       try{ prop.papers[0].manh_number=id; await adoptManh(prop.papers[0], cands[0].batch_id);
         if(_legalMock)_legalMock=_legalMock.filter(p=>!prop.papers.includes(p)); }
-      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
+      catch(e){ lrFail(e, b0); }
       return; } }
   const manh=prop.papers.find(p=>p.type==='manh')||{};
   const scans={ taahud:(prop.papers.find(p=>p.type==='taahud')||{}).scan_path,
@@ -4114,6 +4114,17 @@ function lrBanner(msg, kind){
   el.textContent=msg;
   if(kind==='ok') setTimeout(()=>{ const e2=$('#lr-banner'); if(e2&&e2.textContent===msg) e2.remove(); }, 9000);
 }
+/* A commit that FAILS must be as loud as one that succeeds. The save button re-arms, the reason stays
+   on screen until the next action, and the raw error goes to the console — so "it does nothing" can
+   never again be the whole story. */
+function lrFail(e, btn){
+  const msg=(e&&(e.message||e.error_description||e.hint))||String(e||'');
+  const code=(e&&(e.code||e.status))?` [${e.code||e.status}]`:'';
+  console.error('[legal-commit] FAILED', e);
+  lrBanner('✕ '+t('lg_savefail')+msg+code,'need');
+  toast(t('lg_savefail')+msg);
+  if(btn){ btn.disabled=false; btn.textContent=t('lg_confirm_commit'); }
+}
 
 async function lrAfterCommit(){
   const done=_lrBatch;
@@ -4149,6 +4160,10 @@ async function lrCommit(){
   const _loneManh=b.papers.length===1 && b.papers[0].type==='manh';
   const _canConn=(ep.fSerial!=null&&ep.lSerial!=null)&&!!(ep.fName||ep.lName);   // منح-matchable: interval + ≥1 endpoint name
   if(!_loneManh && !_canConn){ toast(t('lr_endname_need'));   // block only when NOTHING can connect (no interval / both ends blank)
+    // Say it where the reader is looking. Every refusal in this function used to speak ONLY through a
+    // toast, so a blocked commit and a broken commit looked identical: press, nothing, no reason.
+    lrBanner('⚑ '+t('lr_endname_need'),'need');
+    console.warn('[legal-commit] blocked: cannot connect',{fSerial:ep.fSerial,lSerial:ep.lSerial,fName:ep.fName,lName:ep.lName});
     const inp=[...document.querySelectorAll('#ikreview .lr-epname')].find(x=>!x.value.trim()); if(inp)inp.focus(); return; }
   let id=(b._num||'').trim();
   const s=b._stamps||{};
@@ -4171,7 +4186,7 @@ async function lrCommit(){
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
         toast(t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`);
         await lrAfterCommit(); }
-      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
+      catch(e){ lrFail(e, b0); }
       return; }
     id=provKey(ep); }
   if(hasManh && b.papers.length===1 && id){             // a lone منح → complete a matching provisional batch
@@ -4180,7 +4195,7 @@ async function lrCommit(){
       try{ b.papers[0].manh_number=id; await adoptManh(b.papers[0], cands[0].batch_id, reviewRot(cands[0].rot));
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
         await lrAfterCommit(); }
-      catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(b0){b0.disabled=false;b0.textContent=t('lg_confirm_commit');} }
+      catch(e){ lrFail(e, b0); }
       return; } }
   const manh=b.papers.find(p=>p.type==='manh')||{};
   const scans={taahud:(b.papers.find(p=>p.type==='taahud')||{}).scan_path,
@@ -4196,7 +4211,7 @@ async function lrCommit(){
     const _m=(hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`;
     toast(_m); lrBanner('✓ '+_m,'ok');
     await lrAfterCommit();
-  }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(btn){btn.disabled=false;btn.textContent=t('lg_confirm_commit');} }
+  }catch(e){ lrFail(e, btn); }
 }
 
 $('#ik-list').addEventListener('click',e=>{
