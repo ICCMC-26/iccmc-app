@@ -1030,6 +1030,17 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   #lr-num.need,#lr-mdate.need{border-color:var(--warn)!important;background:rgba(247,182,79,.10)!important;
     box-shadow:0 0 0 3px rgba(247,182,79,.16)}
 
+  /* the missing-grant-date prompt on a committed batch — amber, because the batch is incomplete,
+     not broken. It disappears the moment a date exists, and can never reappear as an "edit". */
+  .lb-nodate{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 2px;
+    padding:10px 12px;border-radius:10px;font-size:12.5px;font-weight:600;
+    color:var(--warn);border:1px solid var(--warn);background:rgba(247,182,79,.10)}
+  .lb-nodate input[type=date]{font:inherit;color:inherit;background:transparent;
+    border:1px solid var(--warn);border-radius:8px;padding:5px 9px}
+  .lb-datebtn{font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--warn);
+    background:transparent;border:1px solid var(--warn);border-radius:8px;padding:5px 12px}
+  .lb-datebtn:hover{background:rgba(247,182,79,.18)}
+
   /* THE COMMIT RECEIPT — above the review overlay, and it outlives the pane. Sized to be read from
      across the desk, because "did it save?" is the one question the reviewer must never have to ask. */
   .lr-ok{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:100000;

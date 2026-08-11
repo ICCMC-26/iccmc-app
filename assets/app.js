@@ -125,6 +125,8 @@ const I18N={
     law_members:n=>`${n} موظف`, law_covers:'التسلسل', law_papersLbl:'الأوراق', law_back:'‹ رجوع',
     law_roster:'القائمة', law_open_emp:'فتح الموظف ›', law_orphan:'بانتظار الجواز',
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
+    law_nodate:'لا تاريخ للمنح — الدفعة ساكنة ولن ترتبط بأي تأشيرة حتى يُدخَل', law_savedate:'احفظ التاريخ',
+    law_date_saved:'حُفظ تاريخ المنح ✓', law_baddate:'تاريخ غير صالح', law_datetaken:'للدفعة تاريخ بالفعل',
     law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
     law_rot_saved:'حُفظ التدوير — سيظهر في الطباعة',
     lr_verify:'رقم المنح (العدد) — تحقّق منه واكتبه', law_main:'‹ الصفحة الرئيسية', lr_rotate:'تدوير الورقة 90°',
@@ -241,6 +243,8 @@ const I18N={
     law_members:n=>`${n} member${n===1?'':'s'}`, law_covers:'Serials', law_papersLbl:'Papers', law_back:'‹ Back',
     law_roster:'Roster', law_open_emp:'Open employee ›', law_orphan:'awaiting passport',
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
+    law_nodate:'No grant date — this batch is static and will bind to no visa until one is entered', law_savedate:'Save date',
+    law_date_saved:'Grant date saved ✓', law_baddate:'Not a valid date', law_datetaken:'This batch already has a date',
     law_cover:id=>`Legal papers — Grant no. ${id}`, law_emp:'Employee', law_kicker:'Legal file',
     law_rot_saved:'Rotation saved — shows in print',
     lr_verify:'Grant number (العدد) — verify & type it', law_main:'‹ Home', lr_rotate:'Rotate 90°',
@@ -493,6 +497,29 @@ function renderLaw(rows){
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
 async function gotoLawBatch(id){ closeEmployee(); setLaw(true); await search(''); openLawBatch(id); }
+/* FILL A MISSING منح DATE on an already-committed batch — the narrowest possible exception to
+   "the app never edits a committed record", and it is deliberately not an edit at all: it can only
+   write a date where there is NONE, and it is guarded again in the WHERE clause (`is null`), so two
+   people racing cannot overwrite each other and a wrong date can never be corrected here.
+
+   Why it has to exist: a batch without its grant date can never bind to a visa — `v_legal_batch_link`
+   starts `where manh_date is not null` — so it is STATIC for ever. Before the date became mandatory
+   (v205) three batches committed without one, and nothing in the app could ever complete them. Filling
+   a hole is not the same as changing an answer; changing one still belongs to the database. */
+async function lawFillManhDate(b, iso){
+  const v=String(iso||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){ toast(t('law_baddate')); return; }
+  if(v > new Date().toISOString().slice(0,10)){ toast(t('law_baddate')); return; }   // a grant is never in the future
+  try{
+    const {data,error}=await sb.from('legal_batches').update({manh_date:v})
+      .eq('batch_id',b.batch_id).is('manh_date',null).select('batch_id');   // ← fill-only, enforced server-side
+    if(error)throw error;
+    if(!data||!data.length){ toast(t('law_datetaken')); return; }            // someone already filled it
+    b.manh_date=v;
+    toast(t('law_date_saved')); renderLawBatch(b);
+    try{ await legalReload(); }catch(_){}                                    // the batch may now BIND to a visa
+  }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); }
+}
 async function lawFillName(b,i,name){   // fill a name the OCR missed → completes the record (review-flag action)
   name=String(name||'').trim(); if(!name)return; const m=b.members[i]; if(!m)return;
   try{
@@ -539,6 +566,10 @@ function renderLawBatch(b){
       <button class="lb-printbtn" id="lb-print"><span style="font-size:14px">⎙</span> ${t('t_print')}</button></div>
     <div class="lb-h">⚖ ${esc(batchName(b))} ${legalChipOrAwait(b.batch_id)}</div>
     <div class="lb-meta">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${b.manh_date?` · ${esc(b.manh_date)}`:''}</div>
+    ${(!b.manh_date && b.manh_scan) ? `<div class="lb-nodate">
+      <span>⚑ ${esc(t('law_nodate'))}</span>
+      <input id="lb-mdate" type="date" max="${esc(new Date().toISOString().slice(0,10))}">
+      <button class="lb-datebtn" type="button">${esc(t('law_savedate'))}</button></div>` : ''}
     <div class="lb-block"><div class="lb-sub">${t('law_papersLbl')}</div>
       ${ptKeys().map(k=>paper(ptLabel(k),s[k],batchPaper(b,k).scan,brot[k])).join('')}</div>
     <div class="lb-sub">${t('law_roster')}</div>${gapNote}
@@ -551,6 +582,9 @@ function renderLawBatch(b){
   box.querySelectorAll('.lb-fillbtn[data-idx]').forEach(btn=>btn.onclick=()=>{ const i=+btn.getAttribute('data-idx');
     const inp=box.querySelector(`.lb-fill[data-idx="${i}"]`); const v=inp&&inp.value.trim(); if(!v){ if(inp)inp.focus(); return; } lawFillName(b,i,v); });
   box.querySelectorAll('.lb-fill[data-idx]').forEach(inp=>inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); const i=+inp.getAttribute('data-idx'); const v=inp.value.trim(); if(v)lawFillName(b,i,v); } });
+  { const db=box.querySelector('.lb-datebtn'), di=box.querySelector('#lb-mdate');
+    if(db&&di){ db.onclick=()=>lawFillManhDate(b, di.value);
+                di.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); lawFillManhDate(b, di.value); } }; } }
 }
 
 /* ── validity → ONE status engine: colour + icon + TEXT (WCAG 1.4.1), Carbon map,
@@ -3146,14 +3180,27 @@ async function commitLegalBatch(d){
   const id=String(d.batch_id||'').trim(); if(!id)throw new Error(t('lg_need_id'));
   const rows=(d.rows||[]).filter(r=>r&&(r.passport||r.name));
   // move each scan into the batch folder → storage becomes browsable as legal/<id>/<type>
-  const scans=d.scans||{}, scanPtr={};
+  // MOVING A FILE INVALIDATES EVERY POINTER AT IT, NOT JUST THE ONE WE ARE ABOUT TO WRITE.
+  // The batch got the new path while legal_papers.scan_path and scan_jobs.image_path kept pointing at
+  // legal/_inbox/… — the batch card opened fine, so the break stayed invisible, while the paper's own
+  // record and its OCR job both pointed at an empty shelf. Twenty-one of those in one afternoon, and
+  // the nightly audit went ok=false on them. Whoever moves the bytes owns every reference to them.
+  const scans=d.scans||{}, scanPtr={}, moved=[];
   for(const type of ['taahud','istimara','manh']){
     const path=scans[type]; if(!path){ scanPtr[type]=d[type+'_scan']||null; continue; }
     const ext=(String(path).match(/\.[a-z0-9]+$/i)||['.pdf'])[0].toLowerCase();
     const dest=`${LEGAL_DIR}/${id}/${type}${ext}`;
     if(path===dest){ scanPtr[type]=dest; continue; }
-    try{ const {error}=await sb.storage.from('documents').move(path,dest); scanPtr[type]=error?path:dest; }
+    try{ const {error}=await sb.storage.from('documents').move(path,dest);
+         scanPtr[type]=error?path:dest;
+         if(!error) moved.push([path,dest]); }
     catch(_){ scanPtr[type]=path; }                       // move failed → keep old path (still reachable)
+  }
+  // Re-point the followers. Matched on the OLD path, so it is exact and idempotent: a re-commit finds
+  // nothing left to move and nothing left to update.
+  for(const [from,to] of moved){
+    try{ await sb.from('legal_papers').update({scan_path:to}).eq('scan_path',from); }catch(_){}
+    try{ await sb.from('scan_jobs').update({image_path:to}).eq('image_path',from); }catch(_){}
   }
   const rowAt=n=>rows.find(r=>r.serial===n);
   let iFrom=d.interval_from??null, iTo=d.interval_to??null;
@@ -3590,7 +3637,11 @@ async function adoptManh(manhPaper, oldId, rot){    // attach a منح to a prov
     const dest=`${LEGAL_DIR}/${newId}/manh${ext}`;
     if(ptr===dest){ /* already in place */ }
     else{ try{ const {error}=await sb.storage.from('documents').move(ptr,dest);
-      if(!error){ ptr=dest; }
+      if(!error){ // same rule as commitLegalBatch: the mover owns every reference to the bytes
+                  const _from=ptr;
+                  try{ await sb.from('legal_papers').update({scan_path:dest}).eq('scan_path',_from); }catch(_){}
+                  try{ await sb.from('scan_jobs').update({image_path:dest}).eq('image_path',_from); }catch(_){}
+                  ptr=dest; }
       // a PRIOR failed commit may have already moved the file to dest → the source is gone. Don't
       // point manh_scan at the vanished source; if dest holds the file, use it (idempotent retry).
       else{ const {data:_ex}=await sb.storage.from('documents').createSignedUrl(dest,60); if(_ex&&_ex.signedUrl)ptr=dest; }
