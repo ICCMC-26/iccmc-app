@@ -78,7 +78,6 @@ const I18N={
     dz_agent:'أكثر من 12 ملفًا؟ حمِّل أداة الرفع — الطابور يصير مجلدًا على قرصك',
     dz_agent_open:'دفعة كبيرة؟ افتح أداة الرفع على جهازك',
     dz_agent_nope:'لم تُفتح؟ اضغط زر ابدأ واكتب ICCMC — أو افتح اختصار «ICCMC Uploader» من مجلد التنزيلات',
-    dz_agent_run:'نزلت النسخة الجديدة — افتح الملف من مجلد التنزيلات مرة واحدة ليُثبَّت',
     dz_agent_new:'يوجد تحديث لأداة الرفع — حمِّل النسخة الأحدث', dz_agent_upd:'تحديث متاح',
     big_open:'افتح أداة الرفع', big_update:'حمِّل التحديث',
     big_stale:'نسختك من أداة الرفع أقدم من الحالية. حمِّل التحديث ثم شغّله مرة واحدة.', big_opening:'…يُفتح على جهازك',
@@ -198,7 +197,6 @@ const I18N={
     dz_agent:'More than 12 files? Get the uploader — the queue becomes a folder on your disk',
     dz_agent_open:'Big batch? Open the uploader on your machine',
     dz_agent_nope:'Did not open? Press Start and type ICCMC — or use the «ICCMC Uploader» shortcut in Downloads',
-    dz_agent_run:'The new copy is downloaded — open it once from your Downloads folder to install it',
     dz_agent_new:'A newer uploader is available — download the update', dz_agent_upd:'update available',
     big_open:'Open the uploader', big_update:'Download the update',
     big_stale:'Your copy of the uploader is older than the current one. Download the update, then run it once.', big_opening:'…opening on your machine',
@@ -2079,17 +2077,11 @@ async function loadAgentVersion(){
     if(v && v!==AGENT_REPORTED){ AGENT_REPORTED=v; paintAgentLink(); }
   }catch(_){/* offline / no rows → keep the local guess */}
 }
-/* FOUR states, because "downloaded" and "installed" are not the same thing and pretending they
-   were is what broke this. A browser can only ADD a file: every update saved «افتح أداة الرفع (n).pyw»
-   into Downloads while the shortcut went on launching the copy from before. Found live with EIGHT
-   copies stacked up and a fourteen-hour-old tool still running — and the page insisting all was well,
-   because it had marked itself current the moment the link was clicked.
-   A download is now only ever a download. It becomes an install when the tool RUNS and says so. */
+/* three states, one line */
 function agentState(){
-  if(AGENT_REPORTED) return AGENT_REPORTED===TOOL_V ? 'current' : 'stale';   // a FACT beats every guess
-  if(agentVer()===TOOL_V && !AGENT_REPORTED) return 'downloaded';  // taken, not yet proven to run
+  if(AGENT_REPORTED) return AGENT_REPORTED===TOOL_V ? 'current' : 'stale';   // a FACT beats a guess
   if(!agentHave()) return 'none';
-  return 'stale';
+  return agentVer()===TOOL_V ? 'current' : 'stale';
 }
 
 function paintAgentLink(){
@@ -2107,24 +2099,12 @@ function paintAgentLink(){
   }else if(st==='stale'){                             // 2 · has an old one → update it
     if(ic)ic.textContent='⟳'; if(lb)lb.textContent=t('dz_agent_new');
     download();
-  }else if(st==='downloaded'){                        // 3 · TOOK a copy → it still has to be RUN once
-    // The step that was missing, and the one the whole failure hinged on. The downloaded file
-    // installs itself the first time it is opened; until then the old copy is what runs. So the
-    // page asks for that one action instead of congratulating itself.
-    if(ic)ic.textContent='⚑'; if(lb)lb.textContent=t('dz_agent_run');
-    a.removeAttribute('download'); a.removeAttribute('href');
-  }else{                                              // 4 · has this one → open it
+  }else{                                              // 3 · has this one → open it
     if(ic)ic.textContent='⇱'; if(lb)lb.textContent=t('dz_agent_open');
     a.removeAttribute('download'); a.removeAttribute('href');   // JS opens it, see openAgent
   }
   if(!a._wired){ a._wired=1; a.addEventListener('click',e=>{
-    const _s=agentState();
-    if(_s==='none'||_s==='stale'){ agentGot(); setTimeout(paintAgentLink,600); return; }  // the browser downloads
-    e.preventDefault();
-    // DO NOT LAUNCH while a newer copy is sitting unopened in Downloads: the protocol still points
-    // at the OLD installed build, so "open" would run the very copy being replaced — which is how
-    // eight downloads produced no update at all. Say the missing step instead.
-    if(_s==='downloaded'){ toast(t('dz_agent_run')); return; }
+    if(agentState()!=='current'){ agentGot(); setTimeout(paintAgentLink,600); return; }  // downloading
     // An <a href="custom-scheme:"> is NOT reliable: Chrome drops the navigation silently when it
     // dislikes the context — it never even reaches the "Open this app?" prompt, so the user gets a
     // dead click and the browser records no decision. Assigning location.href inside the click is
