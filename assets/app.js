@@ -2077,9 +2077,14 @@ async function loadAgentVersion(){
     if(v && v!==AGENT_REPORTED){ AGENT_REPORTED=v; paintAgentLink(); }
   }catch(_){/* offline / no rows → keep the local guess */}
 }
-/* three states, one line */
+/* three states, one line — and the line must always lead somewhere.
+   The reported version is NOT consulted here, deliberately. Letting it override made the state
+   unreachable: a tool reporting 2.6 against a site on 2.7 is 'stale' for ever, so the link only
+   ever offered a download and never "open" — and becoming 'current' required pumping with the new
+   build, which required opening it. Truth that traps the user is not worth having.
+   What the user took is what this decides; `AGENT_REPORTED` stays a fact we can READ (it is what
+   diagnosed the stale install), it just never blocks the next step. */
 function agentState(){
-  if(AGENT_REPORTED) return AGENT_REPORTED===TOOL_V ? 'current' : 'stale';   // a FACT beats a guess
   if(!agentHave()) return 'none';
   return agentVer()===TOOL_V ? 'current' : 'stale';
 }
