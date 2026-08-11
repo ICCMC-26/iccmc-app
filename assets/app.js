@@ -95,6 +95,7 @@ const I18N={
     lg_need_date:'أدخل تاريخ المنح.', lg_need_id_date:'أدخل رقم المنح وتاريخه.',
     lg_ok_commit:(id,papers,total,linked)=>`أُودعت الدفعة ${id} في السجل — ${papers} ورقة · ${total} اسمًا · رُبط ${linked} منهم بموظف. تجدها الآن في «المعاملات».`,
     lg_ok_prov:(lbl,papers,total)=>`أُودعت دفعة مؤقتة (${lbl}) — ${papers} ورقة · ${total} اسمًا. تنتظر منحها.`,
+    lg_ok_merged:(id,papers,total,linked)=>`ضُمّت الأوراق إلى الدفعة ${id} — ${papers} ورقة · صارت ${total} اسمًا · رُبط ${linked} منهم بموظف. تجدها في «المعاملات».`,
     lg_ok_dismiss:'إغلاق',
     pq_nodet:'هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
     pq_nocommit:'لا يمكن حذف ملف مُودَع', pq_delq:n=>`حذف «${n}» نهائيًا؟`,
@@ -210,6 +211,7 @@ const I18N={
     lg_need_date:'Enter the grant date.', lg_need_id_date:'Enter the grant number and its date.',
     lg_ok_commit:(id,papers,total,linked)=>`Batch ${id} committed to the registry — ${papers} paper(s) · ${total} name(s) · ${linked} linked to an employee. It is in «Transactions» now.`,
     lg_ok_prov:(lbl,papers,total)=>`Provisional batch committed (${lbl}) — ${papers} paper(s) · ${total} name(s). Waiting for its grant.`,
+    lg_ok_merged:(id,papers,total,linked)=>`Papers folded into batch ${id} — ${papers} paper(s) · now ${total} name(s) · ${linked} linked to an employee. It is in «Transactions».`,
     lg_ok_dismiss:'Dismiss',
     pq_nodet:'Retrying cannot help this file — it needs a clearer scan or splitting',
     pq_nocommit:'Cannot delete a committed file', pq_delq:n=>`Delete “${n}” permanently?`,
@@ -4240,10 +4242,14 @@ async function lrCommit(){
     let tgt=await findMergeTarget(rows);               // shares passports with a committed provisional batch?
     if(!tgt) tgt=await findWaitingManh(ep, rows);       // OR a منح that committed BEFORE its roster (waiting)
     if(tgt){ const b0=$('#lr-save'); if(b0){b0.disabled=true;b0.textContent=t('lg_saving');}
-      try{ const res=await commitMerged(b.papers, rows, tgt, stamps);
+      try{ const _np=b.papers.length;                  // read BEFORE the advance swaps the batch out
+        const res=await commitMerged(b.papers, rows, tgt, stamps);
         b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-        const _mm=t('lg_merged')+batchLabel(tgt)+`  ·  ${res.linked}/${res.total}`;
-        toast(_mm); await lrAfterCommit(); lrCommitted('✓ '+_mm); }
+        // Name the batch it joined, in plain digits. The old line read «دُمجت في الدفعة: 16 (؟) — (؟) 1 · 0/16»
+        // — a label built from endpoints the OCR hadn't read, next to a bare ratio. Nobody could tell
+        // from that whether anything had been saved.
+        const _mm=t('lg_ok_merged', tgt.batch_id, _np, res.total, res.linked);
+        toast(t('lg_merged')+tgt.batch_id); await lrAfterCommit(); lrCommitted(_mm); }
       catch(e){ lrFail(e, b0); }
       return; }
     id=provKey(ep); }
