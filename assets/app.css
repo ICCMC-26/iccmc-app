@@ -1029,3 +1029,9 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
      a toast that has gone by the time you look up */
   #lr-num.need{border-color:var(--warn)!important;background:rgba(247,182,79,.10)!important;
     box-shadow:0 0 0 3px rgba(247,182,79,.16)}
+
+  /* the review's own status line — it STAYS, unlike a toast */
+  .lr-banner{margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:13px;font-weight:700;
+    border:1px solid transparent;line-height:1.45}
+  .lr-banner.ok{color:var(--ok);border-color:var(--ok);background:rgba(99,209,138,.12)}
+  .lr-banner.need{color:var(--warn);border-color:var(--warn);background:rgba(247,182,79,.12)}

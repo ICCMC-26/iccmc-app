@@ -3675,7 +3675,8 @@ async function commitProposal(i){
       interval_from:manh.interval_from??ep.fSerial, interval_to:manh.interval_to??ep.lSerial, rows, scans, stamps:st,
       first_name:ep.fName, last_name:ep.lName, first_passport:ep.fPass, last_passport:ep.lPass, provisional:!hasManh,
       paperIds:prop.papers.map(p=>p.paper_id).filter(Boolean) });
-    toast((hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`);
+    const _m=(hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`;
+    toast(_m); lrBanner('✓ '+_m,'ok');
     if(_legalMock)_legalMock=_legalMock.filter(p=>!prop.papers.includes(p));
     await legalReload(); search($('#q')?$('#q').value:'');
   }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); btn.disabled=false; btn.textContent=t('lg_confirm_commit'); }
@@ -4006,6 +4007,16 @@ function renderLegalReview(){
   // Bound HERE, on the review pane, alongside the walk arrows — not on #ik-list. The first
   // version delegated from the inbox list, an element this pane is not inside, so the bin was
   // drawn, looked live, and was never wired to anything.
+  // The منح number is written onto the batch ON EVERY KEYSTROKE. It used to be lifted out of the
+  // DOM only when commit ran, so anything that repainted the panel between typing and pressing
+  // took the value with it — and commit then reported "enter the grant number" about a number the
+  // reader could still see on screen. State belongs on the object, not in a field we hope survives.
+  { const ni=$('#lr-num');
+    if(ni) ni.addEventListener('input',()=>{ if(_lrBatch){ _lrBatch._num=ni.value;
+      if(_lrBatch.manh)_lrBatch.manh.manh_number=ni.value; } ni.classList.remove('need'); });
+    const md=$('#lr-mdate');
+    if(md) md.addEventListener('input',()=>{ if(_lrBatch){ _lrBatch._mdate=md.value;
+      if(_lrBatch.manh)_lrBatch.manh.manh_date=md.value; } }); }
   $('#ikreview').querySelectorAll('[data-lrdrop]').forEach(btn=>btn.onclick=()=>{
     const cur=_lrFlat[_lrPos] && _lrFlat[_lrPos].paper;
     if(cur && confirm(t('lr_drop_q'))) lrDropCurrent(cur);
@@ -4092,6 +4103,18 @@ function _lrShowBatch(b, pos, total){
    The database still gets the last word: committing can absorb papers into another batch, so the
    pending set is re-read afterwards, in the background. If what is on screen is no longer pending
    the view corrects itself; otherwise only the counter updates. Fast and honest, in that order. */
+/* A commit that succeeded must SAY SO where the reader is looking, and stay said. A toast that
+   fades in three seconds is the same as no message when someone is watching the button they just
+   pressed — which is why a successful save read as 'nothing happened'. */
+function lrBanner(msg, kind){
+  const host=$('#ikreview .rvw-side')||$('#ikreview'); if(!host) return;
+  let el=$('#lr-banner');
+  if(!el){ el=document.createElement('div'); el.id='lr-banner'; host.prepend(el); }
+  el.className='lr-banner '+(kind||'ok');
+  el.textContent=msg;
+  if(kind==='ok') setTimeout(()=>{ const e2=$('#lr-banner'); if(e2&&e2.textContent===msg) e2.remove(); }, 9000);
+}
+
 async function lrAfterCommit(){
   const done=_lrBatch;
   const rest=(_lrAll||[]).filter(b=>b!==done);
@@ -4136,6 +4159,7 @@ async function lrCommit(){
       // SHOW the block on the field itself. A toast that fades is the same as no message when the
       // reader is looking at the button they just pressed — it read as "commit does nothing".
       // The منح number is typed by a human on purpose: the OCR is not allowed to guess it.
+      lrBanner('⚑ '+t('lg_need_id'),'need');
       const ni=$('#lr-num');
       if(ni){ ni.classList.add('need'); ni.focus();
               ni.addEventListener('input',()=>ni.classList.remove('need'),{once:true}); }
@@ -4169,7 +4193,8 @@ async function lrCommit(){
       rot: reviewRot(null),                              // the reviewer's rotations → saved so print/عرض match
       paperIds:b.papers.map(p=>p.paper_id).filter(Boolean)});
     b.papers.forEach(p=>{ const jk=IK.find(x=>x.hash&&x.hash===p.scan_hash); if(jk){jk.state='landed'; if(jk.hash)delete _ikPending[jk.hash];} });
-    toast((hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`);
+    const _m=(hasManh?t('lg_saved')+id:t('lg_saved_prov')+provLabel(ep))+`  ·  ${res.linked}/${res.total}`;
+    toast(_m); lrBanner('✓ '+_m,'ok');
     await lrAfterCommit();
   }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); if(btn){btn.disabled=false;btn.textContent=t('lg_confirm_commit');} }
 }
