@@ -12,7 +12,7 @@ const sb = window.supabase.createClient(SUPA_URL, SUPA_KEY,
          storage:_authStore||undefined}});
 const $=s=>document.querySelector(s);
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-let CURRENT_P=null, CURRENT_VS=[], CURRENT_LEGAL=[];   // the open employee — the print dossier's subject
+let CURRENT_P=null, CURRENT_VS=[], CURRENT_LEGAL=[], CURRENT_HIST=[];   // the open employee — the print dossier's subject
 
 /* ── bilingual (chrome translates; stored values never do) ───────────────── */
 const I18N={
@@ -62,6 +62,7 @@ const I18N={
     lg_saved:'حُفظت الدفعة ✓ ', lg_need_id:'أدخل رقم المنح.', lg_need_rows:'أضِف صفًا واحدًا على الأقل.',
     lg_savefail:'تعذّر الحفظ: ',
     lg_file:'الملف القانوني', lg_none:'لا أوراق قانونية مسجّلة', lg_batch:'دفعة',
+    lg_passport:'رقم الجواز',
     lg_serial:'التسلسل', lg_taahud:'التعهد', lg_istimara:'الاستمارة', lg_manh:'المنح',
     lg_present:'موجود', lg_missing:'ناقص', lg_nostamp:'بلا ختم', lg_covered:'مشمول ضمن',
     lg_pending:'أوراق ممسوحة بانتظار المطابقة', lg_no_pending:'لا أوراق بانتظار المطابقة — أدخِل دفعة يدويًا أدناه',
@@ -180,6 +181,7 @@ const I18N={
     lg_saved:'Batch saved ✓ ', lg_need_id:'Enter the grant number.', lg_need_rows:'Add at least one row.',
     lg_savefail:'Could not save: ',
     lg_file:'Legal file', lg_none:'No legal papers on record', lg_batch:'Batch',
+    lg_passport:'Passport no.',
     lg_serial:'Serial', lg_taahud:'Undertaking', lg_istimara:'Entry form', lg_manh:'Grant',
     lg_present:'present', lg_missing:'missing', lg_nostamp:'no stamp', lg_covered:'covered in',
     lg_pending:'Scanned papers awaiting matching', lg_no_pending:'None awaiting — enter a batch manually below',
@@ -273,6 +275,15 @@ function applyLang(){
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
   paintSort();                                            // re-label the sort control for the new language
   if(LAWMODE)renderLaw(LAWLAST); else render(LAST);       // re-label result chrome (law or employees)
+  // AN OPEN PANEL MUST FOLLOW THE LANGUAGE TOO. These three draw once and then sit there, so a
+  // switch left them in the old language until they were closed and reopened — measured: 13 Arabic
+  // nodes surviving a switch to English, 0 after a reopen. Everything needed is already cached, so
+  // redrawing is free; nothing is re-fetched.
+  try{ if(CURRENT_P && $('#detail') && $('#detail').classList.contains('on'))
+         renderDetail(CURRENT_P, CURRENT_VS, CURRENT_LEGAL, CURRENT_HIST); }catch(_){}
+  try{ if(typeof _lawBatch!=='undefined' && _lawBatch) renderLawBatch(_lawBatch); }catch(_){}
+  try{ if($('#ikreview') && $('#ikreview').classList.contains('on') && typeof _lrBatch!=='undefined' && _lrBatch)
+         renderLegalReview(); }catch(_){}
 }
 function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang',LANG)}catch(_){}applyLang()}
 
@@ -865,7 +876,8 @@ async function openEmployee(pid){
   const legal=lr.data||[];
   await loadLegalLinks(legal.map(m=>(m.batch&&m.batch.batch_id)||m.batch_id));
   CURRENT_P=p; CURRENT_VS=vs; CURRENT_LEGAL=legal;   // subject of the print dossier
-  renderDetail(p,vs,legal,(dr&&dr.data)||[]); $('#detail').classList.add('on'); document.body.style.overflow='hidden';
+  CURRENT_HIST=(dr&&dr.data)||[];                    // kept so applyLang can REDRAW this panel in the new language
+  renderDetail(p,vs,legal,CURRENT_HIST); $('#detail').classList.add('on'); document.body.style.overflow='hidden';
   const av=$('#detail .d-face');
   // the big avatar loads the 480px crop (sharp at 152px), thumb as a fallback, initials if both
   // fail — never a broken icon. clickable+dataset.url is set only once an image truly loads, so a
@@ -1009,6 +1021,20 @@ async function officeDocHtml(path){
    Every render is now raced against a clock and CANCELLED when it expires, so one unrenderable page
    costs one page instead of the whole print. */
 const SCAN_RENDER_MS=20000;
+/* Which page of a scan IS the document? A cropped personal photo is square by construction
+   (480×480); a passport, visa or form page never is. Only consulted when a file has more than one
+   page, and it never invents a choice — if every page is square the original page 1 stands. */
+async function _docPageNo(pdf){
+  try{
+    if(!pdf || pdf.numPages<2) return 1;
+    for(let n=1;n<=pdf.numPages;n++){
+      const v=(await pdf.getPage(n)).getViewport({scale:1});
+      const ar=v.width/v.height;
+      if(ar<0.85 || ar>1.18) return n;                 // document-shaped → this is the paper
+    }
+  }catch(_){}
+  return 1;
+}
 async function _renderPage(page, ctx, viewport){
   const task=page.render({canvasContext:ctx, viewport});
   let timer;
@@ -1032,7 +1058,13 @@ async function scanImage(path){
     if(!window.pdfjsLib)return null;
     const buf=await (await fetch(url)).arrayBuffer();
     const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-    const page=await pdf.getPage(1);
+    // PAGE 1 IS NOT ALWAYS THE DOCUMENT. Some scans bundle the personal photo first — measured on a
+    // real passport: page 1 = 480×480 (a square face crop), page 2 = 595×842 (the actual passport
+    // page). Rendering page 1 blindly printed the portrait under «صورة الجواز الأصلية».
+    // A cropped photo is SQUARE by construction; a document page never is. So when there is more
+    // than one page, take the first page that is document-shaped, and fall back to page 1 if the
+    // file is only ever square (then a photo is genuinely all we have — better than nothing).
+    const page=await pdf.getPage(await _docPageNo(pdf));
     const vp=page.getViewport({scale:3.5});
     const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
     if(!await _renderPage(page, c.getContext('2d'), vp)) return null;
@@ -4048,7 +4080,27 @@ function _lrRead(){ const b=_lrBatch; if(!b)return;
   b._stamps=b._stamps||{};
   document.querySelectorAll('#ikreview [data-st]').forEach(c=>{ b._stamps[c.dataset.st]=c.checked; }); // merge — keep other papers' ticks
   b._epFill=b._epFill||{};   // endpoint names the OCR missed, typed here this review
-  document.querySelectorAll('#ikreview .lr-epname').forEach(inp=>{ const v=inp.value.trim(); if(v)b._epFill[+inp.dataset.ser]=v; else delete b._epFill[+inp.dataset.ser]; }); }
+  document.querySelectorAll('#ikreview .lr-epname').forEach(inp=>{ const v=inp.value.trim(); if(v)b._epFill[+inp.dataset.ser]=v; else delete b._epFill[+inp.dataset.ser]; });
+  // roster repairs made in «عرض كل الحقول» — keyed by serial (or by passport for a serial-less row),
+  // so they survive paging between papers and reach the commit exactly as typed
+  b._rowEdits=b._rowEdits||{};
+  document.querySelectorAll('#ikreview .lr-an').forEach(inp=>{ const k=inp.dataset.rk; if(!k)return;
+    (b._rowEdits[k]=b._rowEdits[k]||{}).name=inp.value.trim(); });
+  document.querySelectorAll('#ikreview .lr-ap').forEach(inp=>{ const k=inp.dataset.rk; if(!k)return;
+    (b._rowEdits[k]=b._rowEdits[k]||{}).passport=inp.value.trim(); }); }
+/* Apply the reviewer's roster repairs to a set of rows. Same shape as _epFill: the ORIGINAL read is
+   never mutated — the edit is laid over it at the moment the rows are used, so re-reading the paper
+   cannot silently discard what a human corrected. */
+function _applyRowEdits(b, rows){
+  const ed=b&&b._rowEdits; if(!ed) return rows;
+  return (rows||[]).map(r=>{
+    const k=(r.serial!=null)?String(r.serial):('p:'+(r.passport||''));
+    const e=ed[k]; if(!e) return r;
+    const out={...r};
+    if(e.name!=null)     out.name=e.name||null;
+    if(e.passport!=null) out.passport=e.passport||null;
+    return out; });
+}
 function renderLegalReview(){
   const b=_lrBatch; if(!b)return;
   const papers=b.papers, cur=papers[_lrIdx]||papers[0];
@@ -4057,7 +4109,7 @@ function renderLegalReview(){
   // ONLY (required, like the منح number). Names read fine are NOT fielded here — the «عرض جميع الحقول»
   // toggle reveals the full roster read-only for an optional eyeball (mirrors the passport/visa drawer).
   b._epFill=b._epFill||{};
-  const _rowsF=rows.map(r=>{ const f=r.serial!=null&&b._epFill[+r.serial]; return f?{...r,name:f}:r; });
+  const _rowsF=_applyRowEdits(b, rows).map(r=>{ const f=r.serial!=null&&b._epFill[+r.serial]; return f?{...r,name:f}:r; });
   const _epRaw=legalEndpoints(rows), _epGaps=[];
   if(!_epRaw.fName && _epRaw.fSerial!=null) _epGaps.push({serial:_epRaw.fSerial, pass:_epRaw.fPass});
   if(!_epRaw.lName && _epRaw.lSerial!=null && _epRaw.lSerial!==_epRaw.fSerial) _epGaps.push({serial:_epRaw.lSerial, pass:_epRaw.lPass});
@@ -4065,7 +4117,22 @@ function renderLegalReview(){
   const _canConn=(_epRaw.fSerial!=null&&_epRaw.lSerial!=null)&&!!(_epRaw.fName||_epRaw.lName);   // منح-matchable
   const gapFields=(_epGaps.length&&!_loneManh&&!_canConn)?`<div class="lr-gaps">${_epGaps.map(g=>`<div class="rfield lr-gap"><label>⚑ ${t('lr_endname')} · ${t('lg_serial')} ${g.serial}</label><input class="lr-epname" data-ser="${g.serial}" value="${esc(b._epFill[g.serial]||'')}" placeholder="${esc(g.pass||t('law_addname'))}"></div>`).join('')}</div>`:'';
   const allBtn=`<button class="lr-allbtn" id="lr-all">${b._showAll?t('rv_less'):t('rv_all')}</button>`;
-  const allList=b._showAll?`<div class="lr-allroster">${_rowsF.map(r=>`<div class="lr-arow"><span class="s">${esc(r.serial??'—')}</span><span class="n${r.name?'':' miss'}">${esc(r.name||('⚑ '+(r.passport||'—')))}</span><span class="p">${esc(r.passport||'—')}</span></div>`).join('')}</div>`:'';
+  // THE FULL ROSTER — ordered by serial, each name beside ITS OWN passport, and both editable.
+  // It used to render in whatever order the papers happened to merge, which made a 35-row batch
+  // impossible to check against the paper in front of you. The serial is the spine, so the list
+  // reads down it: 1, 2, 3 … and a row with no serial sinks to the bottom rather than jumping the
+  // queue. Name and passport are inputs because this is the one place a reader can repair a
+  // mis-read pair BEFORE it becomes a committed record — after that, by rule, only the DB may.
+  const _rowsSorted=_rowsF.slice().sort((x,y)=>{
+    const a=(x.serial==null)?Infinity:+x.serial, c=(y.serial==null)?Infinity:+y.serial;
+    return a-c; });
+  const allList=b._showAll?`<div class="lr-allroster">${_rowsSorted.map(r=>{
+      const key=(r.serial!=null)?String(r.serial):('p:'+(r.passport||''));
+      return `<div class="lr-arow"><span class="s">${esc(r.serial??'—')}</span>`+
+        `<input class="lr-an${r.name?'':' miss'}" data-rk="${esc(key)}" value="${esc(r.name||'')}" `+
+          `placeholder="${esc(t('law_addname'))}" autocomplete="off">`+
+        `<input class="lr-ap" data-rk="${esc(key)}" value="${esc(r.passport||'')}" `+
+          `placeholder="${esc(t('lg_passport'))}" autocomplete="off"></div>`; }).join('')}</div>`:'';
   const num=b._num!=null?b._num:(b.manh?b.manh.manh_number:''), mdate=b._mdate!=null?b._mdate:(b.manh?(b.manh.manh_date||''):''), hasManh=b.papers.some(p=>p.type==='manh');
   const tl=Object.fromEntries(ptKeys().map(k=>[k,ptLabel(k)]));   // registry-driven labels (G6)
   // the paper switch = a clear SEGMENTED CONTROL at the top of the confirm panel; it drives BOTH the
@@ -4283,7 +4350,7 @@ async function _lrReconcile(){
 
 async function lrCommit(){
   const b=_lrBatch; if(!b)return; _lrRead();
-  let rows=proposalRows(b);
+  let rows=_applyRowEdits(b, proposalRows(b));                                                                   // the reviewer's roster repairs
   if(b._epFill) rows=rows.map(r=>{ const f=r.serial!=null&&b._epFill[+r.serial]; return f?{...r,name:f}:r; });   // apply the filled endpoint names
   const ep=legalEndpoints(rows), hasManh=b.papers.some(p=>p.type==='manh');
   const _loneManh=b.papers.length===1 && b.papers[0].type==='manh';

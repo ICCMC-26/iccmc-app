@@ -265,8 +265,17 @@
   .lr-allbtn{margin-top:10px;background:transparent;border:1px solid var(--line);color:var(--copper);border-radius:9px;padding:8px 12px;cursor:pointer;font:inherit;font-size:12.5px}
   .lr-allbtn:hover{border-color:var(--copper)}
   .lr-allroster{margin-top:8px;max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px}
-  .lr-arow{display:grid;grid-template-columns:34px 1fr auto;gap:8px;padding:6px 9px;border-top:1px solid var(--line);font-size:12px}
+  .lr-arow{display:grid;grid-template-columns:34px 1fr 128px;gap:8px;padding:5px 9px;border-top:1px solid var(--line);font-size:12px;align-items:center}
   .lr-arow:first-child{border-top:none} .lr-arow .n.miss{color:var(--copper)} .lr-arow .p{opacity:.65;font-variant-numeric:tabular-nums}
+  /* name + passport are EDITABLE here — the last place a mis-read pair can be repaired before it
+     becomes a committed record. Styled flat so the list still reads as a list, not a form. */
+  .lr-arow .s{opacity:.6;font-variant-numeric:tabular-nums;text-align:center}
+  .lr-arow input{font:inherit;color:inherit;background:transparent;border:1px solid transparent;
+    border-radius:6px;padding:3px 6px;width:100%;min-width:0}
+  .lr-arow input:hover{border-color:var(--line)}
+  .lr-arow input:focus{outline:none;border-color:var(--copper);background:rgba(197,149,107,.08)}
+  .lr-arow input.lr-ap{opacity:.75;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .lr-arow input.miss{color:var(--copper)}
   .lb-nm.gap{display:flex;gap:6px;align-items:center}
   .lb-fill{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--copper);color:inherit;border-radius:7px;padding:6px 9px;font:inherit;font-size:13px}
   .lb-fillbtn{flex:none;background:var(--copper);color:#1a1206;border:none;border-radius:7px;min-width:34px;min-height:34px;cursor:pointer;font-size:14px;font-weight:700}
@@ -787,6 +796,11 @@
     body.ist-print .ist-hin{background:transparent!important;font-size:11pt}
     body.ist-print .ist-photo{background:#fff}
     body.ist-print .ist-photo:not(.has-img){border:none}                /* no empty dashed box in the PDF */
+    /* keep the signature block whole on the printed sheet too — the on-screen rule alone does not
+       govern the paged export, and this is where «المدير الإقليمي» was landing on its own page */
+    body.ist-print .ist-foot,body.ist-print .ist-sig{break-inside:avoid;page-break-inside:avoid}
+    body.ist-print .ist-table{break-inside:auto}
+    body.ist-print .ist-table tr{break-inside:avoid;page-break-inside:avoid}
   }
   #toast{position:fixed;inset-inline:0;bottom:26px;margin:auto;width:max-content;max-width:90%;
     background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 18px;
@@ -913,8 +927,15 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-in-name{display:inline-block;width:190px;flex:none;font-weight:700;text-align:center;
   vertical-align:baseline;border-bottom-style:solid}
 /* signature footer under the table — manager (right, RTL start) + authorized rep (left). Static labels; only the names type. */
-.ist-foot{display:flex;justify-content:space-between;gap:24px;margin-top:16px;text-align:center}
-.ist-sig{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:210px}
+/* THE SIGNATURE BLOCK IS ONE THING — it must never be cut in half by a page boundary.
+   Seen on both papers: the استمارة lost «احمد عبد اللطيف جاسم» and «المدير الإقليمي» off the bottom,
+   and the تعهد pushed «المدير الإقليمي» alone onto page 2, orphaned from the name it belongs to.
+   The markup and the strings were always right; the block was simply allowed to break. */
+.ist-foot{display:flex;justify-content:space-between;gap:24px;margin-top:16px;text-align:center;
+  break-inside:avoid;page-break-inside:avoid}
+.ist-sig{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:210px;
+  break-inside:avoid;page-break-inside:avoid}
+.ist-sig-lbl,.ist-sig-sub{break-after:avoid;page-break-after:avoid}
 .ist-sig-lbl{font-weight:700;font-size:10pt;color:#000;margin-bottom:8px}   /* readable gap between the label and the name/signature (both blocks → consistent) */
 .ist-sig-sub{font-size:10pt;color:#000}
 .ist-sig-name-static{font-weight:700}
