@@ -432,6 +432,13 @@ function legalStatusChip(id){   // batch presence = its connected visa's status;
   const _w=l.expiry_variants>1?` <span class="law-flag" title="${LANG==='ar'?'تعارض في الدفعة — راجعها':'batch mismatch — review'}">⚑</span>`:'';
   return phaseChip(l.status)+_w;
 }
+/* RETIRED FROM THE DOSSIER (2026-08-12) — kept because it is the only code that answers "which
+   visa backs this batch", and a man holding two visas would need that answer again.
+   It printed «الغطاء القانوني ⚖ 28584 [chip]» on the visa card while «الملف القانوني» printed
+   «⚖ 28584 [same chip]» directly beneath it: the same sentence twice, one screen apart. With one
+   visa the mirror adds nothing, so the legal card — which is where a reader looks for the legal
+   file — keeps the statement, and the visa card drops it. To bring it back for the multi-visa
+   case, re-add `${visaLegalCover(v)}` to the visa card and give it a chip-less form. */
 function visaLegalCover(v){   // #Phase2b: from a visa, show the legal batch it keeps alive (the mirror)
   if(!v||v.visa_id==null) return '';
   const bid=Object.keys(_LBL).find(id=>_LBL[id]&&_LBL[id].connected&&_LBL[id].connected_visa_id===v.visa_id);
@@ -702,10 +709,28 @@ function statusFromDays(days){
 function statusChip(s){return `<span class="pill st-${s.k}"><span class="pi">${s.ic}</span>${s.txt}</span>`}
 function pill(days){return statusChip(statusFromDays(days))}
 // overall verdict across documents — worst-of, so an UNKNOWN surfaces (never a false "Valid")
-function worstStatus(dates){
-  const rank={expired:0,crit:1,soon:2,unknown:3,valid:4};
-  const ss=dates.map(d=>statusFromDays(daysTo(d))); if(!ss.length)return statusFromDays(null);
-  return ss.sort((a,b)=>rank[a.k]-rank[b.k])[0];
+const _STRANK={expired:0,crit:1,soon:2,unknown:3,valid:4};
+function worstOf(ss){                       // ranks STATUS OBJECTS, so dates and bands mix freely
+  if(!ss.length) return statusFromDays(null);
+  return ss.slice().sort((a,b)=>_STRANK[a.k]-_STRANK[b.k])[0];
+}
+function worstStatus(dates){ return worstOf(dates.map(d=>statusFromDays(daysTo(d)))); }
+/* A VISA'S EXPIRY IS A RANGE, AND ONLY THE FLOOR IS A DATE WE HOLD.
+   floor = issue + مدة الإقامة (he entered the day it was issued — the earliest his stay can run
+   out). ceiling = floor + صلاحية الدخول (he entered on the last day the visa let him in — the
+   latest). Between the two nobody can say, because nothing on the paper records when he actually
+   crossed the border. The visa card has always been honest about this («قارب الانتهاء — بحسب
+   الدخول»); the roster chip and the dossier badge were not — they read the floor as fact, so
+   SHAFQAT HUSSAIN (floor 2026-05-29, ceiling 2026-08-27) was stamped a hard red ✕ منتهٍ while he
+   may still be lawfully present. Inside the band we return 'crit' (orange, "قارب الانتهاء"):
+   urgent enough to act on, but never claiming an expiry we cannot observe. Same three phases as
+   phaseChip/visaPhase — one rule, every surface. */
+function visaBandStatus(floor,ceiling,rawExpiry){
+  if(!floor||!ceiling) return statusFromDays(daysTo(rawExpiry||floor||ceiling||null));  // no entry/stay days → fall back honestly
+  const dF=daysTo(floor), dC=daysTo(ceiling);
+  if(dF>0)  return statusFromDays(dF);      // before the floor: certainly valid (and warns as it nears)
+  if(dC>=0) return {k:'crit',ic:'!',txt:(LANG==='ar'?'قارب الانتهاء':'Expiring')};       // inside the band: unknown, never "expired"
+  return statusFromDays(dC);                // past the ceiling: expired on any reading
 }
 function initials(n){return (n||'—').split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));  // escapes ' too → airtight for single-quoted attrs; output is display-only (never parsed back), getAttribute decodes on read
@@ -778,7 +803,10 @@ async function refreshLegalFlags(ids){
     const complete = ptKeys().filter(ptReq).every(k=>{ const x=batchPaper(b,k); return x.present && x.trusted; });
     if(!complete) LEGAL_INCOMPLETE.add(m.person_id); });                          // any incomplete batch → gap
 }
-function rowStatus(r){ return worstStatus([r.passport_expiry,r.soonest_visa_expiry]); }
+// the roster chip — the visa half is judged as a BAND (search_employees now returns its ceiling),
+// so the list and the dossier badge tell the same story about the same man
+function rowStatus(r){ return worstOf([statusFromDays(daysTo(r.passport_expiry)),
+  visaBandStatus(r.soonest_visa_expiry, r.soonest_visa_ceiling, r.soonest_visa_expiry)]); }
 const _VCHUNK=60;                                   // rows in the first window; the rest stream in on scroll
 let _vShown=[], _vCursor=0, _vObs=null;
 function _rowHtml({r,s}){ return `<div class="row" data-id="${esc(r.person_id)}">
@@ -1020,7 +1048,8 @@ function renderDetail(p,vs,legal,hist){
   // NOT drag this badge to expired, so the detail top badge agrees with the roster (which already
   // ranks by the current visa per country). A missing visa still counts as an unknown slot, so
   // "no visa on record" surfaces as gray "Incomplete" here exactly as in the listing.
-  const verdict = `<div class="d-verdict">${statusChip(worstStatus([p.passport_expiry,...(curVisas.length?curVisas.map(v=>v.visa_expiry):[null])]))}</div>`;
+  const verdict = `<div class="d-verdict">${statusChip(worstOf([statusFromDays(daysTo(p.passport_expiry)),
+    ...(curVisas.length?curVisas.map(v=>visaBandStatus(v.visa_valid_floor,v.visa_valid_ceiling,v.visa_expiry)):[statusFromDays(null)])]))}</div>`;
   const P=['passport_no','passport_type','passport_issue','passport_expiry','dob','sex','nationality','place_of_birth','issuing_country','issuing_authority','national_id_no'];
   const V=['visa_no','visa_type','visa_country','visa_issue','visa_expiry','visa_entry_days','visa_stay_days'];
   const passportCard = P.some(k=>p[k]) ? `<div class="doc">
@@ -1028,7 +1057,7 @@ function renderDetail(p,vs,legal,hist){
       <div class="grid">${P.map(k=>cell(k,p[k])).join('')}</div></div>` : '';
   const visaCards = curVisas.length ? curVisas.map(v=>`<div class="doc">
       <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${visaPhase(v)}${docViewBtn(v.visa_scan)}</div>
-      <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div>${visaLegalCover(v)}</div>`).join('')
+      <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div></div>`).join('')
     : `<div class="doc empty2">${t('t_novisa')}</div>`;
   $('#detail').innerHTML=`
     <div class="d-scroll"><div class="d-sheet">
@@ -1241,7 +1270,8 @@ async function buildDossier(){
   const p=CURRENT_P, vs=CURRENT_VS||[]; if(!p)return '';
   const name=p.name_latin||p.name_native||'—';
   const curVs=splitVisas(vs).cur;   // the dossier's overall status reflects CURRENT visas, not superseded ones
-  const st=worstStatus([p.passport_expiry,...(curVs.length?curVs.map(v=>v.visa_expiry):[null])]);
+  const st=worstOf([statusFromDays(daysTo(p.passport_expiry)),
+    ...(curVs.length?curVs.map(v=>visaBandStatus(v.visa_valid_floor,v.visa_valid_ceiling,v.visa_expiry)):[statusFromDays(null)])]);
   const face=await faceUrl(fullFace(p.photo)).then(u=>u||faceUrl(p.photo)).catch(()=>null);
   // the PRINT moment, in LOCAL time — date and time must agree (toISOString is UTC and drifts a day at night)
   let today='—', time=''; try{ const d=new Date(), p=n=>String(n).padStart(2,'0');
