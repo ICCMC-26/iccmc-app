@@ -530,6 +530,21 @@ function renderLaw(rows){
   { const sb2=$('#sortbar'); if(sb2) sb2.style.display=''; }     // back to the list → sorting applies again
   // classify every batch into a case, render filter chips (counts), then show the chosen case
   const cased=rows.map(b=>({b, c:_batchSectionCase(b)}));
+  /* A FILTER MUST NOT OUTLIVE ITS CHIP. A chip whose count is 0 isn't drawn, but the SELECTION is a
+     variable that survives the repaint — so the moment the last gap in a bucket is closed (you stamp
+     the final paper, or the live refresh picks up someone else's commit) the chip disappears while
+     LAW_FILTER still points at it: an empty list, no chip lit, and nothing on screen explaining why.
+     Measured: with every stamp marked and «أختام ناقصة» selected → 0 rows, 0 highlighted chips.
+     An emptied bucket means "nothing left to do here", so fall back to «الكل» and show the work that
+     remains. Same for a side whose own count drained inside a filter that still holds others. This
+     runs BEFORE the bar is painted, so the correction costs one pass, not a visible flicker. */
+  { const _f=LAW_FILTERS.find(f=>f.k===LAW_FILTER);
+    if(LAW_FILTER!=='all' && (!_f || !cased.some(x=>_f.match(x.c,x.b)))) { LAW_FILTER='all'; LAW_SIDE='all'; }
+    const _sides=LAW_SIDES[LAW_FILTER], _F=LAW_FILTERS.find(f=>f.k===LAW_FILTER);
+    if(_sides && LAW_SIDE!=='all'){
+      const _sd=_sides.find(s=>s.k===LAW_SIDE);
+      const _in=cased.filter(x=>_F.match(x.c,x.b)).map(x=>x.b);
+      if(!_sd || !_in.some(_sd.match)) LAW_SIDE='all'; } }
   const bar=$('#filters');
   if(bar){
     let html=LAW_FILTERS.map(f=>{ const n=cased.filter(x=>f.match(x.c,x.b)).length;
