@@ -464,12 +464,23 @@ function _batchSectionCase(b){
 const _batchNoStamp   =b=>ptKeys().filter(ptReq).some(k=>{ const x=batchPaper(b,k); return x.present && !x.trusted; });
 const _batchIncomplete=b=>ptKeys().filter(ptReq).some(k=>!batchPaper(b,k).present);
 const _batchStampsDone=b=>ptKeys().filter(ptReq).every(k=>{ const x=batchPaper(b,k); return x.present&&x.trusted; });
-/* which single stamp is missing — drives the sub-chips inside «أختام ناقصة». A type's registry
-   stamp names are ('company','ministry') or ('stamp',); we ask by NAME so a new paper type with the
-   same stamp name is covered without touching this. */
-const _stampMissing=(b,name)=>ptKeys().filter(ptReq).some(k=>{
+/* WHOSE stamp each paper carries. A paper is only ever stamped by the authority that issues it, so
+   a stamp it was never meant to have is NOT a gap:
+     · التعهد  — the COMPANY undertakes  → its single stamp is the company's; it has no ministry stamp
+     · المنح   — the MINISTRY grants     → its single stamp is the ministry's; it has no company stamp
+     · الاستمارة — passes through both    → it genuinely carries company AND ministry
+   The registry already stores each type's own stamps (so a batch is judged correctly); this maps the
+   generic name «stamp» to the authority it belongs to, which is what the sub-chips ask about. Without
+   it «ختم الشركة ناقص» was listing المنح — a paper that must never carry a company stamp at all. */
+const STAMP_AUTHORITY={
+  taahud:   {stamp:'company'},
+  istimara: {company:'company', ministry:'ministry'},
+  manh:     {stamp:'ministry'},
+};
+const _stampAuthority=(k,name)=>((STAMP_AUTHORITY[k]||{})[name])||name;
+const _stampMissingBy=(b,authority)=>ptKeys().filter(ptReq).some(k=>{
   const x=batchPaper(b,k); if(!x.present) return false;                 // absent paper → not a stamp gap
-  return (ptStamps(k)||[]).includes(name) && !b[_stampCol(k,name)];
+  return (ptStamps(k)||[]).some(nm=> _stampAuthority(k,nm)===authority && !b[_stampCol(k,nm)]);
 });
 /* which single PAPER is missing — drives the sub-chips inside «غير مكتمل» */
 const _paperMissing=(b,key)=>ptKeys().filter(ptReq).includes(key) && !batchPaper(b,key).present;
@@ -492,8 +503,8 @@ let LAW_SIDE='all';
 const LAW_SIDES={
   nostamp:[
     {k:'all',      ar:'الكل',            en:'All',              match:()=>true},
-    {k:'company',  ar:'ختم الشركة ناقص', en:'Company stamp',    match:b=>_stampMissing(b,'company')||_stampMissing(b,'stamp')},
-    {k:'ministry', ar:'ختم الوزارة ناقص',en:'Ministry stamp',   match:b=>_stampMissing(b,'ministry')},
+    {k:'company',  ar:'ختم الشركة ناقص', en:'Company stamp',    match:b=>_stampMissingBy(b,'company')},
+    {k:'ministry', ar:'ختم الوزارة ناقص',en:'Ministry stamp',   match:b=>_stampMissingBy(b,'ministry')},
   ],
   incomplete:[
     {k:'all',      ar:'الكل',            en:'All',              match:()=>true},
@@ -2678,7 +2689,14 @@ function ikBuildReview(){
   const present=k=>j.fields&&j.fields[k]!=null&&String(j.fields[k]).trim()!=='';
   const typeSet=jk._fields||TYPE_FIELDS[j.doc_type]||RV_ORDER;        // every field this doc can carry (استمارة review = only its columns)
   const filled=typeSet.filter(k=>present(k)||fl.includes(k));         // what's read or flagged
-  const keys=jk._fields?typeSet:(_rvShowAll?typeSet:(fl.length?fl:filled.slice(0,5)));   // استمارة shows its columns; else flagged/show-all
+  let keys=jk._fields?typeSet:(_rvShowAll?typeSet:(fl.length?fl:filled.slice(0,5)));   // استمارة shows its columns; else flagged/show-all
+  // A FIELD THE COMMIT WILL DEMAND MUST BE ON SCREEN. The gate refuses with «أكمل الحقول
+  // المطلوبة: تاريخ الانتهاء» — but that field was not among the shown ones, so the reader was
+  // told to fill something they could not see and the button simply stopped working. Any required
+  // field that is empty is added to the visible set, so a refusal is always fixable where it is
+  // raised. (Same rule as the legal flags: never block on something you have not put in reach.)
+  { const _req=(jk._req||REQ_BY_TYPE[j.doc_type]||[]).filter(k=>!present(k));
+    if(_req.length) keys=[...new Set([...keys, ..._req])]; }
   const hidden=typeSet.length-keys.length;
   const rows=keys.map(k=>{
     const val=(j.fields&&j.fields[k])??''; const conf=j.field_conf&&j.field_conf[k];
