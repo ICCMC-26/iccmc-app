@@ -3343,7 +3343,19 @@ async function istAgentPoll(){
   try{
     const {data,error}=await sb.from('scan_jobs')
       .select('job_id,status,fields,doc_type,image_hash,image_path,field_conf,flagged,error_msg')
-      .eq('source','pump').gte('updated_at',_istAgentSince)
+      /* NO `source` FILTER. This used to read `.eq('source','pump')`, and it silently made a whole
+         class of passports impossible to use here: a passport that entered inside a PACKET is
+         created by the worker, so its row says source='worker' — and no matter how many times the
+         user asked for it, the sheet threw it away. Measured on a drop of 15: the 11 pumped as
+         standalone files joined the table; the 4 that had arrived on 2026-08-07 as packet children
+         never could. It looked random; it was a fixed property of those four documents.
+         Nothing is loosened by dropping it. WHICH files may join is already decided by the three
+         real conditions: the time window (only what was touched since this sheet started watching),
+         the type (passports/IDs only), and `_istAgentSeen` (never the same content twice). And the
+         pump's touch() exists precisely to say "the user asked for this one again" — honouring that
+         signal for a pumped file but not for a packet-born one was never a decision, just a filter
+         that outlived its purpose. */
+      .gte('updated_at',_istAgentSince)
       .in('doc_type',['passport','national_id'])      // ONLY passports join the table
       .order('updated_at',{ascending:true});
     if(error) return; jobs=data||[];
