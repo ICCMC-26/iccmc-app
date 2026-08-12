@@ -2572,6 +2572,29 @@ const PERSON_DB=['person_id','name_latin','name_native','dob','sex','nationality
 const VISA_DB=['person_id','visa_no','visa_type','visa_issue','visa_expiry','visa_country','visa_scan',
   'visa_expiry_basis','visa_entry_days','visa_stay_days','visa_entry_date'];
 function pickDb(src,keys){const o={};keys.forEach(k=>{const v=src[k];if(v!==undefined&&v!==null&&String(v).trim()!=='')o[k]=v});return o}
+/* THE SEARCHABLE COPY OF THE NAME — fill it on every write, or identity matching goes blind.
+   `match_person` finds a candidate by NAME first (trigram over persons.norm_name) and only then
+   weighs dob/place/nationality/sex to confirm him; the four alone find nobody (measured: name
+   omitted → no candidate, name supplied → auto). So a person whose norm_name is empty is invisible
+   to the whole name half of the ladder — on a renewal his passport number is new, so if he also has
+   no national ID (every Chinese passport) nothing can recognise him, and the commit falls to a
+   stricter check that defers to a human.
+   It was filled ONCE by hand for EMP-0014…EMP-0045 during the Wave-1 verification and never again:
+   374 of 416 people were blank, including EMP-0500/0501/0502 committed days ago — nothing has ever
+   populated it, so the gap grew with every scan. Backfilled 2026-08-12 (416/416); this keeps it
+   filled from here.
+   It carries NO new information — just the name already on the row, whitespace-collapsed and
+   uppercased (the OCR can return a name across two lines). Word order does not matter: stored
+   «DUAN JUNLEI» matches a scan reading «JUNLEI DUAN» either way, both `auto`. Only ever SET from a
+   name we actually have, never cleared — a visa commit that carries no name must not blank it.
+   ⚠️ A database trigger would be stronger (it would also cover writes that never pass through this
+   client). Doing it here because the admin SQL connection was unavailable; if it comes back, move
+   this to a trigger on `persons` and delete this helper. */
+function withNorm(row){
+  const n=String(row.name_latin||row.name_native||'').replace(/\s+/g,' ').trim().toUpperCase();
+  if(n) row.norm_name=n;
+  return row;
+}
 const _nameTokens=s=>new Set(String(s||'').toUpperCase().split(/[^A-Z]+/).filter(x=>x.length>1));
 function _sameName(a,b){const A=_nameTokens(a),B=_nameTokens(b);if(!A.size||A.size!==B.size)return false;for(const x of A)if(!B.has(x))return false;return true}
 /* Ask the DATABASE for the next id. This used to be select-max-then-add-one here in the client,
@@ -2671,7 +2694,7 @@ async function ikCommitJob(j,f,forcePid){
   if(type==='visa'){
     if(!pid){                                               // human confirmed → create the person from this visa
       if(!f.name_latin&&!f.name_native)return {defer:1};
-      const prow=pickDb(f,PERSON_DB); pid=await _nextPersonId(); prow.person_id=pid;
+      const prow=withNorm(pickDb(f,PERSON_DB)); pid=await _nextPersonId(); prow.person_id=pid;
       const {error:pe}=await sb.from('persons').upsert(prow,{onConflict:'person_id'}); if(pe)throw pe; created=true;
     }
     const row=pickDb(f,VISA_DB); row.person_id=pid; if(j.image_path)row.visa_scan=j.image_path;
@@ -2680,7 +2703,7 @@ async function ikCommitJob(j,f,forcePid){
     const {error}=await sb.from('visas').insert(row); if(error)throw error;
   }else{
     if(!pid){ pid=await _nextPersonId(); created=true; }
-    const row=pickDb(f,PERSON_DB); row.person_id=pid;
+    const row=withNorm(pickDb(f,PERSON_DB)); row.person_id=pid;
     if(j.image_path){ if(type==='national_id')row.id_scan=j.image_path; else row.passport_scan=j.image_path; }
     if(!row.name_latin&&!row.name_native)return {defer:1};
     const {error}=await sb.from('persons').upsert(row,{onConflict:'person_id'}); if(error)throw error;
