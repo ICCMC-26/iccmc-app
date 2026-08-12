@@ -86,6 +86,7 @@ const I18N={
     pq_btn:'الوارد', pq_h:'الوارد — ما لم يُودَع بعد',
     pq_rev:'قيد المراجعة', pq_ref:'مرفوض',
     pq_rev_s:'ملفات تنتظر تأكيدك قبل أن تُودَع', pq_ref_s:'ملفات لم تُقبل — السبب مذكور مع كل ملف',
+    pq_empty:'لا شيء بانتظار المراجعة هنا',
     pq_all:'الكل', pq_legal:'قانوني', pq_pass:'جوازات', pq_visa:'فيزا', pq_start:'ابدأ المراجعة من الأول', lr_drop_t:'احذف هذه الورقة من الوارد', lr_drop_q:'حذف هذه الورقة من الوارد؟ لا تدخل السجل ولا يمكن التراجع.',
     pq_none_rev:'لا شيء بانتظار المراجعة — كل شيء تم.', pq_none_ref:'لا ملفات مرفوضة.',
     pq_wipe:'حذف الكل', pq_wipe_q:n=>`حذف ${n} ملفًا من هذه القائمة نهائياً؟`+String.fromCharCode(10)
@@ -206,6 +207,7 @@ const I18N={
     pq_rev:'Pending review', pq_ref:'Refused',
     pq_rev_s:'Files waiting for your confirmation before they are committed',
     pq_ref_s:'Files that were not accepted — each shows its reason',
+    pq_empty:'Nothing waiting for review here',
     pq_all:'All', pq_legal:'Legal', pq_pass:'Passports', pq_visa:'Visas', pq_start:'Start review from the first', lr_drop_t:'Delete this paper from the inbox', lr_drop_q:'Delete this paper from the inbox? It never enters the registry and this cannot be undone.',
     pq_none_rev:'Nothing waiting — all clear.', pq_none_ref:'No refused files.',
     pq_wipe:'Delete all', pq_wipe_q:n=>`Permanently delete all ${n} files in this list?`+String.fromCharCode(10)
@@ -452,7 +454,25 @@ function _batchSectionCase(b){
 }
 // the stamp gate, batch-wide: every REQUIRED paper present AND trusted (all its stamps marked).
 // Same rule the employee list uses for its legal gap — one definition, two places.
+/* TWO DIFFERENT COMPLAINTS, kept apart.
+   «أختام ناقصة» used to ask "is every required paper present AND stamped?", so a batch whose paper
+   had never arrived failed the same test as one whose paper was here but unstamped — and the chip
+   counted every batch in the section. A paper that is not here has no stamp to be missing; that is
+   an INCOMPLETE batch, and it belongs under its own filter.
+   · _batchNoStamp   → a paper that ARRIVED without its stamp  → «أختام ناقصة»
+   · _batchIncomplete→ a required paper that never arrived     → «غير مكتمل» */
+const _batchNoStamp   =b=>ptKeys().filter(ptReq).some(k=>{ const x=batchPaper(b,k); return x.present && !x.trusted; });
+const _batchIncomplete=b=>ptKeys().filter(ptReq).some(k=>!batchPaper(b,k).present);
 const _batchStampsDone=b=>ptKeys().filter(ptReq).every(k=>{ const x=batchPaper(b,k); return x.present&&x.trusted; });
+/* which single stamp is missing — drives the sub-chips inside «أختام ناقصة». A type's registry
+   stamp names are ('company','ministry') or ('stamp',); we ask by NAME so a new paper type with the
+   same stamp name is covered without touching this. */
+const _stampMissing=(b,name)=>ptKeys().filter(ptReq).some(k=>{
+  const x=batchPaper(b,k); if(!x.present) return false;                 // absent paper → not a stamp gap
+  return (ptStamps(k)||[]).includes(name) && !b[_stampCol(k,name)];
+});
+/* which single PAPER is missing — drives the sub-chips inside «غير مكتمل» */
+const _paperMissing=(b,key)=>ptKeys().filter(ptReq).includes(key) && !batchPaper(b,key).present;
 // A filter matches on the batch's CASE (active/expiring/…) and may also inspect the batch itself —
 // «أختام ناقصة» is a different dimension: a batch can be perfectly active and still miss a stamp.
 const LAW_FILTERS=[
@@ -460,10 +480,28 @@ const LAW_FILTERS=[
   {k:'active',   ar:'ساري',           en:'Active',   match:c=>c==='active'},
   {k:'expiring', ar:'قارب الانتهاء',  en:'Expiring', match:c=>c==='expiring'},
   {k:'awaiting', ar:'بانتظار الفيزا', en:'Awaiting', match:c=>c==='awaiting'},
-  {k:'nostamp',  ar:'أختام ناقصة',    en:'Missing stamps', match:(c,b)=>!_batchStampsDone(b)},
+  {k:'nostamp',  ar:'أختام ناقصة',    en:'Missing stamps',  match:(c,b)=>_batchNoStamp(b)},
+  {k:'incomplete',ar:'غير مكتمل',     en:'Incomplete',      match:(c,b)=>_batchIncomplete(b)},
   {k:'flag',     ar:'مراجعة',         en:'Review',   match:c=>c==='flag'},
   {k:'expired',  ar:'الأرشيف',        en:'Archive',  match:c=>c==='expired'},
 ];
+/* SUB-CHIPS — the same shape as the passport/visa «غير مكتمل» sides: pick the filter, then narrow it
+   to the exact gap. Registry-driven by stamp NAME and paper KEY, so a new paper type of an existing
+   role needs no edit here. */
+let LAW_SIDE='all';
+const LAW_SIDES={
+  nostamp:[
+    {k:'all',      ar:'الكل',            en:'All',              match:()=>true},
+    {k:'company',  ar:'ختم الشركة ناقص', en:'Company stamp',    match:b=>_stampMissing(b,'company')||_stampMissing(b,'stamp')},
+    {k:'ministry', ar:'ختم الوزارة ناقص',en:'Ministry stamp',   match:b=>_stampMissing(b,'ministry')},
+  ],
+  incomplete:[
+    {k:'all',      ar:'الكل',            en:'All',              match:()=>true},
+    {k:'taahud',   ar:'تعهد ناقص',       en:'Undertaking',      match:b=>_paperMissing(b,'taahud')},
+    {k:'istimara', ar:'استمارة ناقصة',   en:'Entry form',       match:b=>_paperMissing(b,'istimara')},
+    {k:'manh',     ar:'منح ناقص',        en:'Grant',            match:b=>_paperMissing(b,'manh')},
+  ],
+};
 // ONE way to name a batch everywhere — a generated «~» id reads as its people, a real منح number
 // reads as itself. (The employee's legal card used to print the raw «~…» id while the legal section
 // showed the friendly label, so the same batch appeared under two different names.)
@@ -475,11 +513,31 @@ function renderLaw(rows){
   // classify every batch into a case, render filter chips (counts), then show the chosen case
   const cased=rows.map(b=>({b, c:_batchSectionCase(b)}));
   const bar=$('#filters');
-  if(bar) bar.innerHTML=LAW_FILTERS.map(f=>{ const n=cased.filter(x=>f.match(x.c,x.b)).length;
-    if(f.k!=='all' && !n) return '';
-    return `<button class="fchip${LAW_FILTER===f.k?' on':''}" data-lf="${f.k}">${LANG==='ar'?f.ar:f.en}<span class="fc">${n}</span></button>`; }).join('');
+  if(bar){
+    let html=LAW_FILTERS.map(f=>{ const n=cased.filter(x=>f.match(x.c,x.b)).length;
+      if(f.k!=='all' && !n) return '';
+      return `<button class="fchip${LAW_FILTER===f.k?' on':''}" data-lf="${f.k}">${LANG==='ar'?f.ar:f.en}<span class="fc">${n}</span></button>`; }).join('');
+    // the chosen filter's own sides, counted WITHIN it — «which gap exactly?»
+    const sides=LAW_SIDES[LAW_FILTER];
+    if(sides){
+      const F0=LAW_FILTERS.find(f=>f.k===LAW_FILTER);
+      const inSet=cased.filter(x=>F0.match(x.c,x.b)).map(x=>x.b);
+      const parent=LANG==='ar'?F0.ar:F0.en;
+      // the SAME tinted bracket the employee «غير مكتمل» uses — it names its parent so the second
+      // level clearly belongs to that chip rather than floating on the row
+      const opts=sides.map(sd=>{ const n=inSet.filter(sd.match).length;
+        if(sd.k!=='all' && !n) return '';
+        return `<button class="subchip${LAW_SIDE===sd.k?' on':''}" data-ls="${sd.k}">${LANG==='ar'?sd.ar:sd.en}<span class="fc">${n}</span></button>`;
+      }).join('');
+      html+=`<div class="subfilter"><div class="sf-box" role="group" aria-label="${esc(parent)}">`
+        +`<span class="sf-parent">${esc(parent)}</span><span class="sf-div"></span>${opts}</div></div>`;
+    }
+    bar.innerHTML=html;
+  }
   const F=LAW_FILTERS.find(f=>f.k===LAW_FILTER)||LAW_FILTERS[0];
-  const _shownC=cased.filter(x=>F.match(x.c,x.b));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
+  let _shownC=cased.filter(x=>F.match(x.c,x.b));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
+  { const sides=LAW_SIDES[LAW_FILTER];             // then narrow to the chosen side, if one is picked
+    if(sides && LAW_SIDE!=='all'){ const sd=sides.find(s=>s.k===LAW_SIDE); if(sd) _shownC=_shownC.filter(x=>sd.match(x.b)); } }
   $('#count').textContent=_shownC.length?t('n_res',_shownC.length):'';
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
     <span class="law-actR"><span class="law-newwrap">
@@ -514,7 +572,12 @@ function renderLaw(rows){
     document.addEventListener('click',()=>lm.classList.remove('on'));   // click anywhere else = close
   }
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
-  if(bar) bar.querySelectorAll('[data-lf]').forEach(el=>el.onclick=()=>{ LAW_FILTER=el.getAttribute('data-lf'); renderLaw(rows); });
+  // changing the FILTER resets its side — otherwise «ختم الوزارة ناقص» would silently still be
+  // applied after switching to a filter where it means nothing (the same rule the employee chips use)
+  if(bar) bar.querySelectorAll('[data-lf]').forEach(el=>el.onclick=()=>{
+    LAW_FILTER=el.getAttribute('data-lf'); LAW_SIDE='all'; renderLaw(rows); });
+  if(bar) bar.querySelectorAll('[data-ls]').forEach(el=>el.onclick=()=>{
+    LAW_SIDE=el.getAttribute('data-ls'); renderLaw(rows); });
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
 async function gotoLawBatch(id){ closeEmployee(); setLaw(true); await search(''); openLawBatch(id); }
@@ -1849,7 +1912,7 @@ function pqRender(){
     let sr=bar.querySelector('#pq-startrev');
     if(isRev && PQ.total){
       if(!sr){ sr=document.createElement('button'); sr.id='pq-startrev'; sr.className='pq-start';
-               sr.onclick=()=>openLegalReview(''); bar.appendChild(sr); }
+               sr.onclick=startReviewWalk; bar.appendChild(sr); }
       sr.textContent='▸ '+t('pq_start');
     }else if(sr){ sr.remove(); }
   }
@@ -2631,9 +2694,13 @@ function ikBuildReview(){
   const more=(!_rvShowAll&&hidden>0)?`<button class="rvw-more" id="rvw-more">${t('rv_all')} (${hidden})</button>`
     :(_rvShowAll?`<button class="rvw-more" id="rvw-more">${t('rv_less')}</button>`:'');
   const foot=`<button class="rvw-add" id="rvw-add">${t('rv_add')}</button>`;
+  // the walk's controls, ONLY while a walk is running — opened from a row it stays a single card
+  const _w=_rvWalk, _wn=_w?`<span class="rvw-t">${_w.pos+1} / ${_w.items.length}</span>`:'';
+  const _wc=_w?`<button class="lr-go" id="rvw-prev" ${_w.pos<=0?'disabled':''}>${t('lg_prev')}</button>
+      ${_wn}<button class="lr-go" id="rvw-next" ${_w.pos>=_w.items.length-1?'disabled':''}>${t('lg_next')}</button>`:'';
   $('#ikreview').innerHTML=`
     <div class="rvw-bar"><button class="icon ik-close" id="rvw-close" title="${t('t_close')}">✕</button>
-      <span class="rvw-t">${t('rv_h')}</span><span style="flex:1"></span>
+      <span class="rvw-t">${t('rv_h')}</span>${_wc}<span style="flex:1"></span>
       <span class="rvw-fn">${esc(jk.file.name)}</span></div>
     <div class="rvw-body">
       <div class="rvw-scan" id="rvw-scan">${t('rv_loading')}</div>
@@ -2644,6 +2711,9 @@ function ikBuildReview(){
     </div>
     <div class="rvw-foot"><div id="rvw-renewal"></div>${foot}</div>`;
   $('#rvw-close').onclick=closeIkReview;
+  { const pv=$('#rvw-prev'), nx=$('#rvw-next');
+    if(pv)pv.onclick=()=>rvOpenAt(_rvWalk.pos-1);
+    if(nx)nx.onclick=()=>rvOpenAt(_rvWalk.pos+1); }
   const mb=$('#rvw-more'); if(mb)mb.onclick=()=>{_rvShowAll=!_rvShowAll;ikBuildReview();};
   const add=$('#rvw-add'); if(add)add.onclick=()=>ikDoAdd();
   ikPaintScan(j);
@@ -2682,9 +2752,61 @@ async function ikPaintScan(j){
 }
 function openIkReview(id){
   const jk=IK.find(x=>x.id===id); if(!jk||!jk.job)return;
+  _rvWalk=null;                                  // opened from a row → a single card, not a walk
   _rvJob=jk; _rvJob._scanUrl=null; _rvShowAll=false;
   ikBuildReview();
   $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
+}
+
+/* ══ THE REVIEW WALK — one queue, whatever the filter is showing ══════════════════════════════
+   «ابدأ المراجعة من الأول» used to open the LEGAL walk whatever you had filtered to, so choosing
+   «فيزا» and pressing it reviewed legal papers instead. Reviewing is a queue in every case: start
+   at one, go forward, commit, the next appears. The only thing that changes with the kind is what
+   sits in the middle of the pane — a legal BATCH (many papers, one record) or a single document.
+   Each keeps its own commit path untouched; only the shell around them is shared. */
+let _rvWalk=null;                                // {items:[{kind,hash,job_id,row}], pos}
+function rvQueue(){
+  // PQ.rows is already filtered to the chosen bucket AND kind, and ordered oldest-first — which is
+  // exactly the order a queue should be worked in. No second source of truth.
+  return (PQ.rows||[]).filter(r=>r&&r.job_id).map(r=>({
+    kind:String(r.kind||r.doc_type||'').replace(/^legal_.*/,'legal'),
+    hash:r.image_hash||(r.fields&&r.fields.scan_hash)||'', job_id:r.job_id, row:r }));
+}
+async function startReviewWalk(){
+  const items=rvQueue();
+  if(!items.length){ toast(t('pq_empty')); return; }
+  _rvWalk={items, pos:0};
+  await rvOpenAt(0);
+}
+async function rvOpenAt(i){
+  if(!_rvWalk||!_rvWalk.items.length) return;
+  _rvWalk.pos=Math.max(0,Math.min(_rvWalk.items.length-1,i));
+  const it=_rvWalk.items[_rvWalk.pos];
+  // a legal stop hands over to the legal walk, which owns its own paper-by-paper stepping; a
+  // document stop opens the document pane. Both land in the same overlay.
+  if(it.kind==='legal'){ const keep=_rvWalk; await openLegalReview(it.hash||''); _rvWalk=keep; return; }
+  await openDocReview(it);
+}
+async function openDocReview(it){
+  let j=it.row;
+  try{ const {data}=await sb.from('scan_jobs').select('*').eq('job_id',it.job_id).maybeSingle(); if(data) j=data; }catch(_){}
+  _rvJob={ id:it.job_id, job:j, hash:j.image_hash||it.hash, state:'review',
+           file:{name:String(j.image_path||'').split('/').pop()||''} };
+  _rvJob._scanUrl=null; _rvShowAll=false;
+  ikBuildReview();
+  $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
+}
+/* after a commit: drop the finished stop and open whatever is now in its place — so the queue
+   shortens as it is worked, exactly like the legal walk */
+async function rvAfterCommit(){
+  if(!_rvWalk) return false;
+  _rvWalk.items.splice(_rvWalk.pos,1);
+  if(!_rvWalk.items.length){ _rvWalk=null; closeIkReview(); toast(t('lg_all_done')); await pqLoad(); return true; }
+  if(_rvWalk.pos>=_rvWalk.items.length) _rvWalk.pos=_rvWalk.items.length-1;
+  await rvOpenAt(_rvWalk.pos);
+  toast(t('lg_next_batch',_rvWalk.items.length));
+  pqLoad();
+  return true;
 }
 /* Closing returns you to where you CAME FROM. Opening a card from «الوارد» closes that section
    first (the drawer is the same one the intake list uses), so ✕ used to drop the reviewer onto
@@ -2718,7 +2840,13 @@ async function ikDoAdd(forcePid){
     const _kidJid=(jk._kid&&jk.job)?jk.job.job_id:null;     // capture BEFORE jk.job is cleared
     if(jk._istRow){ Object.assign(jk._istRow,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||'', _status:'landed', _job:null}); if(typeof istRenderRows==='function')istRenderRows(); }  // corrected data → back into the استمارة row
     jk.state='landed'; jk.job=null; if(jk.hash)delete _ikPending[jk.hash];
-    toast(t('rv_added')+(r.pid||'')); closeIkReview(); ikRender();
+    toast(t('rv_added')+(r.pid||''));
+    // IN A WALK the pane does not close — it advances, and says what landed, exactly as the legal
+    // walk does. Opened from a single row it still closes, because there is nowhere to go next.
+    const _msg=t('rv_added')+(r.pid||'');
+    if(_rvWalk){ await rvAfterCommit(); lrCommitted('✓ '+_msg); }
+    else closeIkReview();
+    ikRender();
     if(_kidJid){                                            // a packet child was reviewed → flip it to ✓ NOW + re-confirm from DB
       for(const fam of IK){ if(fam.state==='split'&&fam.kids){ const kk=fam.kids.find(k=>k.job_id===_kidJid);
         if(kk){ kk.status='done'; fam.kidsSettled=false; } } }   // optimistic tick + un-stick the family so it re-queries
