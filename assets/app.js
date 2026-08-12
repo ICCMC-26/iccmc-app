@@ -583,12 +583,19 @@ function renderLaw(rows){
     document.addEventListener('click',()=>lm.classList.remove('on'));   // click anywhere else = close
   }
   const lh=$('#law-home'); if(lh)lh.onclick=()=>setLaw(false);    // back to the main employee search
-  // changing the FILTER resets its side — otherwise «ختم الوزارة ناقص» would silently still be
-  // applied after switching to a filter where it means nothing (the same rule the employee chips use)
+  /* A FILTER CLICK MEANS "SHOW ME THE LIST". Opening a batch leaves this bar on screen (unlike the
+     sort chips, which hide themselves — sorting a fixed roster means nothing). But renderLaw begins
+     with `if(_lawBatch) return renderLawBatch(...)`, so while a batch was open every chip click ran,
+     set the filter, and then repainted the SAME batch: the bar looked alive and did nothing, which
+     reads as the chips being frozen. Leaving a batch is what the click already implies, so do it.
+     (renderLaw() with no argument re-reads LAWLAST — the freshest list, not the array this render
+     closed over, which a background refresh may have replaced while the batch was open.)
+     Changing the FILTER also resets its side — otherwise «ختم الوزارة ناقص» would silently still be
+     applied after switching to a filter where it means nothing (the same rule the employee chips use). */
   if(bar) bar.querySelectorAll('[data-lf]').forEach(el=>el.onclick=()=>{
-    LAW_FILTER=el.getAttribute('data-lf'); LAW_SIDE='all'; renderLaw(rows); });
+    _lawBatch=null; LAW_FILTER=el.getAttribute('data-lf'); LAW_SIDE='all'; renderLaw(); });
   if(bar) bar.querySelectorAll('[data-ls]').forEach(el=>el.onclick=()=>{
-    LAW_SIDE=el.getAttribute('data-ls'); renderLaw(rows); });
+    _lawBatch=null; LAW_SIDE=el.getAttribute('data-ls'); renderLaw(); });
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
 async function gotoLawBatch(id){ closeEmployee(); setLaw(true); await search(''); openLawBatch(id); }
@@ -3522,7 +3529,13 @@ function _curVisaRef(){   // HIS current visa (from the open employee's CURRENT_
     .sort((a,b)=>String(b.visa_issue_d||'').localeCompare(String(a.visa_issue_d||'')))[0];
   return _visaRef(v);
 }
-const BATCH_WINDOW=60;   // منح→visa window with slack (nominal 45, tolerate up to 60)
+/* THE منح→VISA WINDOW — must be the SAME number the database uses in `v_legal_batch_link`.
+   It was 45 there and 60 here, and the stricter one silently won: batch 28584's grant (2025-04-08)
+   produced SHAFQAT HUSSAIN's visa 51 days later, so the view refused to connect them and the batch
+   read «بانتظار الفيزا» while the visa it paid for sat on the same screen, expiring. Both are now 90:
+   grants are months apart, so 90 still tells "this grant's visa" from "some later, unrelated visa",
+   and it stops a slow ministry from looking like a missing visa. Change one → change the other. */
+const BATCH_WINDOW=90;
 function _classVsVisa(b,cv){   // classify a STATIC batch against a given current-visa ref
   if(!cv || !cv.phase || cv.phase==='expired' || !cv.issue || !b || !b.manh_date) return 'awaiting';   // no live anchor → wait
   const gap=_daysBetween(cv.issue, b.manh_date);   // issue − منح  (positive = منح before the visa)
