@@ -2694,17 +2694,26 @@ function ikBuildReview(){
   const more=(!_rvShowAll&&hidden>0)?`<button class="rvw-more" id="rvw-more">${t('rv_all')} (${hidden})</button>`
     :(_rvShowAll?`<button class="rvw-more" id="rvw-more">${t('rv_less')}</button>`:'');
   const foot=`<button class="rvw-add" id="rvw-add">${t('rv_add')}</button>`;
-  // the walk's controls, ONLY while a walk is running — opened from a row it stays a single card
-  const _w=_rvWalk, _wn=_w?`<span class="rvw-t">${_w.pos+1} / ${_w.items.length}</span>`:'';
-  const _wc=_w?`<button class="lr-go" id="rvw-prev" ${_w.pos<=0?'disabled':''}>${t('lg_prev')}</button>
-      ${_wn}<button class="lr-go" id="rvw-next" ${_w.pos>=_w.items.length-1?'disabled':''}>${t('lg_next')}</button>`:'';
+  // THE WALK BLOCK — the SAME one the legal review uses (.lr-walk: prev · title over «x من y» · next),
+  // placed at the top of the side panel rather than squeezed into the title bar. A different-looking
+  // walk for documents made the two feel like different tools when they are one queue.
+  const _w=_rvWalk;
+  const _walk=_w?`<div class="lr-walk">
+      <button class="lr-nav" id="rvw-prev" ${_w.pos<=0?'disabled':''}>${t('lg_prev')}</button>
+      <div class="lr-walk-mid">
+        <div class="lr-walk-t">${esc(j.doc_type==='visa'?t('t_visa'):j.doc_type==='passport'?t('t_passport'):String(j.doc_type||''))}</div>
+        <div class="lr-walk-n">${t('lg_of',_w.pos+1,_w.items.length)}</div>
+      </div>
+      <button class="lr-nav go" id="rvw-next" ${_w.pos>=_w.items.length-1?'disabled':''}>${t('lg_next')}</button>
+    </div>`:'';
   $('#ikreview').innerHTML=`
     <div class="rvw-bar"><button class="icon ik-close" id="rvw-close" title="${t('t_close')}">✕</button>
-      <span class="rvw-t">${t('rv_h')}</span>${_wc}<span style="flex:1"></span>
+      <span class="rvw-t">${t('rv_h')}</span><span style="flex:1"></span>
       <span class="rvw-fn">${esc(jk.file.name)}</span></div>
     <div class="rvw-body">
       <div class="rvw-scan" id="rvw-scan">${t('rv_loading')}</div>
       <div class="rvw-side">
+        ${_walk}
         <div class="rvw-check-h">${fl.length?t('rv_check'):t('rv_clean')}</div>
         <div id="rvw-fields">${rows}</div>${more}
       </div>
