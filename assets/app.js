@@ -32,6 +32,7 @@ const I18N={
     dz_t:'اسحب ملفات الموظف هنا',
     dz_s:'أو انقر للاختيار · صورة أو PDF أو Excel أو Word · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
     ik_queued:'بالانتظار', ik_done:'رُفع', ik_failed:'فشل', ik_retry:'إعادة',
+    ik_nojob:'لم يصل الخادم — أعد الإسقاط',
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
@@ -152,6 +153,7 @@ const I18N={
     dz_t:"Drop the employee's files here",
     dz_s:'or click to browse · image, PDF, Excel or Word · large files OK · many files & employees at once',
     ik_queued:'Queued', ik_done:'Uploaded', ik_failed:'Failed', ik_retry:'Retry',
+    ik_nojob:'never reached the server — drop it again',
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
@@ -1523,7 +1525,13 @@ async function ikReconcile(){
     .order('created_at',{ascending:false})
     .then(r=>r.data||[], ()=>[])));          // one bad chunk must not blind the others
   const data=parts.flat();
-  if(!data.length)return;
+  /* NO early return on an empty result. This line used to read `if(!data.length) return;` — and it
+     made the SELF-HEAL below unreachable in the one case it was written for. A card whose file has
+     NO job at all produces an empty `data`, so the function returned before ever reaching the
+     "sat processing with no job → re-queue it" loop, and the card span for ever.
+     That is exactly how p.2 froze: its ledger row was skipped (a job with that hash existed at drop
+     time), the row was later deleted, and the only code that could have rescued it was behind this
+     return. The loops below already skip a hash with no row, so removing it costs nothing. */
   const latest={};
   for(const r of data){                       // newest per hash still wins across chunks
     const p=latest[r.image_hash];
@@ -1592,8 +1600,17 @@ async function ikReconcile(){
   const now=Date.now();
   for(const h of Object.keys(_ikPending)){
     const j=_ikPending[h];
-    if(j.state==='processing' && !latest[h] && j.sentAt && (now-j.sentAt)>IK_STUCK_MS && (j.tries||0)<IK_TRIES){
-      j.tries=(j.tries||0)+1; j.sentAt=0; delete _ikPending[h]; j.state='queued'; changed=true;
+    if(j.state==='processing' && !latest[h] && j.sentAt && (now-j.sentAt)>IK_STUCK_MS){
+      if((j.tries||0)<IK_TRIES){
+        j.tries=(j.tries||0)+1; j.sentAt=0; delete _ikPending[h]; j.state='queued'; changed=true;
+      }else{
+        // OUT OF RETRIES — say so. A card that has exhausted its tries used to fall through this
+        // condition and sit at «قيد المعالجة» for ever, which reads as "still working" when the
+        // truth is "gave up". A spinner that never ends is the one outcome the board must never
+        // show: every file ends in a state a human can act on.
+        j.state='failed'; j.err=t('ik_nojob')||'لم يُسجَّل في السجل بعد عدة محاولات';
+        delete _ikPending[h]; changed=true;
+      }
     }
   }
   if(changed)ikRender();
@@ -1763,12 +1780,26 @@ function ikSyncRow(j){                              // cheap per-row update duri
 /* One row per dropped file, written at upload so nothing can be invisible. Idempotent by hash:
    a retry of the same file must not add a second row. Returns false if the ledger refused it —
    the caller then fails the card rather than pumping a file the count can never see. */
+/* A FILE ALREADY IN THE SYSTEM MUST SAY SO — 15 files in, 15 answers out.
+   Re-dropping a paper the registry already holds correctly produced no new row (the ledger is
+   idempotent by hash). But nothing SAID so: the card simply never appeared, so a drop of 15 showed
+   11 and the reader was left counting to find the missing four. The legal side already announces a
+   duplicate; the passport/visa side stayed silent.
+   A job that has REACHED A CONCLUSION (done/committed/refused/failed) is a settled answer, so the
+   card resolves to «موجودة مسبقًا» at once and the upload is skipped — the bytes are already there.
+   A job still MID-FLIGHT is not an answer, so we fall through and behave exactly as before: the
+   upload proceeds and reconcile ticks both cards together. */
+const IK_SETTLED=new Set(['done','committed','refused','permanently-failed']);
 async function ikLedgerRow(job, path){
   if(!job.hash || job._ledger) return true;
   try{
-    const {data:seen}=await sb.from('scan_jobs').select('job_id')
-      .eq('image_hash',job.hash).limit(1);
-    if(seen&&seen.length){ job._ledger=true; return true; }      // worker or a prior try got there first
+    const {data:seen}=await sb.from('scan_jobs').select('job_id,status,doc_type')
+      .eq('image_hash',job.hash).order('created_at',{ascending:false}).limit(1);
+    if(seen&&seen.length){
+      job._ledger=true;
+      if(IK_SETTLED.has(seen[0].status)) job._pre=seen[0];        // a settled answer → say it, don't re-send
+      return true;                                               // else: mid-flight → upload as before
+    }
     const {error}=await sb.from('scan_jobs').insert({
       batch_id:job.batch||null, source:'intake', status:'received', doc_type:'unknown',
       image_hash:job.hash, image_path:path,
@@ -1798,6 +1829,11 @@ async function ikUpload(job){
     // read, so it neither blocks a fresh file nor lets a re-drop of a committed one look new).
     if(!await ikLedgerRow(job, path))
       throw new Error(t('ik_ledger')||('لم يُسجَّل الملف في السجل — '+(job._ledgerErr||'')));
+    // already settled in the registry → answer now; the bytes are content-addressed and already stored
+    if(job._pre){
+      job.pct=100; job.state= job._pre.status==='refused' ? 'refused' : 'landed';
+      job.preexisting=true; ikRender(); ikPump(); return;
+    }
     if(job.file.size>=IK_RESUMABLE) await ikResumable(job,path,session);   // big → chunked
     else await new Promise((res,rej)=>{                                    // small → one-shot POST
       const xhr=new XMLHttpRequest();
