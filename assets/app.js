@@ -2773,13 +2773,30 @@ function ikBuildReview(){
   { const _req=(jk._req||REQ_BY_TYPE[j.doc_type]||[]).filter(k=>!present(k));
     if(_req.length) keys=[...new Set([...keys, ..._req])]; }
   const hidden=typeSet.length-keys.length;
+  /* A VALUE WE DERIVED IS NOT A WEAK READ — SHOW IT, MARKED.
+     Clearing a flagged field is right for a GUESS about what is printed: an unsure OCR read must
+     not be rubber-stamped. But some visas print no stay at all — they state it in words on «نوع
+     السمة» («متعددة سنة واحدة / Multiple One Year», read at 0.98–1.00) — so the worker converts it
+     to 365 and computes the expiry from it, marking the pair `visa_expiry_basis='estimated'`.
+     Those carry CONF_VISUAL (0.60) because WE computed them, which flagged them, which blanked
+     them — so the reviewer saw two empty boxes and had to type what the system already knew. The
+     same collision had been silently hiding the computed expiry on visa grant letters since that
+     feature shipped: two good rules cancelling each other out.
+     A derived value is arithmetic on confident inputs, not a guess, so it is PRE-FILLED and
+     labelled «تقديري». It stays flagged and still gates — the human confirms it, he just no longer
+     transcribes it. A genuinely weak read is untouched and still clears. */
+  const _DERIVED=new Set(['visa_stay_days','visa_expiry']);
+  const _isDerived=k=>_DERIVED.has(k) && (j.fields||{}).visa_expiry_basis==='estimated';
   const rows=keys.map(k=>{
     const val=(j.fields&&j.fields[k])??''; const conf=j.field_conf&&j.field_conf[k];
     const miss=val===''||val==null, flag=fl.includes(k);
-    const tag=miss?t('rv_missing'):(conf!=null?Math.round(conf*100)+'%':'');
+    const der=!miss && _isDerived(k), blank=flag&&!der;               // derived → keep the value on screen
+    const tag=miss?t('rv_missing')
+      :(der?((conf!=null?Math.round(conf*100)+'% · ':'')+t('t_est'))
+           :(conf!=null?Math.round(conf*100)+'%':''));
     const inp=DATE_FIELDS.has(k)                                     // dates: a picker, never free text
-      ? `<input type="date" data-k="${esc(k)}" value="${flag?'':esc(isoDate(val))}">`
-      : `<input data-k="${esc(k)}" value="${flag?'':esc(val)}" placeholder="${miss?'—':''}">`;
+      ? `<input type="date" data-k="${esc(k)}" value="${blank?'':esc(isoDate(val))}">`
+      : `<input data-k="${esc(k)}" value="${blank?'':esc(val)}" placeholder="${miss?'—':''}">`;
     return `<div class="rfield${miss?' miss':flag?' flag':''}">
       <label>${esc(fieldLabel(k))} <span class="cf">${tag}</span></label>
       ${inp}</div>`;
