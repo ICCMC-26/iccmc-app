@@ -114,6 +114,7 @@ const I18N={
     ist_agent_open:'افتح أداة الرفع', ist_agent_get:'حمِّل أداة الرفع',
     ist_agent_new:'حمِّل تحديث أداة الرفع',
     ist_agent_hint:'تُرفع الجوازات بالأداة — تدخل السجل كالمعتاد وتظهر هنا تلقائياً',
+    ist_agent_updated:'⬇ نُزِّلت نسخة أحدث من الأداة — افتح الملف الجديد من التنزيلات، لا النسخة القديمة',
     ist_agent_wait:'بانتظار الجوازات من الأداة…', ist_agent_got:n=>`أُضيف ${n} من الأداة`,
     ist_agent_other:'المستندات الأخرى تذهب إلى «الوارد» ولا تُدرج في هذا الجدول',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
@@ -236,6 +237,7 @@ const I18N={
     ist_agent_open:'Open the uploader', ist_agent_get:'Get the uploader',
     ist_agent_new:'Download the uploader update',
     ist_agent_hint:'Passports go through the uploader — they enter the registry as usual and appear here automatically',
+    ist_agent_updated:'⬇ A newer uploader was downloaded — open the NEW file from Downloads, not the old copy',
     ist_agent_wait:'waiting for passports from the uploader…', ist_agent_got:n=>`${n} added from the uploader`,
     ist_agent_other:'Other documents go to «الوارد» and are not added to this table',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
@@ -367,10 +369,37 @@ function subscribeLive(){
 /* ── search (the whole point) ────────────────────────────────────────────── */
 let LAST=[], _seq=0, _timer=null;
 function onType(){clearTimeout(_timer);_timer=setTimeout(()=>search($('#q').value),180)}
+/* PostgREST caps every response at a fixed number of rows (1000 by default) no matter what the
+   function returns. So the roster stopped at 1000 the moment the registry passed it — the count
+   froze and the 1001st employee was simply absent, with nothing on screen admitting it. That is the
+   same silent-omission fault as the old `limit 500` inside search_employees, one layer up: the SQL
+   was fixed, the transport still truncated.
+   Raising the ceiling again would only move the wall. Asking for successive RANGES removes it: we
+   keep pulling pages until one comes back short, which is the only reliable end-of-set signal
+   PostgREST gives. A short page ends it, so a registry of any size is fully read.
+   PAGE is set BELOW the server's cap on purpose — if it were equal and the server's cap were
+   lower than we think, every page would look "short" and we would stop after one, re-creating the
+   bug while looking like a fix.
+   `alive` lets a newer keystroke abandon the walk mid-way instead of paging to the end of a result
+   set nobody is waiting for any more. */
+const PAGE=500, MAX_PAGES=200;                    // 100k rows — a backstop against a runaway loop
+async function rpcAll(fn, args, alive){
+  let out=[];
+  for(let i=0;i<MAX_PAGES;i++){
+    const from=i*PAGE;
+    const {data,error}=await sb.rpc(fn,args).range(from, from+PAGE-1);
+    if(error) return {data:null,error};
+    const got=data||[];
+    out=out.concat(got);
+    if(got.length<PAGE) return {data:out,error:null};   // a short page IS the end of the set
+    if(alive && !alive()) return {data:out,error:null}; // superseded — stop paging, discard upstream
+  }
+  return {data:out,error:null};
+}
 async function search(q){
   const seq=++_seq;
   if(LAWMODE){ const rows=await searchLegalBatches(q); if(seq!==_seq)return; LAWLAST=sortLawRows(rows); renderLaw(LAWLAST); return; }
-  const {data,error}=await sb.rpc('search_employees',{q});
+  const {data,error}=await rpcAll('search_employees',{q},()=>seq===_seq);
   if(seq!==_seq)return;                            // a newer keystroke won
   if(error){toast(error.message);return}
   // SEARCH = relevance order (the RPC ranks exact/prefix first — best match on top, direct & pro).
@@ -2221,8 +2250,15 @@ const TOOL_V='2.9';
 
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
+/* WHEN the link was clicked. Without it the page can never tell "he took 2.9 and hasn't pumped
+   yet" from "he took 2.9, then pumped with the old 2.8 that is still on his disk" — and those two
+   need opposite answers. A pump that happened AFTER the click is proof of what is really
+   installed; a pump from before it proves nothing about the copy just taken. */
+const AGENT_GOT_AT_KEY='iccmc_agent_got_at';
+function agentGotAt(){ try{ return Date.parse(localStorage.getItem(AGENT_GOT_AT_KEY)||'')||0; }catch(_){ return 0; } }
 function agentGot(){ try{ localStorage.setItem(AGENT_KEY,'1');
-                          localStorage.setItem(AGENT_VER_KEY,TOOL_V); }catch(_){} }
+                          localStorage.setItem(AGENT_VER_KEY,TOOL_V);
+                          localStorage.setItem(AGENT_GOT_AT_KEY,new Date().toISOString()); }catch(_){} }
 /* WHAT IS ACTUALLY INSTALLED — reported by the tool, not guessed by this page.
    localStorage records the version this page OFFERED at the moment the link was clicked. That is
    not the same thing as the version that ended up running: a click that put 2.6 in the Downloads
@@ -2231,23 +2267,42 @@ function agentGot(){ try{ localStorage.setItem(AGENT_KEY,'1');
    The uploader stamps its own TOOL_VERSION on every batch it declares, so the newest batch tells
    the truth. Read once at boot; until it answers we fall back to the old guess. */
 let AGENT_REPORTED='';
+let AGENT_REPORTED_AT=0;     // when that batch was declared — see agentState()
 async function loadAgentVersion(){
   try{
     const {data}=await sb.from('intake_batches').select('tool_version,declared_at')
       .not('tool_version','is',null).order('declared_at',{ascending:false}).limit(1);
     const v=(data&&data[0]&&data[0].tool_version||'').trim();
-    if(v && v!==AGENT_REPORTED){ AGENT_REPORTED=v; paintAgentLink(); }
+    const at=Date.parse(data&&data[0]&&data[0].declared_at||'')||0;
+    if(v && (v!==AGENT_REPORTED || at!==AGENT_REPORTED_AT)){
+      AGENT_REPORTED=v; AGENT_REPORTED_AT=at; paintAgentLink();
+    }
   }catch(_){/* offline / no rows → keep the local guess */}
 }
-/* three states, one line — and the line must always lead somewhere.
-   The reported version is NOT consulted here, deliberately. Letting it override made the state
-   unreachable: a tool reporting 2.6 against a site on 2.7 is 'stale' for ever, so the link only
-   ever offered a download and never "open" — and becoming 'current' required pumping with the new
-   build, which required opening it. Truth that traps the user is not worth having.
-   What the user took is what this decides; `AGENT_REPORTED` stays a fact we can READ (it is what
-   diagnosed the stale install), it just never blocks the next step. */
+/* three states, one line — and the line must always lead somewhere. TWO opposite traps guard it:
+   · Trap A — decide on the CLICK alone: a click that put 2.6 in the Downloads folder marks the user
+     "current" while 2.6 is still the copy being launched, and from then on no update is ever
+     offered again. (This is what actually happened between 2.8 and 2.9.)
+   · Trap B — let the REPORTED version override outright: a tool reporting 2.6 against a site on 2.7
+     is 'stale' for ever, so the line only ever offers a download and never "open" — and becoming
+     'current' requires pumping with the new build, which requires opening it. Truth that traps the
+     user is not worth having; that attempt was reverted.
+   …and the missing piece between those two traps is TIME.
+   A pump that happened AFTER the link was clicked is PROOF of what is really on the disk: the
+   uploader stamps its own TOOL_VERSION on every batch it declares. A pump from BEFORE the click
+   proves nothing about the copy just taken. So:
+     · pumped since the click → believe the PUMP (evidence beats a click)
+     · not pumped since       → believe the CLICK (so the link still says "open", never trapping)
+   Trap A (a click marks you current for ever while the old copy is what you keep launching) is
+   closed, because the next pump with the old build flips this straight back to «update».
+   Trap B (stale for ever until you pump with a build you cannot open) stays closed, because with
+   no pump since the click we fall back to the click exactly as before.
+   No got-at recorded (a user from before this shipped) counts as "clicked long ago", so any pump
+   at all is newer and therefore authoritative — which is the honest reading. */
 function agentState(){
   if(!agentHave()) return 'none';
+  if(AGENT_REPORTED && AGENT_REPORTED_AT && AGENT_REPORTED_AT > agentGotAt())
+    return AGENT_REPORTED===TOOL_V ? 'current' : 'stale';   // a real pump said what is installed
   return agentVer()===TOOL_V ? 'current' : 'stale';
 }
 
@@ -3309,12 +3364,16 @@ function istOpenAgent(){
   const st=agentState();
   const note=$('#ist-agent-note');
   const say=k=>{ if(note) note.textContent=t(k); };
+  /* An UPDATE must be SAID, not done quietly. This door used to fetch the newer build in the
+     background and mark the user current in the same breath — so the drop-zone link went straight
+     from «تحديث متاح» to «افتح», and the update was never once offered out loud. Chrome keeps the
+     old copy too (as a numbered file), so a silent swap leaves the stale one still being launched. */
   if(st!=='current'){                       // no copy, or an old one → fetch it, then watch
     const a=document.createElement('a');
     a.href='ICCMC-uploader.pyw'; a.download='افتح أداة الرفع.pyw';
     document.body.appendChild(a); a.click(); a.remove();
     agentGot(); paintAgentLink();
-    say('ist_agent_hint');
+    say(st==='stale'?'ist_agent_updated':'ist_agent_hint');
     istAgentWatch();
     return;
   }
