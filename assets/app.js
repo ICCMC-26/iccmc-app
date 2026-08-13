@@ -2217,7 +2217,7 @@ const AGENT_VER_KEY='iccmc_agent_version';
 /* The version of the uploader this site ships. Keep it equal to TOOL_VERSION in pump.py.
    Storing which version was taken turns one hopeful guess ("they probably have it") into three
    honest states: they have nothing, they have an OLD one, or they have this one. */
-const TOOL_V='2.8';
+const TOOL_V='2.9';
 
 function agentHave(){ try{ return localStorage.getItem(AGENT_KEY)==='1'; }catch(_){ return false; } }
 function agentVer(){ try{ return localStorage.getItem(AGENT_VER_KEY)||''; }catch(_){ return ''; } }
