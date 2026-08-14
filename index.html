@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=99">
+<link rel="stylesheet" href="assets/app.css?v=100">
 </head>
 <body>
 
@@ -35,6 +35,7 @@
     <span class="top-logo" role="img" aria-label="ICCMC"></span>
     <span class="spacer"></span>
     <button class="add" id="add"><span style="font-size:17px">＋</span> <span id="addtxt">إضافة</span></button>
+    <button class="add" id="bboard" title="اللوحة / Board"><span style="font-size:16px">◧</span> <span id="bboardtxt">اللوحة</span></button>
     <button class="add lawbtn" id="blaw" title="المعاملات القانونية / Legal procedures"><span style="font-size:16px">⚖</span> <span id="blawtxt">المعاملات</span></button>
     <button class="add pendbtn" id="bpend" title="الوارد — ما لم يُودَع بعد / Inbox — not committed yet"><span style="font-size:16px">📥</span> <span id="bpendtxt">الوارد</span><span class="pq-badge" id="pq-badge" hidden>0</span></button>
     <button class="icon" id="tlang" title="EN / ع">ع</button>
@@ -55,6 +56,9 @@
   <div class="listbar"><div class="count" id="count"></div><div class="sortbar" id="sortbar"></div></div>
   <div id="results"></div>
 </div>
+
+<!-- the board: a separate page, not a panel on the roster -->
+<div id="board"></div>
 
 <div id="detail"></div>
 <div id="lightbox"></div>
@@ -123,6 +127,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=231"></script>
+<script src="assets/app.js?v=232"></script>
 </body>
 </html>

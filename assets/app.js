@@ -36,6 +36,11 @@ const I18N={
     ov_ib_review:'قيد المراجعة', ov_ib_staged:'عند البوّابة', ov_ib_refused:'مرفوض',
     ov_legal:'المعاملات', ov_legal_s:'دفعات المنح',
     ov_lg_batches:'دفعة', ov_lg_members:'اسم في الكشوف',
+    bd_title:'لوحة السجل', bd_close:'إغلاق', bd_loading:'… تحميل الأرقام',
+    bd_visa_exp:'تأشيرة منتهية', bd_visa_soon:'تنتهي خلال 90 يومًا',
+    bd_visa_state:'حالة التأشيرات', bd_pass_state:'حالة الجوازات', bd_of_emp:'موظف لديه تأشيرة',
+    bd_horizon:'متى تنتهي التأشيرات', bd_horizon_s:'عدد الموظفين في كل مدى — الأحمر منتهٍ فعلاً · الكهرماني خلال 90 يومًا',
+    bd_when:'المدى', bd_show_tbl:'عرض كجدول', bd_hide_tbl:'إخفاء الجدول',
     soon:'ينتهي خلال', day:'يوم', expired:'منتهٍ', valid:'ساري', nodocs:'لا وثائق', incomplete:'غير مكتمل',
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
@@ -172,6 +177,11 @@ const I18N={
     ov_ib_review:'in review', ov_ib_staged:'at the gate', ov_ib_refused:'refused',
     ov_legal:'Legal', ov_legal_s:'grant batches',
     ov_lg_batches:'batches', ov_lg_members:'names on rosters',
+    bd_title:'Registry board', bd_close:'Close', bd_loading:'… loading the numbers',
+    bd_visa_exp:'visas expired', bd_visa_soon:'expiring within 90 days',
+    bd_visa_state:'Visa status', bd_pass_state:'Passport status', bd_of_emp:'employees hold a visa',
+    bd_horizon:'When visas expire', bd_horizon_s:'employees in each range — red is already expired · amber is due within 90 days',
+    bd_when:'Range', bd_show_tbl:'Show as table', bd_hide_tbl:'Hide table',
     soon:'expires in', day:'d', expired:'Expired', valid:'Valid', nodocs:'No documents', incomplete:'Incomplete',
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
@@ -425,6 +435,113 @@ function ovBar(parts){
     `<span class="ov-li"><i class="ov-dot ${p.k}"></i><b class="ov-n">${_ovN(p.n)}</b> ${esc(p.label)}</span>`).join('');
   return `<div class="ov-bar">${segs}</div><div class="ov-legend">${leg}</div>`;
 }
+/* ══ THE BOARD — a separate page, built to be read across a room ═══════════════════════════
+   Form was chosen before colour, per block:
+     · one number            → a HERO FIGURE, never a one-bar chart
+     · four ordered states   → a stacked bar (part-to-whole), status colours
+     · ordered time bins     → columns (magnitude), ONE hue
+     · a ranking of 6        → horizontal bars, ONE hue — this is magnitude, not identity, and
+                               spending six categorical colours on it would burn the only free
+                               channel on information the bar length already carries.
+   Passports and visas are NOT drawn on one pair of axes: two measures of different scale sharing
+   a plot invents a relationship the data does not contain. They get their own blocks. */
+let BOARD_TBL=false;
+function bdN(n){ return Number(n||0).toLocaleString(LANG==='ar'?'ar-EG':'en-US'); }
+/* A stacked status bar. Segments are ordered valid → soon → expired → unknown so grey always
+   lands at the end and reads as "and this much we cannot say". Every segment is direct-labelled
+   in the key: the amber/green pair sits inside the colourblind warn band, and labels + the 2px
+   gaps are exactly the secondary encoding that makes it legible anyway. */
+function bdBar(parts){
+  const tot=parts.reduce((s,p)=>s+p.n,0)||1;
+  const segs=parts.filter(p=>p.n>0).map(p=>
+    `<i class="bd-seg" style="width:${(p.n/tot*100).toFixed(2)}%;background:var(${p.v})"></i>`).join('');
+  const key=parts.filter(p=>p.n>0).map(p=>
+    `<span class="bd-k"><i style="background:var(${p.v})"></i><b>${bdN(p.n)}</b> ${esc(p.label)}</span>`).join('');
+  return `<div class="bd-bar">${segs}</div><div class="bd-key">${key}</div>`;
+}
+function renderBoard(){
+  const box=$('#board'); if(!box) return;
+  const o=OVERVIEW;
+  if(!o){ box.innerHTML=`<div class="bd-top"><span class="bd-ttl">${esc(t('bd_title'))}</span>`
+        +`<button class="bd-x" id="bd-x">${esc(t('bd_close'))}</button></div>`
+        +`<div class="bd-s">${esc(t('bd_loading'))}</div>`; wireBoard(); return; }
+  const P=o.passports||{}, V=o.visas||{}, G=o.gaps||{}, H=o.horizon||[];
+  const nats=(o.nationalities||[]).slice(0,6);
+  const natMax=Math.max(1,...nats.map(x=>+x.n||0));
+  const hMax =Math.max(1,...H.map(x=>+x.visas||0));
+  const soon90=(+V.soon||0);
+
+  /* EMPHASIS, not decoration. On a linear scale 604 dwarfs the bins that actually need action —
+     71 overdue and 74 inside 90 days render as slivers, so the urgent story hides behind the
+     comfortable one. The bins are ordered by URGENCY, so colour here genuinely means status and
+     is allowed to: red = already expired, amber = due inside 90 days, recessive teal = context.
+     The scale stays LINEAR (a log axis would flatter the backlog) and every column keeps its
+     printed value, so a short bar is never an unreadable one. */
+  const urg=k=>k==='overdue'?'od':(k==='d30'||k==='d60'||k==='d90')?'sn':'far';
+  const cols=H.map(h=>`<div class="bd-col"><em>${bdN(h.visas)}</em>`
+     +`<i class="${urg(h.k)}" style="height:${Math.max(2,(+h.visas||0)/hMax*100).toFixed(1)}%"></i></div>`).join('');
+  const xlab=H.map(h=>`<span>${esc(h.label)}</span>`).join('');
+
+  box.innerHTML=`
+  <div class="bd-top"><span class="bd-ttl">${esc(t('bd_title'))}</span>
+    <button class="bd-x" id="bd-x">${esc(t('bd_close'))} ✕</button></div>
+
+  <div class="bd-hero"><b>${bdN(o.employees)}</b><span>${esc(t('ov_employees'))}</span></div>
+
+  <div class="bd-kpis">
+    <div class="bd-kpi hot"><b>${bdN(V.expired)}</b><span>${esc(t('bd_visa_exp'))}</span></div>
+    <div class="bd-kpi warn"><b>${bdN(soon90)}</b><span>${esc(t('bd_visa_soon'))}</span></div>
+    <div class="bd-kpi"><b>${bdN(G.no_visa)}</b><span>${esc(t('ov_no_visa'))}</span></div>
+    <div class="bd-kpi"><b>${bdN(G.no_passport_date)}</b><span>${esc(t('ov_no_pdate'))}</span></div>
+  </div>
+
+  <div class="bd-block">
+    <h3 class="bd-h">${esc(t('bd_visa_state'))}</h3>
+    <p class="bd-s">${bdN(V.employees_with)} ${esc(t('bd_of_emp'))}</p>
+    ${bdBar([{n:+V.valid||0,v:'--st-ok',label:t('ov_valid')},{n:+V.soon||0,v:'--st-soon',label:t('ov_soon')},
+             {n:+V.expired||0,v:'--st-bad',label:t('ov_expired')},{n:+V.unknown||0,v:'--st-unk',label:t('ov_nodate')}])}
+  </div>
+
+  <div class="bd-block">
+    <h3 class="bd-h">${esc(t('bd_pass_state'))}</h3>
+    <p class="bd-s">${bdN(P.total)} ${esc(t('ov_onfile'))}</p>
+    ${bdBar([{n:+P.valid||0,v:'--st-ok',label:t('ov_valid')},{n:+P.soon||0,v:'--st-soon',label:t('ov_soon')},
+             {n:+P.expired||0,v:'--st-bad',label:t('ov_expired')},{n:+P.unknown||0,v:'--st-unk',label:t('ov_nodate')}])}
+  </div>
+
+  <div class="bd-block">
+    <h3 class="bd-h">${esc(t('bd_horizon'))}</h3>
+    <p class="bd-s">${esc(t('bd_horizon_s'))}</p>
+    <div class="bd-cols">${cols}</div><div class="bd-xl">${xlab}</div>
+    <button class="bd-tt" id="bd-tt">${esc(BOARD_TBL?t('bd_hide_tbl'):t('bd_show_tbl'))}</button>
+    ${BOARD_TBL?`<table class="bd-tbl"><tr><th>${esc(t('bd_when'))}</th><th>${esc(t('ov_visas'))}</th>`
+      +`<th>${esc(t('ov_passports'))}</th></tr>`
+      +H.map(h=>`<tr><td>${esc(h.label)}</td><td>${bdN(h.visas)}</td><td>${bdN(h.passports)}</td></tr>`).join('')
+      +`</table>`:''}
+  </div>
+
+  <div class="bd-block">
+    <h3 class="bd-h">${esc(t('ov_nats'))}</h3>
+    <p class="bd-s">${esc(t('ov_nats_s'))}</p>
+    <div class="bd-rows">${nats.map(x=>
+      `<div class="bd-row"><span>${esc(x.name)}</span>`
+      +`<i style="width:${((+x.n||0)/natMax*100).toFixed(1)}%"></i><b>${bdN(x.n)}</b></div>`).join('')}</div>
+  </div>`;
+  wireBoard();
+}
+function wireBoard(){
+  const x=$('#bd-x'); if(x) x.onclick=()=>closeBoard();
+  const tt=$('#bd-tt'); if(tt) tt.onclick=()=>{ BOARD_TBL=!BOARD_TBL; renderBoard(); };
+}
+async function openBoard(){
+  const b=$('#board'); if(!b) return;
+  b.classList.add('on'); document.body.style.overflow='hidden';
+  renderBoard();                       // paint immediately, even if the numbers are still coming
+  _ovAsked=false; await loadOverview(); renderBoard();   // then refresh: a board is read for NOW
+}
+function closeBoard(){ const b=$('#board'); if(b) b.classList.remove('on');
+                       document.body.style.overflow=''; }
+
 function renderOverview(){
   const box=$('#overview'); if(!box) return;
   const o=OVERVIEW;
@@ -2735,6 +2852,11 @@ $('#ttheme').addEventListener('click',toggleTheme);
 $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.auth.signOut();location.reload()}});
 $('#add').addEventListener('click',openIntake);
 $('#blaw').addEventListener('click',()=>setLaw(!LAWMODE));
+$('#bboard').addEventListener('click',openBoard);
+// Escape closes the board — it is a page you look at, so the way out must never need aiming.
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && $('#board') && $('#board').classList.contains('on')) closeBoard();
+});
 $('#intake .ik-close').addEventListener('click',closeIntake);
 /* ── the queue: one delegated listener, so re-rendering never leaks handlers ── */
 $('#bpend').addEventListener('click',pqOpen);

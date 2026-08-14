@@ -1145,3 +1145,82 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   .ov-big{font-size:32px}
   .ov-grid{grid-template-columns:1fr}
 }
+
+/* ══ THE BOARD — a separate page, meant to be read across a room ═════════════════════════════
+   Five blocks, no more. Every choice here answers "can someone take this in from three metres":
+   a hero figure instead of a one-bar chart, thin marks, NO gridlines, direct labels on every
+   segment, and generous emptiness. Nothing here is clickable except the way out.
+   COLOUR IS NOT DECORATION: green/amber/red are STATUS tokens and appear only where the colour
+   MEANS something; the horizon and nationality charts are magnitude, not identity, so they use a
+   single teal hue — spending seven categorical colours on a ranking would burn the one free
+   channel on information the bar length already carries.
+   The four status steps were validated with the palette checker, light and dark separately (a
+   dark palette flipped onto white fails contrast outright). The one pair still inside the CVD
+   warn band (amber↔green) is legal only WITH secondary encoding, which is why every segment
+   carries its number and label and every fill is separated by a 2px gap. */
+#board{position:fixed;inset:0;z-index:60;overflow-y:auto;background:var(--bg);
+       padding:26px clamp(16px,4vw,54px) 60px;display:none}
+#board.on{display:block}
+:root{ --st-ok:#63d18a; --st-soon:#f7b64f; --st-bad:#ff6068; --st-unk:#b9beb8; }
+:root[data-theme="light"]{ --st-ok:#2e9e5b; --st-soon:#c8801a; --st-bad:#d0242f; --st-unk:#8b918a; }
+
+.bd-top{display:flex;align-items:center;gap:14px;margin-bottom:26px}
+.bd-x{margin-inline-start:auto;background:transparent;border:1px solid var(--line);
+      color:var(--ink2);border-radius:99px;padding:9px 18px;font-size:14px;cursor:pointer}
+.bd-x:hover{border-color:var(--copper);color:var(--copper)}
+.bd-ttl{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
+        font-family:var(--mono)}
+
+/* hero — proportional figures on purpose; tabular-nums makes a display number look loose */
+.bd-hero{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:30px}
+.bd-hero b{font-size:clamp(56px,8vw,92px);line-height:.92;font-weight:600;color:var(--ink);
+           letter-spacing:-.03em}
+.bd-hero span{font-size:clamp(15px,1.6vw,19px);color:var(--muted);padding-bottom:10px}
+
+.bd-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:34px}
+.bd-kpi{background:var(--card);border:1px solid var(--line2);border-radius:14px;padding:18px 20px}
+.bd-kpi b{display:block;font-size:clamp(30px,3.6vw,44px);line-height:1;font-weight:600;color:var(--ink)}
+.bd-kpi span{display:block;margin-top:9px;font-size:14px;color:var(--muted)}
+.bd-kpi.hot b{color:var(--st-bad)} .bd-kpi.warn b{color:var(--st-soon)}
+
+.bd-block{margin-bottom:34px}
+.bd-h{font-size:clamp(15px,1.7vw,18px);color:var(--ink2);margin:0 0 4px;font-weight:600}
+.bd-s{font-size:13.5px;color:var(--faint);margin:0 0 16px}
+
+/* stacked status bar — thick enough to read far, 2px surface gaps, no border on marks */
+.bd-bar{display:flex;height:34px;border-radius:8px;overflow:hidden;gap:2px;background:var(--grid)}
+.bd-seg{height:100%;min-width:3px}
+.bd-key{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:14px}
+.bd-k{display:flex;align-items:center;gap:9px;font-size:clamp(14px,1.5vw,16px);color:var(--ink2)}
+.bd-k i{width:12px;height:12px;border-radius:3px;flex:none}
+.bd-k b{font-weight:600;color:var(--ink)}
+
+/* horizon columns — value above each column, category below; no gridlines at all */
+.bd-cols{display:flex;align-items:flex-end;gap:clamp(6px,1.4vw,18px);height:190px;padding-top:26px}
+.bd-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative}
+.bd-col i{display:block;width:100%;background:var(--teal);border-radius:6px 6px 0 0;min-height:3px}
+.bd-col i.od{background:var(--st-bad)}
+.bd-col em{position:absolute;top:-24px;inset-inline:0;text-align:center;font-style:normal;
+           font-family:var(--mono);font-size:clamp(14px,1.6vw,17px);font-weight:600;color:var(--ink)}
+.bd-xl{display:flex;gap:clamp(6px,1.4vw,18px);margin-top:10px}
+.bd-xl span{flex:1;text-align:center;font-size:clamp(11px,1.2vw,13px);color:var(--muted);line-height:1.3}
+
+/* nationality bars — one hue, because this is magnitude and not identity */
+.bd-rows{display:flex;flex-direction:column;gap:11px}
+.bd-row{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;align-items:center;gap:14px}
+.bd-row span{font-size:clamp(13px,1.4vw,15px);color:var(--ink2);text-align:start}
+.bd-row i{height:18px;background:var(--teal);border-radius:4px;min-width:3px;display:block}
+.bd-row b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:clamp(13px,1.4vw,15px);color:var(--ink)}
+
+.bd-tbl{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px}
+.bd-tbl th,.bd-tbl td{text-align:start;padding:7px 12px;border-bottom:1px solid var(--line2);color:var(--ink2)}
+.bd-tbl th{color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.bd-tbl td:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.bd-tt{background:transparent;border:1px dashed var(--line);color:var(--muted);border-radius:99px;
+       padding:5px 13px;font-size:12px;cursor:pointer;margin-top:12px}
+.bd-tt:hover{color:var(--copper);border-color:var(--copper)}
+@media (max-width:560px){ .bd-cols{height:150px} .bd-row{grid-template-columns:minmax(72px,110px) 1fr auto} }
+/* horizon emphasis — the bins are ordered by urgency, so colour here MEANS status.
+   `far` is deliberately recessive: it is context, not news. */
+.bd-col i.sn{background:var(--st-soon)}
+.bd-col i.far{background:var(--teal-dim,var(--teal));opacity:.55}
