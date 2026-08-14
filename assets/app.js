@@ -3446,7 +3446,7 @@ async function istimaraOpen(paper){
   if(paper && _IST.paper!==paper) _IST=istFresh(paper);  // switching paper → a fresh sheet of that kind
   const P=istPaper(), H=_IST.header;
   const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
-    +`<span class="ist-wrap"><input class="ist-in${(_IST._pre&&_IST._pre[f.k])?' ist-pre':''}" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}">`
+    +`<span class="ist-fw"><input class="ist-in${(_IST._pre&&_IST._pre[f.k])?' ist-pre':''}" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}">`
     +(istDefs(f.k).length>1?`<button class="ist-pick" data-pick="${f.k}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
     +`</span></div>`;
   // an EDITABLE text line of the form: the paper's original wording is the DEFAULT, and the copper

@@ -1187,31 +1187,42 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 @media (max-width:560px){ .bd-fn{grid-template-columns:minmax(92px,132px) 1fr auto} }
 
 /* ══ RANKED DEFAULTS in the legal builder ═══════════════════════════════════════════════════
-   The form opens mostly filled, which is the whole point — but a prefilled value is the app
-   asserting something NO HUMAN HAS READ, and this paper gets rejected at the government counter
-   when a value is wrong. So a suggested value looks different from a confirmed one until the user
-   touches it. It is a whisper, not a warning: lighter ink and a dotted underline, never a colour
-   that says "error". Touch the field and it becomes ordinary text — that IS the confirmation. */
-.ist-wrap{position:relative;display:block}
-.ist-in.ist-pre,.ist-hin.ist-pre{color:var(--muted);border-bottom-style:dotted}
-.ist-in.ist-pre:focus,.ist-hin.ist-pre:focus{color:var(--ink)}
+   THE PAPER IS NOT THE APP. This sheet is a white A4 mould that prints — it sets its own black
+   ink deliberately and does NOT follow the dark theme. The first cut styled the prefilled values
+   with var(--muted), a dark-theme grey, which on white paper came out so faint the fields read as
+   EMPTY. A suggestion must look filled-in and slightly quieter, never like a placeholder.
+   And the field row is a FLEX row — fixed label column, flex:1 input, so every value lines up.
+   Wrapping the input in a block element broke that alignment and blew the row heights open. The
+   wrapper is therefore a transparent flex child that contributes no height of its own. */
+.ist-fw{flex:1;min-width:40px;position:relative;display:flex;align-items:baseline}
+.ist-fw .ist-in{flex:1;min-width:0;padding-inline-end:16px}   /* room for ▾, never overlapping text */
 
-/* ▾ — only rendered when there IS more than one known value, so it never promises a choice
-   that does not exist. */
-.ist-pick{position:absolute;inset-inline-end:2px;top:50%;transform:translateY(-50%);
-  background:transparent;border:0;color:var(--copper-dim);cursor:pointer;font-size:11px;
-  padding:2px 4px;line-height:1;opacity:.75}
-.ist-pick:hover{opacity:1;color:var(--copper)}
+/* filled, and honestly marked: real ink at 80%, dotted rather than solid underline. Reads as
+   "we wrote this for you", not as "nothing here". Focus or type and it becomes plain black. */
+.ist-in.ist-pre,.ist-hin.ist-pre{color:#5c5c5c;border-bottom-style:dotted}
+.ist-in.ist-pre:focus,.ist-hin.ist-pre:focus{color:#000;border-bottom-style:solid}
+
+/* ▾ sits ON the field's own line, at its end — only when more than one value is known, so it
+   never promises a choice that does not exist. */
+.ist-pick{position:absolute;inset-inline-end:0;bottom:2px;background:transparent;border:0;
+  color:rgba(197,149,107,.95);cursor:pointer;font-size:10px;line-height:1;padding:1px 2px}
+.ist-pick:hover{color:#a5713f}
 .ist-hcell{position:relative}
+/* Add padding ONLY where a ▾ actually exists. The cell already reserves room for ⤓, so a blanket
+   rule stacked a second gutter on top of it: 29px of padding in an 83px cell squeezed 65px of
+   text into 54px and «Engineer» rendered as «jineer». Most columns have one known value and no ▾,
+   so they keep the original spacing untouched. */
+.ist-hcell:has(.ist-pick) .ist-hin{padding-inline-end:28px}
+.ist-hcell .ist-pick{inset-inline-end:13px;bottom:3px}
 
-.ist-menu{position:absolute;z-index:40;inset-inline-end:0;top:calc(100% + 3px);min-width:190px;
-  max-width:340px;background:var(--panel);border:1px solid var(--line);border-radius:9px;
-  box-shadow:0 10px 28px rgba(0,0,0,.34);overflow:hidden}
+/* the menu is app chrome, not paper — it may use the theme, and it must sit above the sheet. */
+.ist-menu{position:absolute;z-index:60;inset-inline-end:0;top:calc(100% + 2px);min-width:200px;
+  max-width:min(360px,70vw);background:var(--panel,#fff);border:1px solid rgba(0,0,0,.16);
+  border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,.22);overflow:hidden;text-align:start}
 .ist-menu button{display:flex;width:100%;align-items:center;gap:10px;justify-content:space-between;
-  background:transparent;border:0;border-bottom:1px solid var(--line2);color:var(--ink2);
-  padding:9px 12px;font-size:13px;cursor:pointer;text-align:start}
+  background:transparent;border:0;border-bottom:1px solid rgba(0,0,0,.07);color:#1a1a1a;
+  padding:9px 12px;font-size:12.5px;cursor:pointer;text-align:start;font-family:inherit}
 .ist-menu button:last-child{border-bottom:0}
-.ist-menu button:hover{background:var(--panel2);color:var(--copper)}
-/* the count is evidence, not decoration: "used 106 times" and "used once" are different kinds of
-   suggestion and the reader should be able to tell them apart before picking. */
-.ist-menu em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--faint);flex:none}
+.ist-menu button:hover{background:rgba(197,149,107,.13);color:#7a4f22}
+/* the count is evidence: "×106" and "×1" are different kinds of suggestion. */
+.ist-menu em{font-style:normal;font-family:var(--mono);font-size:10.5px;color:#8a8a8a;flex:none}
