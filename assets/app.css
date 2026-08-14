@@ -1202,18 +1202,31 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-in.ist-pre,.ist-hin.ist-pre{color:#5c5c5c;border-bottom-style:dotted}
 .ist-in.ist-pre:focus,.ist-hin.ist-pre:focus{color:#000;border-bottom-style:solid}
 
-/* ▾ — a CONTROL, and it has to look like one. At 10px bare-glyph it read as a stray mark on the
-   paper. Now a small copper chip: bordered, tinted, big enough to aim at, and it only appears
-   where more than one value is known so it never promises a choice that does not exist. */
-.ist-pick{position:absolute;inset-inline-end:0;bottom:1px;
-  display:inline-flex;align-items:center;justify-content:center;
-  width:17px;height:15px;padding:0;cursor:pointer;font-size:9px;line-height:1;
-  color:#8a5a28;background:rgba(197,149,107,.20);
-  border:1px solid rgba(197,149,107,.75);border-radius:4px}
-.ist-pick:hover{background:rgba(197,149,107,.42);color:#5e3b16;border-color:#a5713f}
+/* ── the two cell controls ─────────────────────────────────────────────────────────────────
+   ▾ (suggestions) and ⤓ (fill down) are DIFFERENT actions and must not read as one smudge.
+   They were positioned independently at the same corner and ended up a few pixels apart.
+   Now one flex group with a real gap, equal 18×16 targets, each with its own tint so the eye
+   can tell "offer me choices" from "copy this downward" without reading the tooltip. */
 .ist-hcell{position:relative}
-.ist-hcell:has(.ist-pick) .ist-hin{padding-inline-end:28px}
-.ist-hcell .ist-pick{inset-inline-end:14px;bottom:4px}
+.ist-cacts{position:absolute;inset-inline-end:3px;bottom:3px;display:flex;gap:5px;
+  align-items:center;pointer-events:none}
+.ist-cacts>*{pointer-events:auto}
+/* Only cells that actually gained a second control get more room. The base cell already reserves
+   space for ⤓, so adding a blanket gutter stacks a second one and clips the narrow columns —
+   «Engineer» in an 83px cell has no 41px of padding to spare. */
+.ist-hcell:has(.ist-pick) .ist-hin{padding-inline-end:46px}   /* ▾ + ⤓ */
+
+/* shared shape so the pair looks deliberate rather than accidental */
+.ist-pick,.ist-fill{display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:16px;padding:0;margin:0;border-radius:5px;cursor:pointer;
+  font-size:10px;line-height:1;font-family:inherit;position:static}
+.ist-pick{color:#8a5a28;background:rgba(197,149,107,.22);border:1px solid rgba(197,149,107,.8)}
+.ist-pick:hover{background:rgba(197,149,107,.45);color:#5e3b16;border-color:#a5713f}
+.ist-fill{color:#3f6f6f;background:rgba(79,140,140,.16);border:1px solid rgba(79,140,140,.62)}
+.ist-fill:hover{background:rgba(79,140,140,.34);color:#255050;border-color:#2f7f7f}
+
+/* the header field's ▾ has no ⤓ beside it, so it sits alone at the line end */
+.ist-fw .ist-pick{position:absolute;inset-inline-end:0;bottom:1px}
 
 /* The menu sits ON THE PAPER, so it is a paper object: white card, black text, real borders.
    It previously used var(--panel), which is the app's DARK surface — on a white A4 sheet that

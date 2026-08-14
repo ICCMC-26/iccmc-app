@@ -3575,9 +3575,13 @@ function istRenderRows(){
     // a HAND-TYPED column (NOT from the OCR line) = an editable cell + a ⤓ fill-down button
     // (copies this cell's value to every row below it, like Excel's fill handle).
     const cell=c=>{
+      /* The two cell controls live in ONE group, not stacked at the same corner. Absolutely
+         positioning them independently put them a few pixels apart and they read as a single
+         smudge; a flex group gives them a real gap and equal size, so each is aimable. */
       if(c.hand) return `<td class="ist-hcell"><input class="ist-hin${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}">`
+        +`<span class="ist-cacts">`
         +(istDefs(c.k).length>1?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
-        +`<button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></td>`;
+        +`<button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></span></td>`;
       if(c.k==='_ser')            return `<td>${i+1}</td>`;
       if(c.k==='name')            return `<td>${esc(r.name||'—')}${badge}</td>`;
       if(c.k==='nationality')     return `<td>${esc(r.nationality?tv(r.nationality):'—')}</td>`;
