@@ -482,17 +482,17 @@ function renderBoard(){
      +`<i class="${urg(h.k)}" style="height:${Math.max(2,(+h.visas||0)/hMax*100).toFixed(1)}%"></i></div>`).join('');
   const xlab=H.map(h=>`<span>${esc(h.label)}</span>`).join('');
 
-  box.innerHTML=`
+  box.innerHTML=`<div class="bd-wrap">
   <div class="bd-top"><span class="bd-ttl">${esc(t('bd_title'))}</span>
     <button class="bd-x" id="bd-x">${esc(t('bd_close'))} ✕</button></div>
 
   <div class="bd-hero"><b>${bdN(o.employees)}</b><span>${esc(t('ov_employees'))}</span></div>
 
   <div class="bd-kpis">
-    <div class="bd-kpi hot"><b>${bdN(V.expired)}</b><span>${esc(t('bd_visa_exp'))}</span></div>
-    <div class="bd-kpi warn"><b>${bdN(soon90)}</b><span>${esc(t('bd_visa_soon'))}</span></div>
-    <div class="bd-kpi"><b>${bdN(G.no_visa)}</b><span>${esc(t('ov_no_visa'))}</span></div>
-    <div class="bd-kpi"><b>${bdN(G.no_passport_date)}</b><span>${esc(t('ov_no_pdate'))}</span></div>
+    <div class="bd-kpi"><b>${bdN(V.expired)}</b><span><i style="background:var(--st-bad)"></i>${esc(t('bd_visa_exp'))}</span></div>
+    <div class="bd-kpi"><b>${bdN(soon90)}</b><span><i style="background:var(--st-soon)"></i>${esc(t('bd_visa_soon'))}</span></div>
+    <div class="bd-kpi"><b>${bdN(G.no_visa)}</b><span><i style="background:var(--st-unk)"></i>${esc(t('ov_no_visa'))}</span></div>
+    <div class="bd-kpi"><b>${bdN(G.no_passport_date)}</b><span><i style="background:var(--st-unk)"></i>${esc(t('ov_no_pdate'))}</span></div>
   </div>
 
   <div class="bd-block">
@@ -526,7 +526,7 @@ function renderBoard(){
     <div class="bd-rows">${nats.map(x=>
       `<div class="bd-row"><span>${esc(x.name)}</span>`
       +`<i style="width:${((+x.n||0)/natMax*100).toFixed(1)}%"></i><b>${bdN(x.n)}</b></div>`).join('')}</div>
-  </div>`;
+  </div></div>`;
   wireBoard();
 }
 function wireBoard(){

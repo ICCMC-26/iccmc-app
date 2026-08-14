@@ -1146,81 +1146,82 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   .ov-grid{grid-template-columns:1fr}
 }
 
-/* ══ THE BOARD — a separate page, meant to be read across a room ═════════════════════════════
-   Five blocks, no more. Every choice here answers "can someone take this in from three metres":
-   a hero figure instead of a one-bar chart, thin marks, NO gridlines, direct labels on every
-   segment, and generous emptiness. Nothing here is clickable except the way out.
-   COLOUR IS NOT DECORATION: green/amber/red are STATUS tokens and appear only where the colour
-   MEANS something; the horizon and nationality charts are magnitude, not identity, so they use a
-   single teal hue — spending seven categorical colours on a ranking would burn the one free
-   channel on information the bar length already carries.
-   The four status steps were validated with the palette checker, light and dark separately (a
-   dark palette flipped onto white fails contrast outright). The one pair still inside the CVD
-   warn band (amber↔green) is legal only WITH secondary encoding, which is why every segment
-   carries its number and label and every fill is separated by a 2px gap. */
+/* ══ THE BOARD — a separate page, read across a room ════════════════════════════════════════
+   The first cut made everything big, so nothing led: a 92px hero competing with 44px tiles and
+   34px bars is five things shouting, which reads as noise however clean the parts are. Scale is
+   HIERARCHY, not emphasis — exactly one hero, everything else stepping down from it, and air
+   doing the separating instead of borders.
+   Three fixed specs are honoured here: bars cap at 24px (never fill the slot — the leftover is
+   air), data-ends round 4px, and TEXT NEVER WEARS THE DATA COLOUR. That last one is why the tile
+   values are ink and a small dot beside the label carries the status: a red number is a colour
+   doing a label's job, illegible to the readers who most need it, and it made every tile shout
+   equally so none of them led.
+   Status steps were validated per theme (dark hues on white fail contrast on all four slots).
+   The amber↔green pair sits in the CVD warn band, so every segment keeps its number and label
+   and every fill is separated by a 2px surface gap — that is the secondary encoding, not decoration. */
 #board{position:fixed;inset:0;z-index:60;overflow-y:auto;background:var(--bg);
-       padding:26px clamp(16px,4vw,54px) 60px;display:none}
+       padding:22px clamp(16px,4vw,56px) 72px;display:none}
 #board.on{display:block}
+.bd-wrap{max-width:1180px;margin:0 auto}
 :root{ --st-ok:#63d18a; --st-soon:#f7b64f; --st-bad:#ff6068; --st-unk:#b9beb8; }
 :root[data-theme="light"]{ --st-ok:#2e9e5b; --st-soon:#c8801a; --st-bad:#d0242f; --st-unk:#8b918a; }
 
-.bd-top{display:flex;align-items:center;gap:14px;margin-bottom:26px}
-.bd-x{margin-inline-start:auto;background:transparent;border:1px solid var(--line);
-      color:var(--ink2);border-radius:99px;padding:9px 18px;font-size:14px;cursor:pointer}
+.bd-top{display:flex;align-items:center;gap:14px;margin-bottom:30px}
+.bd-ttl{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);font-family:var(--mono)}
+.bd-x{margin-inline-start:auto;background:transparent;border:1px solid var(--line2);
+      color:var(--muted);border-radius:99px;padding:7px 15px;font-size:13px;cursor:pointer}
 .bd-x:hover{border-color:var(--copper);color:var(--copper)}
-.bd-ttl{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);
-        font-family:var(--mono)}
 
-/* hero — proportional figures on purpose; tabular-nums makes a display number look loose */
-.bd-hero{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:30px}
-.bd-hero b{font-size:clamp(56px,8vw,92px);line-height:.92;font-weight:600;color:var(--ink);
-           letter-spacing:-.03em}
-.bd-hero span{font-size:clamp(15px,1.6vw,19px);color:var(--muted);padding-bottom:10px}
+/* ONE hero. Proportional figures: tabular-nums makes a display number look loose. */
+.bd-hero{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:34px}
+.bd-hero b{font-size:clamp(42px,5.2vw,62px);line-height:1;font-weight:600;color:var(--ink);letter-spacing:-.025em}
+.bd-hero span{font-size:14px;color:var(--muted)}
 
-.bd-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:34px}
-.bd-kpi{background:var(--card);border:1px solid var(--line2);border-radius:14px;padding:18px 20px}
-.bd-kpi b{display:block;font-size:clamp(30px,3.6vw,44px);line-height:1;font-weight:600;color:var(--ink)}
-.bd-kpi span{display:block;margin-top:9px;font-size:14px;color:var(--muted)}
-.bd-kpi.hot b{color:var(--st-bad)} .bd-kpi.warn b{color:var(--st-soon)}
+/* stat tiles — value in INK, a dot carries the status. Borderless: air separates them. */
+.bd-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+         gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:12px;
+         overflow:hidden;margin-bottom:40px}
+.bd-kpi{background:var(--card);padding:16px 18px 15px}
+.bd-kpi b{display:block;font-size:clamp(25px,2.7vw,31px);line-height:1.05;font-weight:600;color:var(--ink)}
+.bd-kpi span{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:12.5px;color:var(--muted);line-height:1.35}
+.bd-kpi span i{width:8px;height:8px;border-radius:2px;flex:none}
 
-.bd-block{margin-bottom:34px}
-.bd-h{font-size:clamp(15px,1.7vw,18px);color:var(--ink2);margin:0 0 4px;font-weight:600}
-.bd-s{font-size:13.5px;color:var(--faint);margin:0 0 16px}
+.bd-block{margin-bottom:40px}
+.bd-h{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+      font-family:var(--mono);margin:0 0 5px;font-weight:600}
+.bd-s{font-size:12.5px;color:var(--faint);margin:0 0 15px}
 
-/* stacked status bar — thick enough to read far, 2px surface gaps, no border on marks */
-.bd-bar{display:flex;height:34px;border-radius:8px;overflow:hidden;gap:2px;background:var(--grid)}
+/* stacked status bar — 24px cap, 4px ends, 2px surface gaps, no stroke on marks */
+.bd-bar{display:flex;height:24px;border-radius:4px;overflow:hidden;gap:2px;background:var(--grid)}
 .bd-seg{height:100%;min-width:3px}
-.bd-key{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:14px}
-.bd-k{display:flex;align-items:center;gap:9px;font-size:clamp(14px,1.5vw,16px);color:var(--ink2)}
-.bd-k i{width:12px;height:12px;border-radius:3px;flex:none}
-.bd-k b{font-weight:600;color:var(--ink)}
+.bd-key{display:flex;flex-wrap:wrap;gap:7px 24px;margin-top:13px}
+.bd-k{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.bd-k i{width:9px;height:9px;border-radius:2px;flex:none}
+.bd-k b{font-weight:600;color:var(--ink);font-size:14px}
 
-/* horizon columns — value above each column, category below; no gridlines at all */
-.bd-cols{display:flex;align-items:flex-end;gap:clamp(6px,1.4vw,18px);height:190px;padding-top:26px}
+/* horizon columns — value on the cap, category below, no gridlines at all */
+.bd-cols{display:flex;align-items:flex-end;gap:clamp(6px,1.3vw,16px);height:150px;padding-top:24px}
 .bd-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative}
-.bd-col i{display:block;width:100%;background:var(--teal);border-radius:6px 6px 0 0;min-height:3px}
-.bd-col i.od{background:var(--st-bad)}
-.bd-col em{position:absolute;top:-24px;inset-inline:0;text-align:center;font-style:normal;
-           font-family:var(--mono);font-size:clamp(14px,1.6vw,17px);font-weight:600;color:var(--ink)}
-.bd-xl{display:flex;gap:clamp(6px,1.4vw,18px);margin-top:10px}
-.bd-xl span{flex:1;text-align:center;font-size:clamp(11px,1.2vw,13px);color:var(--muted);line-height:1.3}
+.bd-col i{display:block;width:100%;background:var(--teal);border-radius:4px 4px 0 0;min-height:3px}
+.bd-col i.od{background:var(--st-bad)} .bd-col i.sn{background:var(--st-soon)}
+.bd-col i.far{background:var(--teal-dim,var(--teal));opacity:.5}
+.bd-col em{position:absolute;top:-21px;inset-inline:0;text-align:center;font-style:normal;
+           font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink)}
+.bd-xl{display:flex;gap:clamp(6px,1.3vw,16px);margin-top:9px}
+.bd-xl span{flex:1;text-align:center;font-size:11px;color:var(--faint);line-height:1.3}
 
-/* nationality bars — one hue, because this is magnitude and not identity */
-.bd-rows{display:flex;flex-direction:column;gap:11px}
-.bd-row{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;align-items:center;gap:14px}
-.bd-row span{font-size:clamp(13px,1.4vw,15px);color:var(--ink2);text-align:start}
-.bd-row i{height:18px;background:var(--teal);border-radius:4px;min-width:3px;display:block}
-.bd-row b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:clamp(13px,1.4vw,15px);color:var(--ink)}
+/* nationality bars — one hue: magnitude, not identity */
+.bd-rows{display:flex;flex-direction:column;gap:9px}
+.bd-row{display:grid;grid-template-columns:minmax(84px,132px) 1fr auto;align-items:center;gap:13px}
+.bd-row span{font-size:13px;color:var(--muted);text-align:start}
+.bd-row i{height:14px;background:var(--teal);border-radius:4px;min-width:3px;display:block}
+.bd-row b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink)}
 
-.bd-tbl{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px}
-.bd-tbl th,.bd-tbl td{text-align:start;padding:7px 12px;border-bottom:1px solid var(--line2);color:var(--ink2)}
-.bd-tbl th{color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
-.bd-tbl td:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
-.bd-tt{background:transparent;border:1px dashed var(--line);color:var(--muted);border-radius:99px;
-       padding:5px 13px;font-size:12px;cursor:pointer;margin-top:12px}
+.bd-tbl{width:100%;border-collapse:collapse;margin-top:13px;font-size:13px}
+.bd-tbl th,.bd-tbl td{text-align:start;padding:6px 11px;border-bottom:1px solid var(--line2);color:var(--muted)}
+.bd-tbl th{color:var(--faint);font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.bd-tbl td:last-child,.bd-tbl td:nth-child(2){font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.bd-tt{background:transparent;border:1px solid var(--line2);color:var(--faint);border-radius:99px;
+       padding:5px 12px;font-size:11.5px;cursor:pointer;margin-top:13px}
 .bd-tt:hover{color:var(--copper);border-color:var(--copper)}
-@media (max-width:560px){ .bd-cols{height:150px} .bd-row{grid-template-columns:minmax(72px,110px) 1fr auto} }
-/* horizon emphasis — the bins are ordered by urgency, so colour here MEANS status.
-   `far` is deliberately recessive: it is context, not news. */
-.bd-col i.sn{background:var(--st-soon)}
-.bd-col i.far{background:var(--teal-dim,var(--teal));opacity:.55}
+@media (max-width:560px){ .bd-cols{height:118px} .bd-row{grid-template-columns:minmax(70px,104px) 1fr auto} }
