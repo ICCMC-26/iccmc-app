@@ -1086,3 +1086,62 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
     border:1px solid transparent;line-height:1.45}
   .lr-banner.ok{color:var(--ok);border-color:var(--ok);background:rgba(99,209,138,.12)}
   .lr-banner.need{color:var(--warn);border-color:var(--warn);background:rgba(247,182,79,.12)}
+
+/* ══ THE OVERVIEW ═══════════════════════════════════════════════════════════════════════════
+   The empty state, earning its keep. "Search IS the app" means the box is the only instruction —
+   so this may never become a dashboard the user must learn: no controls, nothing clickable,
+   nothing to configure. It is a page of FACTS that dissolves the instant a key is pressed.
+   The one rule it enforces visually: UNKNOWN IS GREY. A passport with no expiry on file is not
+   green. Half this registry has no passport date, and the page has to say so plainly, because a
+   number that flatters us is the one failure mode that gets a man deported. */
+#overview{max-width:960px;margin:6px auto 4px;padding:0 16px;animation:ovIn .34s ease both}
+@keyframes ovIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.ov-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 2px 16px}
+.ov-big{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:40px;line-height:1;
+        font-weight:600;color:var(--ink);letter-spacing:-.02em}
+.ov-big-l{font-size:12.5px;color:var(--muted);letter-spacing:.10em;text-transform:uppercase;
+          font-family:var(--mono)}
+.ov-when{margin-inline-start:auto;font-size:11px;color:var(--faint);font-family:var(--mono)}
+
+.ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:12px}
+.ov-card{background:var(--card);border:1px solid var(--line2);border-radius:var(--radius-s,12px);
+         padding:15px 16px 14px}
+.ov-card h4{margin:0 0 3px;font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;
+            color:var(--muted);font-family:var(--mono);font-weight:600}
+.ov-sub{font-size:11.5px;color:var(--faint);margin-bottom:12px;font-family:var(--mono)}
+
+/* the stacked bar — proportion first, exact numbers underneath. */
+.ov-bar{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--grid);gap:2px}
+.ov-seg{height:100%;min-width:2px;transition:filter .15s}
+.ov-seg.valid{background:var(--ok)} .ov-seg.soon{background:var(--warn)}
+.ov-seg.expired{background:var(--hot)} .ov-seg.unknown{background:var(--faint);opacity:.55}
+
+.ov-legend{display:flex;flex-wrap:wrap;gap:4px 15px;margin-top:11px}
+.ov-li{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
+.ov-dot{width:7px;height:7px;border-radius:2px;flex:none}
+.ov-dot.valid{background:var(--ok)} .ov-dot.soon{background:var(--warn)}
+.ov-dot.expired{background:var(--hot)} .ov-dot.unknown{background:var(--faint);opacity:.6}
+.ov-n{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink)}
+
+/* gaps — deliberately plain. These are things we do NOT know, so they get no colour and no
+   urgency styling; overselling a blank would be the same lie as painting it green. */
+.ov-gaps{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.ov-gap{display:flex;align-items:baseline;gap:7px;padding:7px 11px;border-radius:99px;
+        border:1px dashed var(--line);background:transparent}
+.ov-gap b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;color:var(--ink)}
+.ov-gap span{font-size:11.5px;color:var(--muted)}
+.ov-gap.zero{opacity:.45}
+.ov-gap.zero b{color:var(--ok)}
+
+/* nationalities — a share bar, not a chart. Same shape as the status bars so the eye reuses
+   what it already learned two cards ago. */
+.ov-nat{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--grid);gap:2px}
+.ov-nat i{height:100%;min-width:2px;display:block}
+.ov-natl{display:flex;flex-wrap:wrap;gap:4px 15px;margin-top:11px}
+
+@media (max-width:560px){
+  #overview{padding:0 12px}
+  .ov-big{font-size:32px}
+  .ov-grid{grid-template-columns:1fr}
+}

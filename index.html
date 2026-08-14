@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=98">
+<link rel="stylesheet" href="assets/app.css?v=99">
 </head>
 <body>
 
@@ -46,6 +46,10 @@
     <span class="mag">⌕</span>
     <input id="q" autocomplete="off" spellcheck="false" placeholder="ابحث عن أي موظف — الاسم، الجواز، التأشيرة، الجنسية…">
   </div>
+
+  <!-- The overview. "Search IS the app", so this is what the app IS before you search: it fills
+       the empty state instead of leaving a blank page, and dissolves the moment you type. -->
+  <div id="overview" hidden></div>
 
   <div class="filters" id="filters"></div>
   <div class="listbar"><div class="count" id="count"></div><div class="sortbar" id="sortbar"></div></div>
@@ -119,6 +123,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=230"></script>
+<script src="assets/app.js?v=231"></script>
 </body>
 </html>

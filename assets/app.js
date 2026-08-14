@@ -23,6 +23,19 @@ const I18N={
     hint:'اكتب أي شيء أخذناه من الموظف — يظهر فورًا.', all:'كل الموظفين',
     n_res:n=>`${n} نتيجة`, none:'لا نتائج — جرّب اسمًا أو رقم جواز آخر.',
     n_res_part:(shown,total)=>`${shown} من ${total} نتيجة — لم تُحمَّل البقية`,
+    ov_employees:'موظف في السجل', ov_live:'مباشر',
+    ov_passports:'الجوازات', ov_onfile:'رقم جواز مسجّل',
+    ov_visas:'التأشيرات', ov_docs_for:'تأشيرة لـ', ov_emp:'موظف',
+    ov_valid:'سارٍ', ov_soon:'ينتهي خلال 90 يومًا', ov_expired:'منتهٍ',
+    ov_nodate:'بلا تاريخ — غير معروف',
+    ov_gaps:'النواقص', ov_gaps_s:'ما لم يُقرأ بعد — ليس خطأً',
+    ov_no_visa:'بلا تأشيرة', ov_no_pdate:'بلا تاريخ جواز',
+    ov_no_nat:'بلا جنسية', ov_no_photo:'بلا صورة',
+    ov_nats:'الجنسيات', ov_nats_s:'توزّع السجل',
+    ov_inbox:'الوارد', ov_inbox_s:'ما ينتظر قرار إنسان',
+    ov_ib_review:'قيد المراجعة', ov_ib_staged:'عند البوّابة', ov_ib_refused:'مرفوض',
+    ov_legal:'المعاملات', ov_legal_s:'دفعات المنح',
+    ov_lg_batches:'دفعة', ov_lg_members:'اسم في الكشوف',
     soon:'ينتهي خلال', day:'يوم', expired:'منتهٍ', valid:'ساري', nodocs:'لا وثائق', incomplete:'غير مكتمل',
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
@@ -146,6 +159,19 @@ const I18N={
     hint:'Type anything we captured from the employee — results appear instantly.', all:'All employees',
     n_res:n=>`${n} result${n===1?'':'s'}`, none:'No matches — try another name or passport number.',
     n_res_part:(shown,total)=>`${shown} of ${total} results — the rest did not load`,
+    ov_employees:'employees on record', ov_live:'live',
+    ov_passports:'Passports', ov_onfile:'passport numbers on file',
+    ov_visas:'Visas', ov_docs_for:'documents for', ov_emp:'employees',
+    ov_valid:'valid', ov_soon:'expiring within 90 days', ov_expired:'expired',
+    ov_nodate:'no date on file — unknown',
+    ov_gaps:'Gaps', ov_gaps_s:'not read yet — not errors',
+    ov_no_visa:'no visa', ov_no_pdate:'no passport date',
+    ov_no_nat:'no nationality', ov_no_photo:'no photo',
+    ov_nats:'Nationalities', ov_nats_s:'how the registry splits',
+    ov_inbox:'Inbox', ov_inbox_s:'waiting on a human',
+    ov_ib_review:'in review', ov_ib_staged:'at the gate', ov_ib_refused:'refused',
+    ov_legal:'Legal', ov_legal_s:'grant batches',
+    ov_lg_batches:'batches', ov_lg_members:'names on rosters',
     soon:'expires in', day:'d', expired:'Expired', valid:'Valid', nodocs:'No documents', incomplete:'Incomplete',
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
@@ -353,7 +379,10 @@ async function signIn(){
   }catch(e){gerr((e&&e.message)||e)}
   finally{b.disabled=false;b.textContent=t('signin')}
 }
-function enterApp(){$('#gate').style.display='none';$('#app').style.display='block';applyLang();$('#q').focus();search('');subscribeLive()}
+function enterApp(){$('#gate').style.display='none';$('#app').style.display='block';applyLang();$('#q').focus();search('');subscribeLive();
+  // Fetched alongside the first search, never before it: the roster is what the user came for,
+  // and the overview must not delay a single row of it.
+  loadOverview().then(renderOverview);}
 
 /* live-sync: when an OCR'd employee is committed to persons/visas, re-run the
    current search so the search page updates itself — no manual refresh. RLS still
@@ -371,6 +400,101 @@ function subscribeLive(){
 /* ── search (the whole point) ────────────────────────────────────────────── */
 let LAST=[], _seq=0, _timer=null;
 let SEARCH_TOTAL=null;      // what the DATABASE says the current search matches — see search()
+
+/* ── THE OVERVIEW ───────────────────────────────────────────────────────────────────────────
+   Read once per session and cached: these are registry-wide totals, not search results, so
+   re-asking on every keystroke would be pure waste — the page it feeds is only ever visible
+   when the box is empty. */
+let OVERVIEW=null, _ovAsked=false;
+async function loadOverview(){
+  if(_ovAsked) return OVERVIEW; _ovAsked=true;
+  try{ const {data,error}=await sb.rpc('registry_overview');
+       if(!error && data) OVERVIEW=data; }catch(_){}
+  return OVERVIEW;
+}
+const _ovN=n=>Number(n||0).toLocaleString(LANG==='ar'?'ar-EG':'en-US');
+/* A stacked bar + its legend. `parts` is ordered worst-understood-last: valid, soon, expired,
+   then unknown — so grey always sits at the end of the bar and reads as "and this much we
+   cannot say", rather than hiding between two colours. A zero part is dropped from the legend
+   entirely; a legend full of zeroes is noise that trains the eye to skip the whole card. */
+function ovBar(parts){
+  const tot=parts.reduce((s,p)=>s+p.n,0)||1;
+  const segs=parts.filter(p=>p.n>0)
+    .map(p=>`<i class="ov-seg ${p.k}" style="width:${(p.n/tot*100).toFixed(2)}%"></i>`).join('');
+  const leg=parts.filter(p=>p.n>0).map(p=>
+    `<span class="ov-li"><i class="ov-dot ${p.k}"></i><b class="ov-n">${_ovN(p.n)}</b> ${esc(p.label)}</span>`).join('');
+  return `<div class="ov-bar">${segs}</div><div class="ov-legend">${leg}</div>`;
+}
+function renderOverview(){
+  const box=$('#overview'); if(!box) return;
+  const o=OVERVIEW;
+  // Only ever the empty state: any query, any filter, or the legal section means the user has
+  // asked a narrower question and this must get out of the way.
+  const show = !!o && !LAWMODE && !String(($('#q')||{}).value||'').trim() && FILTER==='all';
+  box.hidden=!show; if(!show){ box.innerHTML=''; return; }
+
+  const P=o.passports||{}, V=o.visas||{}, G=o.gaps||{}, IB=o.inbox||{}, L=o.legal||{};
+  const gap=(n,label)=>`<span class="ov-gap${(+n||0)===0?' zero':''}"><b>${_ovN(n)}</b><span>${esc(label)}</span></span>`;
+  const nats=(o.nationalities||[]).slice(0,6);
+  const natTot=nats.reduce((s,x)=>s+(+x.n||0),0)||1;
+  const natCol=['var(--teal)','var(--copper)','var(--indigo)','var(--teal-dim)','var(--copper-dim)','var(--faint)'];
+
+  box.innerHTML=`
+    <div class="ov-head">
+      <span class="ov-big">${_ovN(o.employees)}</span>
+      <span class="ov-big-l">${esc(t('ov_employees'))}</span>
+      <span class="ov-when">${esc(t('ov_live'))}</span>
+    </div>
+    <div class="ov-grid">
+      <div class="ov-card">
+        <h4>${esc(t('ov_passports'))}</h4>
+        <div class="ov-sub">${_ovN(P.total)} ${esc(t('ov_onfile'))}</div>
+        ${ovBar([{k:'valid',n:+P.valid||0,label:t('ov_valid')},
+                 {k:'soon',n:+P.soon||0,label:t('ov_soon')},
+                 {k:'expired',n:+P.expired||0,label:t('ov_expired')},
+                 {k:'unknown',n:+P.unknown||0,label:t('ov_nodate')}])}
+      </div>
+      <div class="ov-card">
+        <h4>${esc(t('ov_visas'))}</h4>
+        <div class="ov-sub">${_ovN(V.documents)} ${esc(t('ov_docs_for'))} ${_ovN(V.employees_with)} ${esc(t('ov_emp'))}</div>
+        ${ovBar([{k:'valid',n:+V.valid||0,label:t('ov_valid')},
+                 {k:'soon',n:+V.soon||0,label:t('ov_soon')},
+                 {k:'expired',n:+V.expired||0,label:t('ov_expired')},
+                 {k:'unknown',n:+V.unknown||0,label:t('ov_nodate')}])}
+      </div>
+      <div class="ov-card">
+        <h4>${esc(t('ov_gaps'))}</h4>
+        <div class="ov-sub">${esc(t('ov_gaps_s'))}</div>
+        <div class="ov-gaps">
+          ${gap(G.no_visa,t('ov_no_visa'))}${gap(G.no_passport_date,t('ov_no_pdate'))}
+          ${gap(G.no_nationality,t('ov_no_nat'))}${gap(G.no_photo,t('ov_no_photo'))}
+        </div>
+      </div>
+      <div class="ov-card">
+        <h4>${esc(t('ov_nats'))}</h4>
+        <div class="ov-sub">${esc(t('ov_nats_s'))}</div>
+        <div class="ov-nat">${nats.map((x,i)=>
+          `<i style="width:${((+x.n||0)/natTot*100).toFixed(2)}%;background:${natCol[i%natCol.length]}"></i>`).join('')}</div>
+        <div class="ov-natl">${nats.map((x,i)=>
+          `<span class="ov-li"><i class="ov-dot" style="background:${natCol[i%natCol.length]}"></i>`
+          +`<b class="ov-n">${_ovN(x.n)}</b> ${esc(x.name)}</span>`).join('')}</div>
+      </div>
+      <div class="ov-card">
+        <h4>${esc(t('ov_inbox'))}</h4>
+        <div class="ov-sub">${esc(t('ov_inbox_s'))}</div>
+        <div class="ov-gaps">
+          ${gap(IB.review,t('ov_ib_review'))}${gap(IB.staged,t('ov_ib_staged'))}${gap(IB.refused,t('ov_ib_refused'))}
+        </div>
+      </div>
+      <div class="ov-card">
+        <h4>${esc(t('ov_legal'))}</h4>
+        <div class="ov-sub">${esc(t('ov_legal_s'))}</div>
+        <div class="ov-gaps">
+          ${gap(L.batches,t('ov_lg_batches'))}${gap(L.members,t('ov_lg_members'))}
+        </div>
+      </div>
+    </div>`;
+}
 function onType(){clearTimeout(_timer);_timer=setTimeout(()=>search($('#q').value),180)}
 /* PostgREST caps every response at a fixed number of rows (1000 by default) no matter what the
    function returns. So the roster stopped at 1000 the moment the registry passed it — the count
@@ -988,6 +1112,9 @@ function render(rows){
      …and if the rows we hold are fewer than the database says match, something between the two
      truncated them. That must be SAID, not hidden behind a confident number — the whole bug was a
      silent gap wearing the costume of a total. `n_res_part` is that admission. */
+  // render() runs on every search AND every filter-chip click, which is exactly when the overview
+  // has to decide whether it is still the empty state. One call here covers both.
+  renderOverview();
   const narrowed = shown.length !== items.length;                 // a chip is filtering
   const total    = (SEARCH_TOTAL===null) ? rows.length : SEARCH_TOTAL;
   const short    = !narrowed && total > rows.length;              // we hold less than exists
