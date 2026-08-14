@@ -1197,10 +1197,14 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-fw{flex:1;min-width:40px;position:relative;display:flex;align-items:baseline}
 .ist-fw .ist-in{flex:1;min-width:0;padding-inline-end:16px}   /* room for ▾, never overlapping text */
 
-/* filled, and honestly marked: real ink at 80%, dotted rather than solid underline. Reads as
-   "we wrote this for you", not as "nothing here". Focus or type and it becomes plain black. */
-.ist-in.ist-pre,.ist-hin.ist-pre{color:#5c5c5c;border-bottom-style:dotted}
-.ist-in.ist-pre:focus,.ist-hin.ist-pre:focus{color:#000;border-bottom-style:solid}
+/* PREFILLED READS AS WRITTEN — the owner's call, and the right one for this form.
+   These values were measured from the papers this company actually files (106 of 106 rows carry
+   the same border crossing), so treating them as tentative was overcautious: it made a filled
+   form look empty and cost a glance on every field. They render exactly like typed text — black,
+   solid underline — and stay fully editable, with ▾ offering the other known values.
+   The `ist-pre` class is still SET, so the form can still tell prefilled from confirmed if that
+   distinction is ever needed again; it simply no longer changes how the value looks. */
+.ist-in.ist-pre,.ist-hin.ist-pre{color:#000;border-bottom-style:solid}
 
 /* ── the two cell controls ─────────────────────────────────────────────────────────────────
    ▾ (suggestions) and ⤓ (fill down) are DIFFERENT actions and must not read as one smudge.
