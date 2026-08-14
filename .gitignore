@@ -29,6 +29,8 @@
 !assets/app.css
 !assets/vendor.js
 !assets/app.js
+# the company representative's photo — the استمارة's default «صورة ممثل الشركة»
+!assets/rep-photo.jpg
 # vendored docx-preview (Apache-2.0) — renders Word/Excel legal papers in-app for the review + print,
 # so no server/LibreOffice is needed. Self-contained JS, no external calls. Explicit entry only.
 !assets/docx-preview.min.js

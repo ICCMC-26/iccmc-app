@@ -3452,10 +3452,31 @@ function istPickMenu(btn){
     document.removeEventListener('click',off); },{once:true}),0);
 }
 function istPaper(){ return IST_PAPERS[(_IST&&_IST.paper)||'istimara']||IST_PAPERS.istimara; }
+/* THE DEFAULT REPRESENTATIVE PHOTO.
+   «صورة ممثل الشركة» is the same man on every استمارة this company files, so the box should open
+   holding him rather than an empty dashed square. Kept as a repo asset and converted to a data URL
+   at open time — NOT pasted into app.js as base64, which would add ~95KB to a file every page load
+   fetches, for an image only one screen ever uses.
+   Set into _IST.photo, which means the EXPORT carries it too: the worker already swaps whatever
+   photo it receives into the Word template, so the editor and the printed PDF agree by
+   construction rather than by keeping two copies in step. Replaceable as always — click the box. */
+let _REP_PHOTO=null;
+async function istRepPhoto(){
+  if(_REP_PHOTO!==null) return _REP_PHOTO;
+  try{
+    const r=await fetch('assets/rep-photo.jpg'); if(!r.ok) throw 0;
+    const b=await r.blob();
+    _REP_PHOTO=await new Promise(res=>{ const fr=new FileReader();
+      fr.onload=()=>res(fr.result); fr.onerror=()=>res(''); fr.readAsDataURL(b); });
+  }catch(_){ _REP_PHOTO=''; }      // missing asset → the box simply stays empty, as before
+  return _REP_PHOTO;
+}
 async function istimaraOpen(paper){
   await istLoadDefaults();        // must land BEFORE istFresh(), or the sheet opens blank
   if(!_IST) _IST=istLoadDraft(paper)||istFresh(paper);   // restore a saved draft so the user sees his work again
   if(paper && _IST.paper!==paper) _IST=istFresh(paper);  // switching paper → a fresh sheet of that kind
+  // only the استمارة carries a representative photo; تعهد has no photo box at all
+  if((_IST.paper||'istimara')==='istimara' && !_IST.photo){ _IST.photo=await istRepPhoto()||null; }
   const P=istPaper(), H=_IST.header;
   const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
     +`<span class="ist-fw"><input class="ist-in${(_IST._pre&&_IST._pre[f.k])?' ist-pre':''}" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}">`
