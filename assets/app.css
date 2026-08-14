@@ -1236,6 +1236,16 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* the header field's ▾ has no ⤓ beside it, so it sits alone at the line end */
 .ist-fw .ist-pick{position:absolute;inset-inline-end:0;bottom:1px}
 
+/* IN THE TABLE, ▾ hides until the cell is touched — the borders were never the problem.
+   Measured: a hand cell and a plain cell render identical 0.8px borders at identical positions.
+   What read as "bold" was a bordered chip repeated in EVERY ROW of two columns; thirty of them
+   down a column is a vertical stripe of boxes, not a control. ⤓ already worked this way, so the
+   pair now behaves alike and the grid reads as the printed form it is meant to mirror.
+   The HEADER field's ▾ stays visible: it sits alone on a line, not stacked thirty deep. */
+.ist-hcell .ist-pick{opacity:0;transition:opacity .1s}
+.ist-hcell:hover .ist-pick,
+.ist-hcell:focus-within .ist-pick{opacity:1}
+
 /* The menu sits ON THE PAPER, so it is a paper object: white card, black text, real borders.
    It previously used var(--panel), which is the app's DARK surface — on a white A4 sheet that
    rendered a black slab with near-black text inside it, unreadable in the screenshot. Nothing in
