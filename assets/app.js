@@ -22,6 +22,7 @@ const I18N={
     add:'إضافة', ph:'ابحث عن أي موظف — الاسم، الجواز، التأشيرة، الجنسية…',
     hint:'اكتب أي شيء أخذناه من الموظف — يظهر فورًا.', all:'كل الموظفين',
     n_res:n=>`${n} نتيجة`, none:'لا نتائج — جرّب اسمًا أو رقم جواز آخر.',
+    n_res_part:(shown,total)=>`${shown} من ${total} نتيجة — لم تُحمَّل البقية`,
     soon:'ينتهي خلال', day:'يوم', expired:'منتهٍ', valid:'ساري', nodocs:'لا وثائق', incomplete:'غير مكتمل',
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
@@ -144,6 +145,7 @@ const I18N={
     add:'Add', ph:'Search any employee — name, passport, visa, nationality…',
     hint:'Type anything we captured from the employee — results appear instantly.', all:'All employees',
     n_res:n=>`${n} result${n===1?'':'s'}`, none:'No matches — try another name or passport number.',
+    n_res_part:(shown,total)=>`${shown} of ${total} results — the rest did not load`,
     soon:'expires in', day:'d', expired:'Expired', valid:'Valid', nodocs:'No documents', incomplete:'Incomplete',
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
@@ -368,6 +370,7 @@ function subscribeLive(){
 
 /* ── search (the whole point) ────────────────────────────────────────────── */
 let LAST=[], _seq=0, _timer=null;
+let SEARCH_TOTAL=null;      // what the DATABASE says the current search matches — see search()
 function onType(){clearTimeout(_timer);_timer=setTimeout(()=>search($('#q').value),180)}
 /* PostgREST caps every response at a fixed number of rows (1000 by default) no matter what the
    function returns. So the roster stopped at 1000 the moment the registry passed it — the count
@@ -399,9 +402,22 @@ async function rpcAll(fn, args, alive){
 async function search(q){
   const seq=++_seq;
   if(LAWMODE){ const rows=await searchLegalBatches(q); if(seq!==_seq)return; LAWLAST=sortLawRows(rows); renderLaw(LAWLAST); return; }
-  const {data,error}=await rpcAll('search_employees',{q},()=>seq===_seq);
+  /* THE COUNT COMES FROM THE DATABASE, NOT FROM THE ARRAY.
+     «500 نتيجة» then «1000 نتيجة» were the same mistake twice: the number shown was the LENGTH OF
+     WHAT WE HAD DOWNLOADED. That is a fact about the transport, so every ceiling in the path
+     quietly became "the answer" and a truncated figure was presented with the confidence of a
+     total. Asked as its own question it returns one scalar, which no row cap can shorten.
+     Both calls go out together — the count must not add a round-trip to the keystroke. */
+  const [got,cnt]=await Promise.all([
+    rpcAll('search_employees',{q},()=>seq===_seq),
+    sb.rpc('search_employees_count',{q})
+  ]);
+  const {data,error}=got;
   if(seq!==_seq)return;                            // a newer keystroke won
   if(error){toast(error.message);return}
+  // null when the count could not be had — render() then falls back to the array length, which is
+  // the old behaviour: degraded, never wrong-looking, and never blocking the results.
+  SEARCH_TOTAL = (cnt && !cnt.error && typeof cnt.data==='number') ? cnt.data : null;
   // SEARCH = relevance order (the RPC ranks exact/prefix first — best match on top, direct & pro).
   // BROWSE (empty box) = the chosen sort chip (number / name / newest).
   LAST = String(q||'').trim() ? (data||[]) : sortRows(data||[]);
@@ -966,7 +982,19 @@ function render(rows){
   const F=FILTERS.find(f=>f.k===FILTER)||FILTERS[0];
   let shown=items.filter(x=>F.match(x.s,x.r));
   if(FILTER==='incomplete'&&INC_SIDE!=='all'){ const sd=INC_SIDES.find(s=>s.k===INC_SIDE); if(sd) shown=shown.filter(x=>sd.match(x.r)); }
-  $('#count').textContent = rows.length ? t('n_res',shown.length) : '';
+  /* Which number is the honest one depends on what the user is looking at:
+       · a filter chip is active  → they asked for a SUBSET, so the subset's size is the answer
+       · no filter               → they asked for everything, so the DATABASE's total is the answer
+     …and if the rows we hold are fewer than the database says match, something between the two
+     truncated them. That must be SAID, not hidden behind a confident number — the whole bug was a
+     silent gap wearing the costume of a total. `n_res_part` is that admission. */
+  const narrowed = shown.length !== items.length;                 // a chip is filtering
+  const total    = (SEARCH_TOTAL===null) ? rows.length : SEARCH_TOTAL;
+  const short    = !narrowed && total > rows.length;              // we hold less than exists
+  $('#count').textContent = !rows.length ? ''
+      : narrowed ? t('n_res', shown.length)
+      : short    ? t('n_res_part', rows.length, total)
+      :            t('n_res', total);
   if(!rows.length){box.innerHTML=`<div class="empty">${$('#q')&&$('#q').value?t('none'):t('all')}</div>`;return}
   if(!shown.length){box.innerHTML=`<div class="empty">${t('f_none')}</div>`;return}
   // VIRTUALISED: a first window of rows, then the next chunk streams in as the user scrolls near the bottom.
