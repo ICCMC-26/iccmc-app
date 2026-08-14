@@ -1202,27 +1202,35 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-in.ist-pre,.ist-hin.ist-pre{color:#5c5c5c;border-bottom-style:dotted}
 .ist-in.ist-pre:focus,.ist-hin.ist-pre:focus{color:#000;border-bottom-style:solid}
 
-/* ▾ sits ON the field's own line, at its end — only when more than one value is known, so it
-   never promises a choice that does not exist. */
-.ist-pick{position:absolute;inset-inline-end:0;bottom:2px;background:transparent;border:0;
-  color:rgba(197,149,107,.95);cursor:pointer;font-size:10px;line-height:1;padding:1px 2px}
-.ist-pick:hover{color:#a5713f}
+/* ▾ — a CONTROL, and it has to look like one. At 10px bare-glyph it read as a stray mark on the
+   paper. Now a small copper chip: bordered, tinted, big enough to aim at, and it only appears
+   where more than one value is known so it never promises a choice that does not exist. */
+.ist-pick{position:absolute;inset-inline-end:0;bottom:1px;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:17px;height:15px;padding:0;cursor:pointer;font-size:9px;line-height:1;
+  color:#8a5a28;background:rgba(197,149,107,.20);
+  border:1px solid rgba(197,149,107,.75);border-radius:4px}
+.ist-pick:hover{background:rgba(197,149,107,.42);color:#5e3b16;border-color:#a5713f}
 .ist-hcell{position:relative}
-/* Add padding ONLY where a ▾ actually exists. The cell already reserves room for ⤓, so a blanket
-   rule stacked a second gutter on top of it: 29px of padding in an 83px cell squeezed 65px of
-   text into 54px and «Engineer» rendered as «jineer». Most columns have one known value and no ▾,
-   so they keep the original spacing untouched. */
 .ist-hcell:has(.ist-pick) .ist-hin{padding-inline-end:28px}
-.ist-hcell .ist-pick{inset-inline-end:13px;bottom:3px}
+.ist-hcell .ist-pick{inset-inline-end:14px;bottom:4px}
 
-/* the menu is app chrome, not paper — it may use the theme, and it must sit above the sheet. */
-.ist-menu{position:absolute;z-index:60;inset-inline-end:0;top:calc(100% + 2px);min-width:200px;
-  max-width:min(360px,70vw);background:var(--panel,#fff);border:1px solid rgba(0,0,0,.16);
-  border-radius:9px;box-shadow:0 12px 30px rgba(0,0,0,.22);overflow:hidden;text-align:start}
-.ist-menu button{display:flex;width:100%;align-items:center;gap:10px;justify-content:space-between;
-  background:transparent;border:0;border-bottom:1px solid rgba(0,0,0,.07);color:#1a1a1a;
-  padding:9px 12px;font-size:12.5px;cursor:pointer;text-align:start;font-family:inherit}
+/* The menu sits ON THE PAPER, so it is a paper object: white card, black text, real borders.
+   It previously used var(--panel), which is the app's DARK surface — on a white A4 sheet that
+   rendered a black slab with near-black text inside it, unreadable in the screenshot. Nothing in
+   this sheet may take its colours from the theme. */
+.ist-menu{position:absolute;z-index:60;inset-inline-end:0;top:calc(100% + 4px);
+  min-width:230px;max-width:min(420px,74vw);
+  background:#fff;border:1px solid #c9bda9;border-radius:10px;
+  box-shadow:0 14px 34px rgba(0,0,0,.28);overflow:hidden;text-align:start}
+.ist-menu button{display:flex;width:100%;align-items:center;gap:14px;justify-content:space-between;
+  background:#fff;border:0;border-bottom:1px solid #ece6db;color:#14100b;
+  padding:11px 14px;font-size:13.5px;line-height:1.45;cursor:pointer;text-align:start;
+  font-family:inherit}
 .ist-menu button:last-child{border-bottom:0}
-.ist-menu button:hover{background:rgba(197,149,107,.13);color:#7a4f22}
-/* the count is evidence: "×106" and "×1" are different kinds of suggestion. */
-.ist-menu em{font-style:normal;font-family:var(--mono);font-size:10.5px;color:#8a8a8a;flex:none}
+.ist-menu button:hover{background:#faf3e9;color:#7a4f22}
+.ist-menu button span{flex:1;min-width:0}
+/* the count is evidence: «×106» and «×1» are different kinds of suggestion, and the reader should
+   be able to weigh them before picking. */
+.ist-menu em{font-style:normal;font-family:var(--mono);font-size:11px;color:#7d7466;flex:none;
+  background:#f2ece1;border-radius:99px;padding:2px 7px}
