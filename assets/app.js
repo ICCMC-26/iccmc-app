@@ -135,6 +135,7 @@ const I18N={
     ist_c_addr:'العنوان الكامل للأقامة داخل العراق', ist_c_border:'اسم المنفذ الحدودي', ist_c_prof:'المهنة', ist_c_country:'بلد الاقامة الحالي', ist_c_visited:'هل سبق زيارة العراق',
     ist_filldown:'تعبئة للأسفل — نسخ هذه القيمة إلى كل الصفوف تحتها', ist_hand_hint:'تُكتب باليد (لا تأتي من قراءة الجواز)',
     ist_pick:'اقتراحات — الأكثر استعمالاً',
+    taa_ph_name:'اسم الموظف', taa_ph_passport_no:'رقم الجواز',
     ist_agent_open:'افتح أداة الرفع', ist_agent_get:'حمِّل أداة الرفع',
     ist_agent_new:'حمِّل تحديث أداة الرفع',
     ist_agent_hint:'تُرفع الجوازات بالأداة — تدخل السجل كالمعتاد وتظهر هنا تلقائياً',
@@ -282,6 +283,7 @@ const I18N={
     ist_c_addr:'Full address of residence in Iraq', ist_c_border:'Border entry point', ist_c_prof:'Profession', ist_c_country:'Current country of residence', ist_c_visited:'Visited Iraq before?',
     ist_filldown:'Fill down — copy this value to all rows below', ist_hand_hint:'Typed by hand (not read from the passport)',
     ist_pick:'Suggestions — most used',
+    taa_ph_name:'employee name', taa_ph_passport_no:'passport number',
     ist_agent_open:'Open the uploader', ist_agent_get:'Get the uploader',
     ist_agent_new:'Download the uploader update',
     ist_agent_hint:'Passports go through the uploader — they enter the registry as usual and appear here automatically',
@@ -3416,7 +3418,7 @@ const IST_PAPERS={
   // manager signature are truly fixed. Empty → the worker restores the original wording.
   taahud:{ h:'taa_h', title:'taa_title', photo:false, land:false, logo:'assets/taahud-logo.jpg',
     fields:[], texts:[{k:'to_line',d:'taa_to',cls:'to'},{k:'intro',d:'taa_intro'},{k:'body',d:'taa_body'}],
-    cols:[{k:'_ser',lab:'taa_c_ser'},{k:'name',lab:'ist_c_name'},{k:'passport_no',lab:'ist_c_pass'}] },
+    cols:[{k:'_ser',lab:'taa_c_ser'},{k:'name',lab:'ist_c_name',edit:1},{k:'passport_no',lab:'ist_c_pass',edit:1}] },
 };
 /* Fill a row's HAND-TYPED columns from rank 1, and remember which ones were prefilled so the
    cell can show that no human has looked at it yet. OCR columns are never touched here — those
@@ -3582,6 +3584,12 @@ function istRenderRows(){
         +`<span class="ist-cacts">`
         +(istDefs(c.k).length>1?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
         +`<button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></span></td>`;
+      /* EDITABLE but not "hand-typed": the value still arrives from the passport, it is simply
+         correctable here. A wrong letter gets the paper refused at the counter, and the operator
+         holding the passport is the one who can see it. It edits the DRAFT only — the registry is
+         never written from this table. No ⤓, because a name is not a value you copy down a column. */
+      if(c.edit) return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="${c.k}" `
+        +`value="${esc(r[c.k]||'')}" placeholder="${esc(t('taa_ph_'+c.k)||'')}">${badge}</td>`;
       if(c.k==='_ser')            return `<td>${i+1}</td>`;
       if(c.k==='name')            return `<td>${esc(r.name||'—')}${badge}</td>`;
       if(c.k==='nationality')     return `<td>${esc(r.nationality?tv(r.nationality):'—')}</td>`;
@@ -3599,6 +3607,8 @@ function istRenderRows(){
   tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri];
     if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; if(r._pre) delete r._pre[inp.dataset.rk]; }
     inp.classList.remove('ist-pre'); });
+  tb.querySelectorAll('.ist-ein').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri];
+    if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; } });
   tb.querySelectorAll('.ist-pick').forEach(b=>b.onclick=e=>{ e.stopPropagation(); istPickMenu(b); });
   tb.querySelectorAll('.ist-fill').forEach(b=>b.onclick=()=>{ const i=+b.dataset.fi, k=b.dataset.fk, r0=_IST.rows[i]; if(!r0)return;
     const v=r0[k]||''; for(let j=i+1;j<_IST.rows.length;j++){ if(_IST.rows[j]) _IST.rows[j][k]=v; }   // carry this value to every row below

@@ -1251,3 +1251,16 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
    be able to weigh them before picking. */
 .ist-menu em{font-style:normal;font-family:var(--mono);font-size:11px;color:#7d7466;flex:none;
   background:#f2ece1;border-radius:99px;padding:2px 7px}
+
+/* تعهد's roster is EDITABLE. Its two columns come from the passport, but this table is a
+   DOCUMENT being composed, not the registry — and a wrong letter here is what gets the paper
+   refused at the government counter. So the value is correctable by the person holding the
+   passport, in the draft only. Styled exactly like the printed cell it replaces: same font, same
+   centring, no box — the underline appears on hover so the affordance is discoverable without
+   turning the table into a form. */
+.ist-ecell{position:relative}
+.ist-ein{width:100%;border:0;border-bottom:1.4px solid transparent;background:transparent;
+  font:inherit;color:#000;text-align:center;padding:2px 4px;border-radius:0}
+.ist-ein:hover{border-bottom-color:rgba(197,149,107,.55)}
+.ist-ein:focus{outline:none;border-bottom-color:var(--copper,#c5956b);border-bottom-width:1.8px}
+.ist-ein::placeholder{color:#c2c2c2}
