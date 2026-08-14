@@ -583,7 +583,11 @@ function onType(){clearTimeout(_timer);_timer=setTimeout(()=>search($('#q').valu
    bug while looking like a fix.
    `alive` lets a newer keystroke abandon the walk mid-way instead of paging to the end of a result
    set nobody is waiting for any more. */
-const PAGE=500, MAX_PAGES=200;                    // 100k rows — a backstop against a runaway loop
+/* 1000 matches PostgREST's own response cap, so a full registry is fetched in the FEWEST possible
+   requests. At 500 a 1575-row roster cost four round trips where two suffice — and each trip is a
+   fresh 81ms execution of search_employees, not just latency. Still strictly below the cap, so a
+   short page remains a truthful end-of-set signal. */
+const PAGE=1000, MAX_PAGES=100;                   // 100k rows — a backstop against a runaway loop
 async function rpcAll(fn, args, alive){
   let out=[];
   for(let i=0;i<MAX_PAGES;i++){
@@ -592,8 +596,8 @@ async function rpcAll(fn, args, alive){
     if(error) return {data:null,error};
     const got=data||[];
     out=out.concat(got);
-    if(got.length<PAGE) return {data:out,error:null};   // a short page IS the end of the set
-    if(alive && !alive()) return {data:out,error:null}; // superseded — stop paging, discard upstream
+    if(got.length<PAGE) return {data:out,error:null,complete:true};  // a short page IS the end of the set
+    if(alive && !alive()) return {data:out,error:null};              // superseded — stop paging
   }
   return {data:out,error:null};
 }
@@ -606,16 +610,22 @@ async function search(q){
      quietly became "the answer" and a truncated figure was presented with the confidence of a
      total. Asked as its own question it returns one scalar, which no row cap can shorten.
      Both calls go out together — the count must not add a round-trip to the keystroke. */
-  const [got,cnt]=await Promise.all([
-    rpcAll('search_employees',{q},()=>seq===_seq),
-    sb.rpc('search_employees_count',{q})
-  ]);
+  /* The count is only ASKED FOR when we cannot already know it. When the row walk ended on a
+     short page we have provably seen every match, so the total is simply what we hold — and
+     search_employees_count re-runs the whole 81ms function to tell us a number already in hand.
+     That call was half the work of a search. It now fires only when the walk was truncated
+     (hit MAX_PAGES, or a newer keystroke cut it short), which is the one case we genuinely
+     cannot answer ourselves. */
+  const got=await rpcAll('search_employees',{q},()=>seq===_seq);
   const {data,error}=got;
   if(seq!==_seq)return;                            // a newer keystroke won
   if(error){toast(error.message);return}
-  // null when the count could not be had — render() then falls back to the array length, which is
-  // the old behaviour: degraded, never wrong-looking, and never blocking the results.
-  SEARCH_TOTAL = (cnt && !cnt.error && typeof cnt.data==='number') ? cnt.data : null;
+  if(got.complete){ SEARCH_TOTAL=(data||[]).length; }
+  else {
+    const cnt=await sb.rpc('search_employees_count',{q});
+    if(seq!==_seq)return;
+    SEARCH_TOTAL=(cnt && !cnt.error && typeof cnt.data==='number') ? cnt.data : null;
+  }
   // SEARCH = relevance order (the RPC ranks exact/prefix first — best match on top, direct & pro).
   // BROWSE (empty box) = the chosen sort chip (number / name / newest).
   LAST = String(q||'').trim() ? (data||[]) : sortRows(data||[]);
