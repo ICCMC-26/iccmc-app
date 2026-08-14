@@ -1225,3 +1225,22 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
        padding:5px 12px;font-size:11.5px;cursor:pointer;margin-top:13px}
 .bd-tt:hover{color:var(--copper);border-color:var(--copper)}
 @media (max-width:560px){ .bd-cols{height:118px} .bd-row{grid-template-columns:minmax(70px,104px) 1fr auto} }
+
+/* the lead — the one number the page exists for, given room to be alone */
+.bd-lead{margin-bottom:38px}
+.bd-lead-l{display:block;font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+           color:var(--copper);font-family:var(--mono);margin-bottom:9px}
+.bd-lead-s{margin:9px 0 0;font-size:12.5px;color:var(--faint)}
+.bd-lead .bd-hero{margin-bottom:0}
+
+/* the funnel — ordered and cumulative, so a ramp is honest here. The last step wears the OK
+   colour because reaching it is the goal; the rest stay one recessive hue so the eye follows
+   the DROP rather than the palette. */
+.bd-fns{display:flex;flex-direction:column;gap:9px}
+.bd-fn{display:grid;grid-template-columns:minmax(110px,190px) 1fr auto;align-items:center;gap:14px}
+.bd-fn span{font-size:13px;color:var(--muted);text-align:start}
+.bd-fn i{height:16px;background:var(--teal-dim,var(--teal));opacity:.55;border-radius:4px;
+         min-width:3px;display:block}
+.bd-fn i.done{background:var(--st-ok);opacity:1}
+.bd-fn b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;color:var(--ink)}
+@media (max-width:560px){ .bd-fn{grid-template-columns:minmax(92px,132px) 1fr auto} }

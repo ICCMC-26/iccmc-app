@@ -41,6 +41,10 @@ const I18N={
     bd_visa_state:'حالة التأشيرات', bd_pass_state:'حالة الجوازات', bd_of_emp:'موظف لديه تأشيرة',
     bd_horizon:'متى تنتهي التأشيرات', bd_horizon_s:'عدد الموظفين في كل مدى — الأحمر منتهٍ فعلاً · الكهرماني خلال 90 يومًا',
     bd_when:'المدى', bd_show_tbl:'عرض كجدول', bd_hide_tbl:'إخفاء الجدول',
+    bd_complete:'ملف مكتمل', bd_of:'من',
+    bd_complete_s:'جواز ساري + تأشيرة سارية + دفعة قانونية نافذة — الثلاثة معاً',
+    bd_where:'أين تتوقّف الملفات', bd_where_s:'كل خطوة جزء من التي قبلها',
+    fn_all:'كل الموظفين', fn_pass:'جواز ساري', fn_visa:'+ تأشيرة سارية', fn_legal:'+ دفعة قانونية نافذة',
     soon:'ينتهي خلال', day:'يوم', expired:'منتهٍ', valid:'ساري', nodocs:'لا وثائق', incomplete:'غير مكتمل',
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
@@ -182,6 +186,10 @@ const I18N={
     bd_visa_state:'Visa status', bd_pass_state:'Passport status', bd_of_emp:'employees hold a visa',
     bd_horizon:'When visas expire', bd_horizon_s:'employees in each range — red is already expired · amber is due within 90 days',
     bd_when:'Range', bd_show_tbl:'Show as table', bd_hide_tbl:'Hide table',
+    bd_complete:'complete files', bd_of:'of',
+    bd_complete_s:'passport in date + visa in date + an in-force legal batch — all three at once',
+    bd_where:'Where files fall short', bd_where_s:'each step is a subset of the one above',
+    fn_all:'all employees', fn_pass:'passport in date', fn_visa:'+ visa in date', fn_legal:'+ in-force legal batch',
     soon:'expires in', day:'d', expired:'Expired', valid:'Valid', nodocs:'No documents', incomplete:'Incomplete',
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
@@ -418,8 +426,13 @@ let SEARCH_TOTAL=null;      // what the DATABASE says the current search matches
 let OVERVIEW=null, _ovAsked=false;
 async function loadOverview(){
   if(_ovAsked) return OVERVIEW; _ovAsked=true;
-  try{ const {data,error}=await sb.rpc('registry_overview');
-       if(!error && data) OVERVIEW=data; }catch(_){}
+  try{
+    // Two questions, one round trip each, fired together: the overview is the registry's shape,
+    // the complete-case funnel is its readiness. Neither should wait on the other.
+    const [ov,cc]=await Promise.all([sb.rpc('registry_overview'), sb.rpc('registry_complete_cases')]);
+    if(!ov.error && ov.data){ OVERVIEW=ov.data;
+      if(!cc.error && cc.data) OVERVIEW.complete=cc.data; }
+  }catch(_){}
   return OVERVIEW;
 }
 const _ovN=n=>Number(n||0).toLocaleString(LANG==='ar'?'ar-EG':'en-US');
@@ -462,22 +475,33 @@ function bdBar(parts){
 function renderBoard(){
   const box=$('#board'); if(!box) return;
   const o=OVERVIEW;
-  if(!o){ box.innerHTML=`<div class="bd-top"><span class="bd-ttl">${esc(t('bd_title'))}</span>`
+  if(!o){ box.innerHTML=`<div class="bd-wrap"><div class="bd-top"><span class="bd-ttl">${esc(t('bd_title'))}</span>`
         +`<button class="bd-x" id="bd-x">${esc(t('bd_close'))}</button></div>`
-        +`<div class="bd-s">${esc(t('bd_loading'))}</div>`; wireBoard(); return; }
-  const P=o.passports||{}, V=o.visas||{}, G=o.gaps||{}, H=o.horizon||[];
-  const nats=(o.nationalities||[]).slice(0,6);
-  const natMax=Math.max(1,...nats.map(x=>+x.n||0));
-  const hMax =Math.max(1,...H.map(x=>+x.visas||0));
-  const soon90=(+V.soon||0);
+        +`<div class="bd-s">${esc(t('bd_loading'))}</div></div>`; wireBoard(); return; }
+  const P=o.passports||{}, V=o.visas||{}, H=o.horizon||[], C=o.complete||null;
 
-  /* EMPHASIS, not decoration. On a linear scale 604 dwarfs the bins that actually need action —
-     71 overdue and 74 inside 90 days render as slivers, so the urgent story hides behind the
-     comfortable one. The bins are ordered by URGENCY, so colour here genuinely means status and
-     is allowed to: red = already expired, amber = due inside 90 days, recessive teal = context.
-     The scale stays LINEAR (a log axis would flatter the backlog) and every column keeps its
-     printed value, so a short bar is never an unreadable one. */
+  /* ORDERED BY WHAT MATTERS, top to bottom:
+       1 the complete case — the only number that says whether a man is lawfully on site
+       2 where the incomplete ones fall out (the funnel answers "why 23?" without being asked)
+       3 what is on fire right now (expired / expiring)
+       4 the two document states
+       5 when the next wave lands
+     Nationalities were REMOVED from this page. It is demographic trivia next to the four above,
+     and a board that shows everything ranks nothing. It still lives on the roster's empty state. */
+  const emp=C?C.employees:o.employees, comp=C?C.complete:null;
+  const F=(C&&C.funnel)||[];
+  const fMax=Math.max(1,...F.map(x=>+x.n||0));
+  const fLab={all:t('fn_all'),passport:t('fn_pass'),visa:t('fn_visa'),legal:t('fn_legal')};
+  /* The funnel is ordered and cumulative, so a ramp is legitimate here — each step is a strict
+     subset of the one above. The last step wears the OK status colour because reaching it is the
+     goal; the rest are one recessive hue so the drop is what the eye follows, not the palette. */
+  const funnel=F.map((x,k)=>`<div class="bd-fn">
+      <span>${esc(fLab[x.k]||x.k)}</span>
+      <i class="${k===F.length-1?'done':''}" style="width:${Math.max(0.6,(+x.n||0)/fMax*100).toFixed(1)}%"></i>
+      <b>${bdN(x.n)}</b></div>`).join('');
+
   const urg=k=>k==='overdue'?'od':(k==='d30'||k==='d60'||k==='d90')?'sn':'far';
+  const hMax=Math.max(1,...H.map(x=>+x.visas||0));
   const cols=H.map(h=>`<div class="bd-col"><em>${bdN(h.visas)}</em>`
      +`<i class="${urg(h.k)}" style="height:${Math.max(2,(+h.visas||0)/hMax*100).toFixed(1)}%"></i></div>`).join('');
   const xlab=H.map(h=>`<span>${esc(h.label)}</span>`).join('');
@@ -486,13 +510,22 @@ function renderBoard(){
   <div class="bd-top"><span class="bd-ttl">${esc(t('bd_title'))}</span>
     <button class="bd-x" id="bd-x">${esc(t('bd_close'))} ✕</button></div>
 
-  <div class="bd-hero"><b>${bdN(o.employees)}</b><span>${esc(t('ov_employees'))}</span></div>
+  <div class="bd-lead">
+    <span class="bd-lead-l">${esc(t('bd_complete'))}</span>
+    <div class="bd-hero"><b>${comp===null?'—':bdN(comp)}</b>
+      <span>${esc(t('bd_of'))} ${bdN(emp)} ${esc(t('ov_employees'))}</span></div>
+    <p class="bd-lead-s">${esc(t('bd_complete_s'))}</p>
+  </div>
+
+  ${F.length?`<div class="bd-block">
+    <h3 class="bd-h">${esc(t('bd_where'))}</h3>
+    <p class="bd-s">${esc(t('bd_where_s'))}</p>
+    <div class="bd-fns">${funnel}</div>
+  </div>`:''}
 
   <div class="bd-kpis">
     <div class="bd-kpi"><b>${bdN(V.expired)}</b><span><i style="background:var(--st-bad)"></i>${esc(t('bd_visa_exp'))}</span></div>
-    <div class="bd-kpi"><b>${bdN(soon90)}</b><span><i style="background:var(--st-soon)"></i>${esc(t('bd_visa_soon'))}</span></div>
-    <div class="bd-kpi"><b>${bdN(G.no_visa)}</b><span><i style="background:var(--st-unk)"></i>${esc(t('ov_no_visa'))}</span></div>
-    <div class="bd-kpi"><b>${bdN(G.no_passport_date)}</b><span><i style="background:var(--st-unk)"></i>${esc(t('ov_no_pdate'))}</span></div>
+    <div class="bd-kpi"><b>${bdN(V.soon)}</b><span><i style="background:var(--st-soon)"></i>${esc(t('bd_visa_soon'))}</span></div>
   </div>
 
   <div class="bd-block">
@@ -518,14 +551,6 @@ function renderBoard(){
       +`<th>${esc(t('ov_passports'))}</th></tr>`
       +H.map(h=>`<tr><td>${esc(h.label)}</td><td>${bdN(h.visas)}</td><td>${bdN(h.passports)}</td></tr>`).join('')
       +`</table>`:''}
-  </div>
-
-  <div class="bd-block">
-    <h3 class="bd-h">${esc(t('ov_nats'))}</h3>
-    <p class="bd-s">${esc(t('ov_nats_s'))}</p>
-    <div class="bd-rows">${nats.map(x=>
-      `<div class="bd-row"><span>${esc(x.name)}</span>`
-      +`<i style="width:${((+x.n||0)/natMax*100).toFixed(1)}%"></i><b>${bdN(x.n)}</b></div>`).join('')}</div>
   </div></div>`;
   wireBoard();
 }
