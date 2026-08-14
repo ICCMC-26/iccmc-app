@@ -966,7 +966,11 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* table styling = the official Word doc (source of truth): 11pt, ALL cells bold, Arial/Calibri (inherited),
    #D9D9D9 header fill, centered, thin black grid. Row spacing tuned to the doc (~5.7mm data rows). */
 .ist-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:11pt;table-layout:fixed}
-.ist-table th,.ist-table td{border:1px solid #000;padding:3px 4px;text-align:center;word-break:break-word;font-weight:700}
+/* 0.5pt is Word's own default table border, and this grid must match the PDF the worker
+   renders — 1px reads heavier on screen than the exported form does on paper, which is the
+   mismatch reported. Stated in POINTS, not pixels, because the sheet is a print mould: pt is
+   what the Word template is measured in, so the two stay equal at any zoom or DPI. */
+.ist-table th,.ist-table td{border:0.5pt solid #000;padding:3px 4px;text-align:center;word-break:break-word;font-weight:700}
 .ist-table th{background:#D9D9D9}
 /* real relative widths of the 5 visible cols (from the doc grid: ت 12.9 · اسم 42.1 · جنسية 20 · جواز 35 · نفاذية 25 mm) */
 /* استمارة — the 10-col grid from its doc (5 OCR + 5 hand-typed); col classes = the paper's field keys */
