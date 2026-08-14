@@ -1185,3 +1185,33 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .bd-fn i.done{background:var(--st-ok);opacity:1}
 .bd-fn b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:14px;color:var(--ink)}
 @media (max-width:560px){ .bd-fn{grid-template-columns:minmax(92px,132px) 1fr auto} }
+
+/* ══ RANKED DEFAULTS in the legal builder ═══════════════════════════════════════════════════
+   The form opens mostly filled, which is the whole point — but a prefilled value is the app
+   asserting something NO HUMAN HAS READ, and this paper gets rejected at the government counter
+   when a value is wrong. So a suggested value looks different from a confirmed one until the user
+   touches it. It is a whisper, not a warning: lighter ink and a dotted underline, never a colour
+   that says "error". Touch the field and it becomes ordinary text — that IS the confirmation. */
+.ist-wrap{position:relative;display:block}
+.ist-in.ist-pre,.ist-hin.ist-pre{color:var(--muted);border-bottom-style:dotted}
+.ist-in.ist-pre:focus,.ist-hin.ist-pre:focus{color:var(--ink)}
+
+/* ▾ — only rendered when there IS more than one known value, so it never promises a choice
+   that does not exist. */
+.ist-pick{position:absolute;inset-inline-end:2px;top:50%;transform:translateY(-50%);
+  background:transparent;border:0;color:var(--copper-dim);cursor:pointer;font-size:11px;
+  padding:2px 4px;line-height:1;opacity:.75}
+.ist-pick:hover{opacity:1;color:var(--copper)}
+.ist-hcell{position:relative}
+
+.ist-menu{position:absolute;z-index:40;inset-inline-end:0;top:calc(100% + 3px);min-width:190px;
+  max-width:340px;background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  box-shadow:0 10px 28px rgba(0,0,0,.34);overflow:hidden}
+.ist-menu button{display:flex;width:100%;align-items:center;gap:10px;justify-content:space-between;
+  background:transparent;border:0;border-bottom:1px solid var(--line2);color:var(--ink2);
+  padding:9px 12px;font-size:13px;cursor:pointer;text-align:start}
+.ist-menu button:last-child{border-bottom:0}
+.ist-menu button:hover{background:var(--panel2);color:var(--copper)}
+/* the count is evidence, not decoration: "used 106 times" and "used once" are different kinds of
+   suggestion and the reader should be able to tell them apart before picking. */
+.ist-menu em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--faint);flex:none}

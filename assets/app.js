@@ -134,6 +134,7 @@ const I18N={
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
     ist_c_addr:'العنوان الكامل للأقامة داخل العراق', ist_c_border:'اسم المنفذ الحدودي', ist_c_prof:'المهنة', ist_c_country:'بلد الاقامة الحالي', ist_c_visited:'هل سبق زيارة العراق',
     ist_filldown:'تعبئة للأسفل — نسخ هذه القيمة إلى كل الصفوف تحتها', ist_hand_hint:'تُكتب باليد (لا تأتي من قراءة الجواز)',
+    ist_pick:'اقتراحات — الأكثر استعمالاً',
     ist_agent_open:'افتح أداة الرفع', ist_agent_get:'حمِّل أداة الرفع',
     ist_agent_new:'حمِّل تحديث أداة الرفع',
     ist_agent_hint:'تُرفع الجوازات بالأداة — تدخل السجل كالمعتاد وتظهر هنا تلقائياً',
@@ -280,6 +281,7 @@ const I18N={
     ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
     ist_c_addr:'Full address of residence in Iraq', ist_c_border:'Border entry point', ist_c_prof:'Profession', ist_c_country:'Current country of residence', ist_c_visited:'Visited Iraq before?',
     ist_filldown:'Fill down — copy this value to all rows below', ist_hand_hint:'Typed by hand (not read from the passport)',
+    ist_pick:'Suggestions — most used',
     ist_agent_open:'Open the uploader', ist_agent_get:'Get the uploader',
     ist_agent_new:'Download the uploader update',
     ist_agent_hint:'Passports go through the uploader — they enter the registry as usual and appear here automatically',
@@ -309,6 +311,11 @@ const I18N={
     pv_legal_note:(name,serial)=>`${name} is listed in this entry form at serial no. ${serial}.`},
 };
 let LANG=(()=>{try{return localStorage.getItem('iccmc_lang')==='en'?'en':'ar'}catch(_){return'ar'}})();
+/* Declared HERE, with the other module state, not down beside the builder that uses it.
+   Top-level `let` is in the temporal dead zone until execution reaches it, so a throw anywhere
+   above would leave these permanently unreachable and the form would open blank with no error
+   pointing at the cause. State that must survive a partial boot is declared early. */
+let IST_DEF=null, _istDefAsked=false;
 const t=(k,...a)=>{const v=I18N[LANG][k];return typeof v==='function'?v(...a):v};
 function applyLang(){
   const L=I18N[LANG];
@@ -3346,10 +3353,39 @@ function legalClose(){ $('#legalform').classList.remove('on'); document.body.sty
 /* ═══ استمارة BUILDER (S1+S2) — a WYSIWYG A4 government-form workspace. The page IS the editor:
    header fields land live into the draft, the photo embeds. The table is fed by the OCR line (S3),
    and export (PDF/Excel/Word) is S4. Nothing here touches the registry / OCR-commit path. ═══ */
+/* ── RANKED DEFAULTS ────────────────────────────────────────────────────────────────────
+   What people actually type, ranked by how often, so the استمارة opens mostly filled. Read from
+   `paper_field_defaults` (config, not code) so a new project site is a row someone adds, never a
+   deploy. Loaded once and cached; a failure leaves every field blank, which is exactly today's
+   behaviour — a default that cannot be fetched must never block the form. */
+async function istLoadDefaults(){
+  if(_istDefAsked) return IST_DEF; _istDefAsked=true;
+  try{
+    const {data,error}=await sb.from('paper_field_defaults')
+      .select('paper,field,rank,value,seen').order('rank');
+    if(!error && data){ IST_DEF={};
+      data.forEach(r=>{ (IST_DEF[r.paper]=IST_DEF[r.paper]||{});
+                        (IST_DEF[r.paper][r.field]=IST_DEF[r.paper][r.field]||[]).push(r); }); }
+  }catch(_){}
+  return IST_DEF;
+}
+/* The ranked list for one field, best first. */
+function istDefs(field, paper){
+  const p=paper||(_IST&&_IST.paper)||'istimara';
+  return (IST_DEF && IST_DEF[p] && IST_DEF[p][field]) || [];
+}
+function istDef1(field, paper){ const d=istDefs(field,paper); return d.length?d[0].value:''; }
+
 let _IST=null;   // the draft: {header:{...}, photo:dataURL|null, rows:[{name,nationality,passport_no,passport_expiry}]}
-function istFresh(paper){ return {paper:paper||'istimara',
-  header:{company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:'',project:''},
-  photo:null, rows:[], _dirty:false}; }
+function istFresh(paper){
+  const pk=paper||'istimara';
+  /* Pre-filled from rank 1, and REMEMBERED as prefilled in `_pre` so the form can show which
+     values a human has actually looked at. The form is rejected at the government counter when a
+     value is wrong, so a plausible default that goes unread is the real risk here — not typing. */
+  const H={company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:'',project:''};
+  const pre={};
+  Object.keys(H).forEach(k=>{ const v=istDef1(k,pk); if(v){ H[k]=v; pre[k]=1; } });
+  return {paper:pk, header:H, photo:null, rows:[], _dirty:false, _pre:pre}; }
 /* ── the PAPER REGISTRY — one workspace, one entry per legal paper we BUILD ──────────────
    Each paper names its own header fields + table columns; everything else (the OCR feeder,
    the ⤓ fill-down, the review/reject, the draft, the PDF export) is shared. Adding a paper =
@@ -3372,13 +3408,47 @@ const IST_PAPERS={
     fields:[], texts:[{k:'to_line',d:'taa_to',cls:'to'},{k:'intro',d:'taa_intro'},{k:'body',d:'taa_body'}],
     cols:[{k:'_ser',lab:'taa_c_ser'},{k:'name',lab:'ist_c_name'},{k:'passport_no',lab:'ist_c_pass'}] },
 };
+/* Fill a row's HAND-TYPED columns from rank 1, and remember which ones were prefilled so the
+   cell can show that no human has looked at it yet. OCR columns are never touched here — those
+   come from the document and must not be guessed. */
+function istPrefillRow(row){
+  const P=IST_PAPERS[(_IST&&_IST.paper)||'istimara']; if(!P) return row;
+  row._pre=row._pre||{};
+  (P.cols||[]).filter(c=>c.hand).forEach(c=>{
+    if(!row[c.k]){ const v=istDef1(c.k); if(v){ row[c.k]=v; row._pre[c.k]=1; } } });
+  return row;
+}
+/* The ranked alternatives, on demand. Shows the counts because "used 106 times" and "used once"
+   are different kinds of suggestion and the user deserves to see which is which. */
+function istPickMenu(btn){
+  document.querySelectorAll('.ist-menu').forEach(m=>m.remove());
+  const field=btn.dataset.pick, ri=btn.dataset.ri, list=istDefs(field);
+  if(!list.length) return;
+  const m=document.createElement('div'); m.className='ist-menu';
+  m.innerHTML=list.map((d,i)=>`<button data-v="${esc(d.value)}"><span>${esc(d.value)}</span>`
+    +`<em>${d.seen?('×'+d.seen):''}</em></button>`).join('');
+  btn.parentNode.appendChild(m);
+  m.querySelectorAll('button').forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); const v=b.dataset.v;
+    if(ri!==undefined && ri!==''){ const r=_IST.rows[+ri];
+      if(r){ r[field]=v; if(r._pre) delete r._pre[field]; } istRenderRows(); }
+    else { _IST.header[field]=v; if(_IST._pre) delete _IST._pre[field];
+      document.querySelectorAll('.ist-in[data-h="'+field+'"]').forEach(o=>{ o.value=v; o.classList.remove('ist-pre'); }); }
+    _IST._dirty=true; m.remove();
+  });
+  setTimeout(()=>document.addEventListener('click',function off(){ m.remove();
+    document.removeEventListener('click',off); },{once:true}),0);
+}
 function istPaper(){ return IST_PAPERS[(_IST&&_IST.paper)||'istimara']||IST_PAPERS.istimara; }
-function istimaraOpen(paper){
+async function istimaraOpen(paper){
+  await istLoadDefaults();        // must land BEFORE istFresh(), or the sheet opens blank
   if(!_IST) _IST=istLoadDraft(paper)||istFresh(paper);   // restore a saved draft so the user sees his work again
   if(paper && _IST.paper!==paper) _IST=istFresh(paper);  // switching paper → a fresh sheet of that kind
   const P=istPaper(), H=_IST.header;
   const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
-    +`<input class="ist-in" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}"></div>`;
+    +`<span class="ist-wrap"><input class="ist-in${(_IST._pre&&_IST._pre[f.k])?' ist-pre':''}" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}">`
+    +(istDefs(f.k).length>1?`<button class="ist-pick" data-pick="${f.k}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
+    +`</span></div>`;
   // an EDITABLE text line of the form: the paper's original wording is the DEFAULT, and the copper
   // affordance (our "you can type here" convention) says out loud that it can be changed.
   const txt=i=>{ const x=(P.texts||[])[i]; if(!x) return '';
@@ -3431,7 +3501,11 @@ function istimaraOpen(paper){
       </div></div>
     </div>`;
   istRenderRows();
+  // typing in a prefilled field is the human confirming it: drop the suggested styling
+  $('#istimara').querySelectorAll('.ist-pick').forEach(b=>b.onclick=e=>{ e.stopPropagation(); istPickMenu(b); });
   $('#istimara').querySelectorAll('.ist-in[data-h]').forEach(inp=>inp.addEventListener('input',()=>{
+    if(_IST._pre){ delete _IST._pre[inp.dataset.h]; }
+    inp.classList.remove('ist-pre');
     const k=inp.dataset.h; _IST.header[k]=inp.value; _IST._dirty=true;
     $('#istimara').querySelectorAll('.ist-in[data-h="'+k+'"]').forEach(o=>{ if(o!==inp) o.value=inp.value; });  // sync twins (المخول shows in the undertaking AND the footer)
   }));
@@ -3491,7 +3565,9 @@ function istRenderRows(){
     // a HAND-TYPED column (NOT from the OCR line) = an editable cell + a ⤓ fill-down button
     // (copies this cell's value to every row below it, like Excel's fill handle).
     const cell=c=>{
-      if(c.hand) return `<td class="ist-hcell"><input class="ist-hin" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}"><button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></td>`;
+      if(c.hand) return `<td class="ist-hcell"><input class="ist-hin${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}">`
+        +(istDefs(c.k).length>1?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
+        +`<button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></td>`;
       if(c.k==='_ser')            return `<td>${i+1}</td>`;
       if(c.k==='name')            return `<td>${esc(r.name||'—')}${badge}</td>`;
       if(c.k==='nationality')     return `<td>${esc(r.nationality?tv(r.nationality):'—')}</td>`;
@@ -3506,7 +3582,10 @@ function istRenderRows(){
     : `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t(agentState()==='current'?'ist_agent_open':agentState()==='stale'?'ist_agent_new':'ist_agent_get'))}<br><em>${esc(t('ist_agent_hint'))}</em><br><em class="ist-agent-note" id="ist-agent-note">${esc(t('ist_agent_other'))}</em></span></td></tr>`;
   tb.innerHTML=dataHtml+drop;
   // hand columns: type into a cell (kept live in the row, no re-render → focus stays); ⤓ fills the value DOWN
-  tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri]; if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; } });
+  tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri];
+    if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; if(r._pre) delete r._pre[inp.dataset.rk]; }
+    inp.classList.remove('ist-pre'); });
+  tb.querySelectorAll('.ist-pick').forEach(b=>b.onclick=e=>{ e.stopPropagation(); istPickMenu(b); });
   tb.querySelectorAll('.ist-fill').forEach(b=>b.onclick=()=>{ const i=+b.dataset.fi, k=b.dataset.fk, r0=_IST.rows[i]; if(!r0)return;
     const v=r0[k]||''; for(let j=i+1;j<_IST.rows.length;j++){ if(_IST.rows[j]) _IST.rows[j][k]=v; }   // carry this value to every row below
     _IST._dirty=true; istRenderRows(); });
@@ -3651,6 +3730,7 @@ async function istAgentPoll(){
     _istAgentSeen.add(j.image_hash);
     const row={name:'',nationality:'',passport_no:'',passport_expiry:'',
                _status:'processing',_pct:100,_stage:j.status,_err:'',_hash:j.image_hash,_agent:true};
+    istPrefillRow(row);   // the five hand-typed columns open filled, same as the header
     _IST.rows.push(row); _IST._dirty=true;
     try{ await istApply(row,j); }catch(_){}
     added++;
