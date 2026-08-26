@@ -974,7 +974,10 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;font-size:12px;line-height:18px;display:none}
 .ist-photo.has-img:hover .ist-ph-x{display:block}
 /* header field rows — label + inline input that reads as printed text */
-.ist-fields{overflow:hidden}
+/* flow-root contains the floated photo exactly like overflow:hidden did, but WITHOUT
+   clipping — so a bottom field's ▾ suggestion menu can spill down over the table
+   instead of being cut off behind it. */
+.ist-fields{display:flow-root}
 .ist-frow{display:flex;gap:4px;align-items:baseline;margin:3px 0;font-size:10pt;line-height:1.5}
 .ist-lbl{width:58mm;flex:none;font-weight:700;white-space:nowrap;color:#000}   /* fixed label column → all values align (the doc's spaces-to-a-column) */
 /* editable fields = a single subtle copper UNDERLINE (fill-in-the-blank), the app's minimal/pro convention —

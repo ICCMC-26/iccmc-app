@@ -3485,7 +3485,7 @@ async function istimaraOpen(paper){
   const P=istPaper(), H=_IST.header;
   const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
     +`<span class="ist-fw"><input class="ist-in${(_IST._pre&&_IST._pre[f.k])?' ist-pre':''}" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}">`
-    +(istDefs(f.k).length>1?`<button class="ist-pick" data-pick="${f.k}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
+    +(istDefs(f.k).length>0?`<button class="ist-pick" data-pick="${f.k}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
     +`</span></div>`;
   // an EDITABLE text line of the form: the paper's original wording is the DEFAULT, and the copper
   // affordance (our "you can type here" convention) says out loud that it can be changed.
@@ -3632,9 +3632,9 @@ function istRenderRows(){
       /* The two cell controls live in ONE group, not stacked at the same corner. Absolutely
          positioning them independently put them a few pixels apart and they read as a single
          smudge; a flex group gives them a real gap and equal size, so each is aimable. */
-      if(c.hand) return `<td class="ist-hcell"><input class="ist-hin${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}" placeholder="${esc((r._sug&&r._sug[c.k])||'')}">`
+      if(c.hand) return `<td class="ist-hcell"><input class="ist-hin${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}" placeholder="${esc((r._sug&&r._sug[c.k])||istDef1(c.k))}">`
         +`<span class="ist-cacts">`
-        +(istDefs(c.k).length>1?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
+        +(istDefs(c.k).length>0?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
         +`<button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></span></td>`;
       /* EDITABLE but not "hand-typed": the value still arrives from the passport, it is simply
          correctable here. A wrong letter gets the paper refused at the counter, and the operator
