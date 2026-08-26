@@ -3439,6 +3439,8 @@ function istPrefillRow(row){
    are different kinds of suggestion and the user deserves to see which is which. */
 function istPickMenu(btn){
   document.querySelectorAll('.ist-menu').forEach(m=>m.remove());
+  document.querySelectorAll('.ist-pick.open').forEach(b=>b.classList.remove('open'));
+  btn.classList.add('open');            // chevron flips 180° while its menu is open (kiosk behaviour)
   const field=btn.dataset.pick, ri=btn.dataset.ri, list=istDefs(field);
   if(!list.length) return;
   const m=document.createElement('div'); m.className='ist-menu';
@@ -3451,9 +3453,9 @@ function istPickMenu(btn){
       if(r){ r[field]=v; if(r._pre) delete r._pre[field]; } istRenderRows(); }
     else { _IST.header[field]=v; if(_IST._pre) delete _IST._pre[field];
       document.querySelectorAll('.ist-in[data-h="'+field+'"]').forEach(o=>{ o.value=v; o.classList.remove('ist-pre'); }); }
-    _IST._dirty=true; m.remove();
+    _IST._dirty=true; m.remove(); btn.classList.remove('open');
   });
-  setTimeout(()=>document.addEventListener('click',function off(){ m.remove();
+  setTimeout(()=>document.addEventListener('click',function off(){ m.remove(); btn.classList.remove('open');
     document.removeEventListener('click',off); },{once:true}),0);
 }
 function istPaper(){ return IST_PAPERS[(_IST&&_IST.paper)||'istimara']||IST_PAPERS.istimara; }
@@ -3485,7 +3487,7 @@ async function istimaraOpen(paper){
   const P=istPaper(), H=_IST.header;
   const frow=f=>`<div class="ist-frow"><span class="ist-lbl">${t(f.lab)}:</span>`
     +`<span class="ist-fw"><input class="ist-in${(_IST._pre&&_IST._pre[f.k])?' ist-pre':''}" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}">`
-    +(istDefs(f.k).length>0?`<button class="ist-pick" data-pick="${f.k}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
+    +(istDefs(f.k).length>0?`<button class="ist-pick" data-pick="${f.k}" tabindex="-1" title="${esc(t('ist_pick'))}"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`:'')
     +`</span></div>`;
   // an EDITABLE text line of the form: the paper's original wording is the DEFAULT, and the copper
   // affordance (our "you can type here" convention) says out loud that it can be changed.
@@ -3634,7 +3636,7 @@ function istRenderRows(){
          smudge; a flex group gives them a real gap and equal size, so each is aimable. */
       if(c.hand) return `<td class="ist-hcell"><input class="ist-hin${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}" placeholder="${esc((r._sug&&r._sug[c.k])||istDef1(c.k))}">`
         +`<span class="ist-cacts">`
-        +(istDefs(c.k).length>0?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
+        +(istDefs(c.k).length>0?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`:'')
         +`<button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></span></td>`;
       /* EDITABLE but not "hand-typed": the value still arrives from the passport, it is simply
          correctable here. A wrong letter gets the paper refused at the counter, and the operator

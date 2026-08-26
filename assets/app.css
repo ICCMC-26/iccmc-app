@@ -1255,8 +1255,14 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-pick,.ist-fill{display:inline-flex;align-items:center;justify-content:center;
   width:18px;height:16px;padding:0;margin:0;border-radius:5px;cursor:pointer;
   font-size:10px;line-height:1;font-family:inherit;position:static}
-.ist-pick{color:#8a5a28;background:rgba(197,149,107,.22);border:1px solid rgba(197,149,107,.8)}
-.ist-pick:hover{background:rgba(197,149,107,.45);color:#5e3b16;border-color:#a5713f}
+/* the ▾ picker = the kiosk's .cchev: a bare copper chevron, no chip/border, and it
+   rotates 180° while its menu is open. (Was a filled bordered box with a text glyph.) */
+.ist-pick{color:var(--copper);background:transparent;border:none;border-radius:5px;
+  width:20px;height:20px;opacity:.7}
+.ist-pick:hover{opacity:1;background:rgba(197,149,107,.16);color:var(--copper)}
+.ist-pick svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .18s}
+.ist-pick.open svg{transform:rotate(180deg)}
 .ist-fill{color:#3f6f6f;background:rgba(79,140,140,.16);border:1px solid rgba(79,140,140,.62)}
 .ist-fill:hover{background:rgba(79,140,140,.34);color:#255050;border-color:#2f7f7f}
 
@@ -1277,19 +1283,25 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
    It previously used var(--panel), which is the app's DARK surface — on a white A4 sheet that
    rendered a black slab with near-black text inside it, unreadable in the screenshot. Nothing in
    this sheet may take its colours from the theme. */
-.ist-menu{position:absolute;z-index:60;inset-inline-end:0;top:calc(100% + 4px);
-  min-width:230px;max-width:min(420px,74vw);
-  background:#fff;border:1px solid #c9bda9;border-radius:10px;
-  box-shadow:0 14px 34px rgba(0,0,0,.28);overflow:hidden;text-align:start}
+/* the suggestion menu = the kiosk's .cmenu (neutral hairline, 12px radius, deeper
+   shadow, scrolls past 250px, opens from the field's start edge). */
+.ist-menu{position:absolute;z-index:200;inset-inline-start:0;top:calc(100% + 6px);
+  min-width:min(260px,80vw);max-width:86vw;max-height:250px;overflow-y:auto;
+  background:#fff;border:1px solid rgba(20,20,20,.14);border-radius:12px;padding:6px;
+  box-shadow:0 18px 44px rgba(0,0,0,.28),0 3px 10px rgba(0,0,0,.12);text-align:start}
+.ist-menu::-webkit-scrollbar{width:8px}
+.ist-menu::-webkit-scrollbar-thumb{background:rgba(0,0,0,.16);border-radius:8px;border:2px solid #fff}
+/* rows = the kiosk's .citem: rounded, no separator lines, copper hover */
 .ist-menu button{display:flex;width:100%;align-items:center;gap:14px;justify-content:space-between;
-  background:#fff;border:0;border-bottom:1px solid #ece6db;color:#141210;
-  padding:12px 15px;font-size:15px;font-weight:700;line-height:1.5;cursor:pointer;text-align:start;
-  font-family:inherit}
+  background:transparent;border:none;border-radius:8px;color:#141210;
+  padding:11px 14px;font-size:12pt;font-weight:700;line-height:1.5;cursor:pointer;text-align:start;
+  font-family:inherit;transition:background .12s}
+.ist-menu button+button{margin-top:1px}
 /* the SHADOW: a hand column's suggested value, shown faded — a hint, never a filled
    value. It disappears the moment the user types or picks it from ▾. */
 .ist-hin::placeholder{color:rgba(20,15,8,.30);font-weight:700;opacity:1}
 .ist-menu button:last-child{border-bottom:0}
-.ist-menu button:hover{background:#faf3e9;color:#7a4f22}
+.ist-menu button:hover{background:rgba(197,149,107,.20);color:#141210}
 .ist-menu button span{flex:1;min-width:0}
 /* the count is evidence: «×106» and «×1» are different kinds of suggestion, and the reader should
    be able to weigh them before picking. */
