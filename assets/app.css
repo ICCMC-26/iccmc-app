@@ -1279,9 +1279,12 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   background:#fff;border:1px solid #c9bda9;border-radius:10px;
   box-shadow:0 14px 34px rgba(0,0,0,.28);overflow:hidden;text-align:start}
 .ist-menu button{display:flex;width:100%;align-items:center;gap:14px;justify-content:space-between;
-  background:#fff;border:0;border-bottom:1px solid #ece6db;color:#14100b;
-  padding:11px 14px;font-size:13.5px;line-height:1.45;cursor:pointer;text-align:start;
+  background:#fff;border:0;border-bottom:1px solid #ece6db;color:#141210;
+  padding:12px 15px;font-size:15px;font-weight:700;line-height:1.5;cursor:pointer;text-align:start;
   font-family:inherit}
+/* the SHADOW: a hand column's suggested value, shown faded — a hint, never a filled
+   value. It disappears the moment the user types or picks it from ▾. */
+.ist-hin::placeholder{color:rgba(20,15,8,.30);font-weight:700;opacity:1}
 .ist-menu button:last-child{border-bottom:0}
 .ist-menu button:hover{background:#faf3e9;color:#7a4f22}
 .ist-menu button span{flex:1;min-width:0}

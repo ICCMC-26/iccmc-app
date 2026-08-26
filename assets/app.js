@@ -3424,11 +3424,15 @@ const IST_PAPERS={
 /* Fill a row's HAND-TYPED columns from rank 1, and remember which ones were prefilled so the
    cell can show that no human has looked at it yet. OCR columns are never touched here — those
    come from the document and must not be guessed. */
+/* The hand columns are NOT auto-filled. A plausible default that goes unread is
+   exactly what gets a form rejected at the counter, so the suggestion is shown as
+   a SHADOW (a faded placeholder) and the value is only committed when the human
+   picks it from ▾ or types it. `_sug` carries the hint; the cell stays empty. */
 function istPrefillRow(row){
   const P=IST_PAPERS[(_IST&&_IST.paper)||'istimara']; if(!P) return row;
-  row._pre=row._pre||{};
+  row._sug=row._sug||{};
   (P.cols||[]).filter(c=>c.hand).forEach(c=>{
-    if(!row[c.k]){ const v=istDef1(c.k); if(v){ row[c.k]=v; row._pre[c.k]=1; } } });
+    if(!row[c.k]){ const v=istDef1(c.k); if(v) row._sug[c.k]=v; } });
   return row;
 }
 /* The ranked alternatives, on demand. Shows the counts because "used 106 times" and "used once"
@@ -3628,7 +3632,7 @@ function istRenderRows(){
       /* The two cell controls live in ONE group, not stacked at the same corner. Absolutely
          positioning them independently put them a few pixels apart and they read as a single
          smudge; a flex group gives them a real gap and equal size, so each is aimable. */
-      if(c.hand) return `<td class="ist-hcell"><input class="ist-hin${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}">`
+      if(c.hand) return `<td class="ist-hcell"><input class="ist-hin${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}" placeholder="${esc((r._sug&&r._sug[c.k])||'')}">`
         +`<span class="ist-cacts">`
         +(istDefs(c.k).length>1?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}">▾</button>`:'')
         +`<button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></span></td>`;
