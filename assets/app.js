@@ -145,7 +145,7 @@ const I18N={
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
-    ist_export:'تصدير', ist_export_tip:'ينزّل الملف بالصيغة المختارة إلى جهازك', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل الملف ✓', ist_pdf_fail:'تعذّر إنشاء الملف — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء الملف…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
+    ist_export:'تصدير', ist_export_tip:'ينزّل الملف بالصيغة المختارة إلى جهازك', ist_export_doc:'تصدير المستند', ist_bundle:'تصدير الملفات الشخصية', ist_fmt_pdf:'مستند جاهز للطباعة', ist_fmt_docx:'مستند قابل للتعديل', ist_fmt_xlsx:'جدول قابل للتعديل', ist_bundle_working:'جارٍ تجميع الملفات…', ist_bundle_done:'تم تنزيل الملفات الشخصية ✓', ist_bundle_fail:'تعذّر التجميع — أعِد المحاولة', ist_bundle_empty:'أضِف موظفاً واحداً على الأقل', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل الملف ✓', ist_pdf_fail:'تعذّر إنشاء الملف — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء الملف…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
     ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
     mk_ist:'إنشاء استمارة', mk_ist_s:'استمارة سمة الدخول', mk_taa:'إنشاء تعهد', mk_taa_s:'تعهد الشركة بالموظفين',
     taa_h:'تعهد الشركة', taa_title:'م/ تعهد', taa_to:'الى مديرية شؤون الاقامة',
@@ -293,7 +293,7 @@ const I18N={
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
-    ist_export:'Export', ist_export_tip:'Downloads the file in the selected format to your device', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'File downloaded ✓', ist_pdf_fail:'Could not create the file — try again', ist_pdf_working:'Building your file…', ist_pdf_step1:'Preparing the data', ist_pdf_step2:'Building the official paper', ist_pdf_step3:'Waking the renderer — the first export takes a moment', ist_pdf_step4:'Downloading…',
+    ist_export:'Export', ist_export_tip:'Downloads the file in the selected format to your device', ist_export_doc:'Export document', ist_bundle:'Personal files', ist_fmt_pdf:'Print-ready document', ist_fmt_docx:'Editable document', ist_fmt_xlsx:'Editable table', ist_bundle_working:'Collecting the files…', ist_bundle_done:'Personal files downloaded ✓', ist_bundle_fail:'Could not collect — try again', ist_bundle_empty:'Add at least one employee', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'File downloaded ✓', ist_pdf_fail:'Could not create the file — try again', ist_pdf_working:'Building your file…', ist_pdf_step1:'Preparing the data', ist_pdf_step2:'Building the official paper', ist_pdf_step3:'Waking the renderer — the first export takes a moment', ist_pdf_step4:'Downloading…',
     ist_not_passport:'A legal paper — not a passport. This table is passports only; handle it in the Procedures section.', ist_remove:'Remove',
     mk_ist:'New entry form', mk_ist_s:'Entry-visa form (استمارة)', mk_taa:'New undertaking', mk_taa_s:'Company undertaking (تعهد)',
     taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_to:'To the Directorate of Residence Affairs',
@@ -3507,13 +3507,26 @@ async function istimaraOpen(paper){
     <div class="ist-wrap">
       <div class="ist-bar">
         <button class="icon" id="ist-close" title="${t('t_close')}">✕</button>
-        <span class="ist-t">📄 ${t(P.h)}</span><span class="spacer"></span>
-        <div class="ist-fmt" id="ist-fmt" role="group" aria-label="الصيغة">
-          <button class="ist-fmtb${(_IST.fmt||'pdf')==='pdf'?' on':''}" data-fmt="pdf">PDF</button>
-          <button class="ist-fmtb${_IST.fmt==='docx'?' on':''}" data-fmt="docx">Word</button>
-          <button class="ist-fmtb${_IST.fmt==='xlsx'?' on':''}" data-fmt="xlsx">Excel</button>
+        <div class="ist-t"><svg class="ist-tico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg><span class="ist-tnm">${esc(t(P.h))}</span></div>
+        <span class="spacer"></span>
+        <div class="ist-actions">
+          <div class="ist-menuwrap" id="ist-menuwrap">
+            <button class="ist-btn2 ist-exp2" id="ist-export">
+              <svg viewBox="0 0 24 24" class="ist-bic"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+              <span id="ist-explbl">${t('ist_export_doc')}</span>
+              <span class="ist-cv"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
+            </button>
+            <div class="ist-menu hide" id="ist-expmenu" role="menu">
+              <button data-fmt="pdf" role="menuitem"><b>PDF</b><span>${t('ist_fmt_pdf')}</span></button>
+              <button data-fmt="docx" role="menuitem"><b>Word</b><span>${t('ist_fmt_docx')}</span></button>
+              <button data-fmt="xlsx" role="menuitem"><b>Excel</b><span>${t('ist_fmt_xlsx')}</span></button>
+            </div>
+          </div>
+          <button class="ist-btn2 ist-sec2" id="ist-bundle">
+            <svg viewBox="0 0 24 24" class="ist-bic"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+            <span id="ist-bndlbl">${t('ist_bundle')}</span>
+          </button>
         </div>
-        <button class="ist-exp" id="ist-export" title="${esc(t('ist_export_tip'))}">🖨 ${t('ist_export')}</button>
       </div>
       <div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="ist-page">
         <div class="ist-body">
@@ -3552,10 +3565,15 @@ async function istimaraOpen(paper){
   $('#istimara').querySelectorAll('.ist-tx[data-h]').forEach(el=>el.addEventListener('input',()=>{
     _IST.header[el.dataset.h]=el.textContent; _IST._dirty=true; }));
   $('#ist-close').onclick=istRequestClose;   // guard unsaved work
-  { const ex=$('#ist-export'); if(ex) ex.onclick=istExport; }   // S4 — build the file on the worker + download
-  document.querySelectorAll('#ist-fmt .ist-fmtb').forEach(b=>b.onclick=()=>{   // format picker (clone of the WhatsApp-bot kiosk)
-    document.querySelectorAll('#ist-fmt .ist-fmtb').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on'); _IST.fmt=b.dataset.fmt; });
+  // export split-button + format dropdown (kiosk clone) — each item DOWNLOADS
+  { const mw=$('#ist-menuwrap'), menu=$('#ist-expmenu'), exb=$('#ist-export');
+    const closeM=()=>{ if(menu)menu.classList.add('hide'); if(mw)mw.classList.remove('open'); };
+    if(exb) exb.onclick=e=>{ e.stopPropagation(); const willOpen=menu.classList.contains('hide');
+      menu.classList.toggle('hide',!willOpen); mw.classList.toggle('open',willOpen); };
+    document.addEventListener('click',closeM);
+    if(menu){ menu.onclick=e=>e.stopPropagation();
+      menu.querySelectorAll('button').forEach(b=>b.onclick=()=>{ closeM(); istExport(b.dataset.fmt); }); }
+    const bn=$('#ist-bundle'); if(bn) bn.onclick=istBundle; }
   istWarmWorker();      // wake the renderer NOW, so it is warm by the time Export is pressed
   // HEAL: rows saved while the line was still reading (workspace closed, tab reloaded) catch up now.
   if(istPending().length){ istEnsureWatch(); istReconcile().catch(()=>{}); }
@@ -3924,7 +3942,7 @@ function istWarmWorker(){
   _istWarmed=Date.now();
   try{ fetch(IST_WORKER,{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
 }
-async function istExport(){
+async function istExport(fmt){
   if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no||r.name)){ toast(t('ist_export_empty')); return; }
   if(!sb){ toast(t('ist_pdf_fail')); return; }
   const btn=document.getElementById('ist-export'), old=btn?btn.innerHTML:'';
@@ -3935,11 +3953,11 @@ async function istExport(){
     <div class="ist-wait-s" id="ist-wait-s">${esc(t('ist_pdf_step1'))}</div></div>`;
   $('#istimara').appendChild(ov);
   const step=k=>{ const e=document.getElementById('ist-wait-s'); if(e)e.textContent=t(k); };
-  if(btn){ btn.disabled=true; btn.innerHTML=`<span class="ist-spin sm"></span> ${t('ist_export')}`; }
+  if(btn){ btn.disabled=true; }
   try{
     const H=_IST.header;
     const FMT={pdf:'.pdf', docx:'.docx', xlsx:'.xlsx'};
-    const fmt=FMT[_IST.fmt]?_IST.fmt:'pdf';               // the picker; worker gates on `format`
+    fmt=FMT[fmt]?fmt:'pdf';               // the picked format; worker gates on `format`
     const data={ paper:_IST.paper||'istimara', format:fmt,                              // picks the Word template on the worker
       company:H.company||'', company_nat:H.company_nat||'', addr:H.addr||'', purpose:H.purpose||'',
       stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'', project:H.project||'',
@@ -3970,7 +3988,38 @@ async function istExport(){
     setTimeout(()=>URL.revokeObjectURL(url),4000);
     toast(t('ist_pdf_done'));
   }catch(e){ console.warn('istExport',e); toast(t('ist_pdf_fail')); }
-  finally{ ov.remove(); if(btn){ btn.disabled=false; btn.innerHTML=old; } }
+  finally{ ov.remove(); if(btn){ btn.disabled=false; } }
+}
+async function istBundle(){
+  if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no)){ toast(t('ist_bundle_empty')); return; }
+  if(!sb){ toast(t('ist_pdf_fail')); return; }
+  const bn=document.getElementById('ist-bundle'); if(bn) bn.disabled=true;
+  const ov=document.createElement('div'); ov.className='ist-wait';
+  ov.innerHTML=`<div class="ist-wait-box"><div class="ist-spin"></div>
+    <div class="ist-wait-t">${esc(t('ist_bundle_working'))}</div>
+    <div class="ist-wait-s">${esc(t('ist_pdf_step4'))}</div></div>`;
+  $('#istimara').appendChild(ov);
+  try{
+    const passports=[...new Set((_IST.rows||[]).map(r=>(r.passport_no||'').trim()).filter(Boolean))];
+    const data={ paper:_IST.paper||'istimara', format:'bundle', passports };
+    const {data:ins,error:ie}=await sb.from('istimara_renders').insert({data}).select('id').single();
+    if(ie||!ins) throw new Error((ie&&ie.message)||'insert');
+    const id=ins.id; let row=null;
+    for(let i=0;i<70;i++){
+      await new Promise(r=>setTimeout(r,i<12?600:1500));
+      const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,file_path,error').eq('id',id).single();
+      if(r2){ row=r2; const key=row.file_path||row.pdf_path; if(row.status==='done'&&key){ row._key=key; break; } if(row.status==='error') throw new Error(row.error||'render'); }
+    }
+    if(!(row&&row.status==='done'&&row._key)) throw new Error('timeout');
+    const {data:sig,error:se}=await sb.storage.from('documents').createSignedUrl(row._key,120);
+    if(se||!sig) throw new Error('sign');
+    const resp=await fetch(sig.signedUrl); const blob=await resp.blob();
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download='الملفات الشخصية.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast(t('ist_bundle_done'));
+  }catch(e){ console.warn('istBundle',e); toast(t('ist_bundle_fail')); }
+  finally{ ov.remove(); if(bn) bn.disabled=false; }
 }
 function istWirePhoto(){
   const box=$('#ist-photo'); if(!box)return;
