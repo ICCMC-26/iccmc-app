@@ -3516,7 +3516,7 @@ async function istimaraOpen(paper){
               <span id="ist-explbl">${t('ist_export_doc')}</span>
               <span class="ist-cv"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
             </button>
-            <div class="ist-menu hide" id="ist-expmenu" role="menu">
+            <div class="ist-fmenu hide" id="ist-expmenu" role="menu">
               <button data-fmt="pdf" role="menuitem"><b>PDF</b><span>${t('ist_fmt_pdf')}</span></button>
               <button data-fmt="docx" role="menuitem"><b>Word</b><span>${t('ist_fmt_docx')}</span></button>
               <button data-fmt="xlsx" role="menuitem"><b>Excel</b><span>${t('ist_fmt_xlsx')}</span></button>
