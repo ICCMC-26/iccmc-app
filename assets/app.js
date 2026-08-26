@@ -141,7 +141,7 @@ const I18N={
     ist_agent_hint:'تُرفع الجوازات بالأداة — تدخل السجل كالمعتاد وتظهر هنا تلقائياً',
     ist_agent_updated:'⬇ نُزِّلت نسخة أحدث من الأداة — افتح الملف الجديد من التنزيلات، لا النسخة القديمة',
     ist_agent_wait:'بانتظار الجوازات من الأداة…', ist_agent_got:n=>`أُضيف ${n} من الأداة`,
-    ist_agent_other:'المستندات الأخرى تذهب إلى «الوارد» ولا تُدرج في هذا الجدول',
+    ist_agent_other:'المستندات الأخرى تذهب إلى «الوارد» ولا تُدرج في هذا الجدول', ist_add_more:'أضِف موظفين — اسحب هنا أو انقر', ist_drop_sub:'أو انقر للاختيار · صورة أو PDF · عدة موظفين معًا', ist_too_many:'أكثر من 12 ملفًا — تُفتح أداة الرفع للدفعات الكبيرة',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
@@ -289,7 +289,7 @@ const I18N={
     ist_agent_hint:'Passports go through the uploader — they enter the registry as usual and appear here automatically',
     ist_agent_updated:'⬇ A newer uploader was downloaded — open the NEW file from Downloads, not the old copy',
     ist_agent_wait:'waiting for passports from the uploader…', ist_agent_got:n=>`${n} added from the uploader`,
-    ist_agent_other:'Other documents go to «الوارد» and are not added to this table',
+    ist_agent_other:'Other documents go to «الوارد» and are not added to this table', ist_add_more:'Add employees — drag here or click', ist_drop_sub:'or click to browse · image or PDF · many employees at once', ist_too_many:'More than 12 files — opening the uploader for large batches',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
@@ -3647,9 +3647,10 @@ function istRenderRows(){
     return `<tr>${COLS.map(cell).join('')}</tr>`;
   }).join('');
   // the add-zone IS the table body — a clickable + droppable box, like the OCR upload box. No separate button.
+  const _agentLink = `<a class="ist-agent-link" id="ist-agent-link">⤓ ${esc(t('dz_agent'))}</a>`;
   const drop = _IST.rows.length
-    ? `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop slim">＋ ${esc(t(agentState()==='current'?'ist_agent_open':'ist_agent_get'))}<span class="ist-agent-note" id="ist-agent-note"></span></td></tr>`
-    : `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t(agentState()==='current'?'ist_agent_open':agentState()==='stale'?'ist_agent_new':'ist_agent_get'))}<br><em>${esc(t('ist_agent_hint'))}</em><br><em class="ist-agent-note" id="ist-agent-note">${esc(t('ist_agent_other'))}</em></span></td></tr>`;
+    ? `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_more'))}　·　${_agentLink}<span class="ist-agent-note" id="ist-agent-note"></span></td></tr>`
+    : `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('dz_t'))}<br><em>${esc(t('ist_drop_sub'))}</em></span><br>${_agentLink}<span class="ist-agent-note" id="ist-agent-note"></span></td></tr>`;
   tb.innerHTML=dataHtml+drop;
   // hand columns: type into a cell (kept live in the row, no re-render → focus stays); ⤓ fills the value DOWN
   tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri];
@@ -3675,16 +3676,17 @@ function istRenderRows(){
   });
   tb.querySelectorAll('[data-istreview]').forEach(b=>b.onclick=()=>istOpenReview(+b.dataset.istreview));   // ⚑ → open the OCR review pane
   const dz=$('#ist-drop'); if(dz){
-    // Click opens the UPLOADER; dropping files here still takes the direct path, so neither way
-    // of working is taken away.
-    dz.onclick=istOpenAgent;
+    // Like the main OCR drop box (#dz): click = file picker, drop = direct intake (≤12);
+    // >12 files (or the gentle link) open the Agent. Nothing bypasses the OCR line.
+    dz.onclick=e=>{ if(e.target.closest('#ist-agent-link')) return; istPickFiles(); };
     dz.ondragover=e=>{ e.preventDefault(); dz.classList.add('over'); };
     dz.ondragleave=()=>dz.classList.remove('over');
-    dz.ondrop=e=>{ e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files.length) istAddFromPC(e.dataTransfer.files); };
+    dz.ondrop=e=>{ e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files.length) istIntake(e.dataTransfer.files); };
+    const al=$('#ist-agent-link'); if(al) al.onclick=e=>{ e.stopPropagation(); istOpenAgent(); };
   }
 }
 function istPickFiles(){ const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
-  inp.onchange=()=>{ if(inp.files&&inp.files.length) istAddFromPC(inp.files); }; inp.click(); }
+  inp.onchange=()=>{ if(inp.files&&inp.files.length) istIntake(inp.files); }; inp.click(); }
 // ⚑ مراجعة → open the SAME OCR review pane on this scan (see the passport, fix the number, confirm). On commit,
 // ikDoAdd writes the corrected data back into this استمارة row (via _rvJob._istRow) and flips it to done.
 function istOpenReview(i){
@@ -3737,6 +3739,11 @@ function istRowStatusTxt(r){
    with no second read, no duplicate, and nothing asked. */
 let _istAgentTimer=null, _istAgentSince=null, _istAgentSeen=new Set(), _istAgentCount=0;
 
+const IST_DROP_MAX=12;   // ≤12 → straight through the OCR line; more → the Agent (mirrors #dz's IK_PIPELINE)
+function istIntake(files){
+  if(files && files.length > IST_DROP_MAX){ toast(t('ist_too_many')); istOpenAgent(); return; }
+  istAddFromPC(files);
+}
 function istOpenAgent(){
   const st=agentState();
   const note=$('#ist-agent-note');
