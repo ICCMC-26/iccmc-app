@@ -3479,6 +3479,8 @@ async function istRepPhoto(){
   return _REP_PHOTO;
 }
 async function istimaraOpen(paper){
+  istWarmRenderer();   // boot the scale-to-zero renderer now, not at export time
+
   await istLoadDefaults();        // must land BEFORE istFresh(), or the sheet opens blank
   if(!_IST) _IST=istLoadDraft(paper)||istFresh(paper);   // restore a saved draft so the user sees his work again
   if(paper && _IST.paper!==paper) _IST=istFresh(paper);  // switching paper → a fresh sheet of that kind
@@ -3955,6 +3957,20 @@ function istWarmWorker(){
   _istWarmed=Date.now();
   try{ fetch(IST_WORKER,{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
 }
+/* The renderer is scale-to-zero, so the FIRST export used to pay the container's
+   cold boot (it carries LibreOffice — measured warm renders are ~4-6s, cold is far
+   worse). Poking it the moment the workspace opens lets it boot while the user is
+   still filling the form, so by export time it is already hot. Fire-and-forget:
+   no-cors, no secret, no response read — the 401 it returns is irrelevant, the
+   point is that Cloud Run starts the container. Never blocks or throws. */
+const IST_RENDERER='https://iccmc-ocr-597451901566.europe-west1.run.app/';
+let _istWarmAt=0;
+function istWarmRenderer(){
+  const now=Date.now();
+  if(now-_istWarmAt < 240000) return;        // at most once every 4 min
+  _istWarmAt=now;
+  try{ fetch(IST_RENDERER,{method:'GET',mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
+}
 async function istExport(fmt){
   if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no||r.name)){ toast(t('ist_export_empty')); return; }
   if(!sb){ toast(t('ist_pdf_fail')); return; }
@@ -3986,10 +4002,9 @@ async function istExport(fmt){
     step('ist_pdf_step2');
     let row=null;                                        // poll: tight at first (a WARM worker answers in ~3-6s)
     for(let i=0;i<70;i++){
-      await new Promise(r=>setTimeout(r,i<12?600:1500));
+      await new Promise(r=>setTimeout(r,i<16?400:1200));
       const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,file_path,error').eq('id',id).single();
       if(r2){ row=r2; const key=row.file_path||row.pdf_path; if(row.status==='done'&&key){ row._key=key; break; } if(row.status==='error') throw new Error(row.error||'render'); }
-      if(i===8) step('ist_pdf_step3');                   // still going → say why (the worker is waking up)
     }
     if(!(row&&row.status==='done'&&row._key)) throw new Error('timeout');
     step('ist_pdf_step4');
@@ -4019,7 +4034,7 @@ async function istBundle(){
     if(ie||!ins) throw new Error((ie&&ie.message)||'insert');
     const id=ins.id; let row=null;
     for(let i=0;i<70;i++){
-      await new Promise(r=>setTimeout(r,i<12?600:1500));
+      await new Promise(r=>setTimeout(r,i<16?400:1200));
       const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,file_path,error').eq('id',id).single();
       if(r2){ row=r2; const key=row.file_path||row.pdf_path; if(row.status==='done'&&key){ row._key=key; break; } if(row.status==='error') throw new Error(row.error||'render'); }
     }
