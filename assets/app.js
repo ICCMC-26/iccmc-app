@@ -3397,7 +3397,7 @@ function istFresh(paper){
   const H={company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:'',project:''};
   const pre={};
   Object.keys(H).forEach(k=>{ const v=istDef1(k,pk); if(v){ H[k]=v; pre[k]=1; } });
-  return {paper:pk, header:H, photo:null, rows:[], _dirty:false, _pre:pre}; }
+  return {paper:pk, fmt:'pdf', header:H, photo:null, rows:[], _dirty:false, _pre:pre}; }
 /* ── the PAPER REGISTRY — one workspace, one entry per legal paper we BUILD ──────────────
    Each paper names its own header fields + table columns; everything else (the OCR feeder,
    the ⤓ fill-down, the review/reject, the draft, the PDF export) is shared. Adding a paper =
@@ -3507,6 +3507,11 @@ async function istimaraOpen(paper){
       <div class="ist-bar">
         <button class="icon" id="ist-close" title="${t('t_close')}">✕</button>
         <span class="ist-t">📄 ${t(P.h)}</span><span class="spacer"></span>
+        <div class="ist-fmt" id="ist-fmt" role="group" aria-label="الصيغة">
+          <button class="ist-fmtb${(_IST.fmt||'pdf')==='pdf'?' on':''}" data-fmt="pdf">PDF</button>
+          <button class="ist-fmtb${_IST.fmt==='docx'?' on':''}" data-fmt="docx">Word</button>
+          <button class="ist-fmtb${_IST.fmt==='xlsx'?' on':''}" data-fmt="xlsx">Excel</button>
+        </div>
         <button class="ist-exp" id="ist-export" title="${esc(t('ist_export_tip'))}">🖨 ${t('ist_export')}</button>
       </div>
       <div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="ist-page">
@@ -3546,7 +3551,10 @@ async function istimaraOpen(paper){
   $('#istimara').querySelectorAll('.ist-tx[data-h]').forEach(el=>el.addEventListener('input',()=>{
     _IST.header[el.dataset.h]=el.textContent; _IST._dirty=true; }));
   $('#ist-close').onclick=istRequestClose;   // guard unsaved work
-  { const ex=$('#ist-export'); if(ex) ex.onclick=istExport; }   // S4 — build the PDF on the worker + download
+  { const ex=$('#ist-export'); if(ex) ex.onclick=istExport; }   // S4 — build the file on the worker + download
+  document.querySelectorAll('#ist-fmt .ist-fmtb').forEach(b=>b.onclick=()=>{   // format picker (clone of the WhatsApp-bot kiosk)
+    document.querySelectorAll('#ist-fmt .ist-fmtb').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); _IST.fmt=b.dataset.fmt; });
   istWarmWorker();      // wake the renderer NOW, so it is warm by the time Export is pressed
   // HEAL: rows saved while the line was still reading (workspace closed, tab reloaded) catch up now.
   if(istPending().length){ istEnsureWatch(); istReconcile().catch(()=>{}); }
@@ -3929,7 +3937,9 @@ async function istExport(){
   if(btn){ btn.disabled=true; btn.innerHTML=`<span class="ist-spin sm"></span> ${t('ist_export')}`; }
   try{
     const H=_IST.header;
-    const data={ paper:_IST.paper||'istimara',                              // picks the Word template on the worker
+    const FMT={pdf:'.pdf', docx:'.docx', xlsx:'.xlsx'};
+    const fmt=FMT[_IST.fmt]?_IST.fmt:'pdf';               // the picker; worker gates on `format`
+    const data={ paper:_IST.paper||'istimara', format:fmt,                              // picks the Word template on the worker
       company:H.company||'', company_nat:H.company_nat||'', addr:H.addr||'', purpose:H.purpose||'',
       stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'', project:H.project||'',
       to_line:H.to_line||'', intro:H.intro||'', body:H.body||'',   // تعهد's editable sentences (empty → worker restores the original)
@@ -3945,17 +3955,17 @@ async function istExport(){
     let row=null;                                        // poll: tight at first (a WARM worker answers in ~3-6s)
     for(let i=0;i<70;i++){
       await new Promise(r=>setTimeout(r,i<12?600:1500));
-      const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,error').eq('id',id).single();
-      if(r2){ row=r2; if(row.status==='done'&&row.pdf_path) break; if(row.status==='error') throw new Error(row.error||'render'); }
+      const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,file_path,error').eq('id',id).single();
+      if(r2){ row=r2; const key=row.file_path||row.pdf_path; if(row.status==='done'&&key){ row._key=key; break; } if(row.status==='error') throw new Error(row.error||'render'); }
       if(i===8) step('ist_pdf_step3');                   // still going → say why (the worker is waking up)
     }
-    if(!(row&&row.status==='done'&&row.pdf_path)) throw new Error('timeout');
+    if(!(row&&row.status==='done'&&row._key)) throw new Error('timeout');
     step('ist_pdf_step4');
-    const {data:sig,error:se}=await sb.storage.from('documents').createSignedUrl(row.pdf_path,120);
+    const {data:sig,error:se}=await sb.storage.from('documents').createSignedUrl(row._key,120);
     if(se||!sig) throw new Error('sign');
     const resp=await fetch(sig.signedUrl); const blob=await resp.blob();   // download the finished file
     const url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download=(_IST.paper==='taahud'?'تعهد':'استمارة')+'.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    a.href=url; a.download=(_IST.paper==='taahud'?'تعهد':'استمارة')+FMT[fmt]; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),4000);
     toast(t('ist_pdf_done'));
   }catch(e){ console.warn('istExport',e); toast(t('ist_pdf_fail')); }

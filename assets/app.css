@@ -866,6 +866,11 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-exp{font-family:inherit;font-size:13px;font-weight:700;color:#fff;background:var(--copper);
   border:none;border-radius:9px;padding:8px 16px;cursor:pointer;white-space:nowrap;height:38px}
 .ist-exp:hover{filter:brightness(1.08)}
+/* format picker — cloned from the WhatsApp-bot kiosk; PDF preselected */
+.ist-fmt{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;height:38px}
+.ist-fmtb{font-family:inherit;font-size:12.5px;font-weight:700;color:var(--muted);background:transparent;border:none;padding:0 12px;cursor:pointer}
+.ist-fmtb+.ist-fmtb{border-inline-start:1px solid var(--line)}
+.ist-fmtb.on{background:var(--copper);color:#160f08}
 /* the A4 sheet — real mm so print is faithful; scaled to fit the viewport on screen via a wrapper */
 .ist-stage{display:flex;justify-content:center}
 /* the official form is A4 LANDSCAPE (297×210mm) — the sheet matches so print/export stay faithful */
