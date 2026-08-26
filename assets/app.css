@@ -680,8 +680,8 @@
     #print .pv-foot .pgn{font-variant-numeric:tabular-nums;color:#777;font-weight:600}
     #print .cv-foot .pgn{margin-top:6px;font-size:10px;color:#aaa;font-variant-numeric:tabular-nums}
     /* cover */
-    #print .cover{text-align:center;justify-content:space-between;align-items:center}
-    #print .cv-logo{width:150px;filter:invert(1);margin:8mm auto 3mm}
+    #print .cover{text-align:center;justify-content:center;align-items:center;position:relative}
+    #print .cv-logo{width:132px;filter:invert(1);margin:0 auto 7mm}
     #print .cv-co{font-size:12.5px;letter-spacing:.03em;color:#555}
     #print .cv-mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:3px}
     /* running header on the non-cover pages (standard place: top, ruled) */
@@ -691,9 +691,12 @@
     #print .cv-kicker{font-size:12.5px;letter-spacing:.24em;text-transform:uppercase;color:#888;margin-bottom:14px}
     #print .cv-name{font-size:34px;font-weight:800;line-height:1.1}
     #print .cv-native{font-size:22px;color:#444;margin-top:3px}
-    #print .cv-meta{font-size:14px;color:#555;margin-top:12px;font-variant-numeric:tabular-nums}
+    #print .cv-meta{font-size:14px;color:#555;margin-top:14px}
+    #print .cv-id{font-size:15px;color:#555;margin-top:9px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+    #print .cv-nat{display:inline-block;border:1px solid #ccc;border-radius:20px;padding:3px 15px;font-size:12.5px;color:#444}
+    #print .cv-conf{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#aaa;margin-top:5px}
     #print .cv-status{margin-top:16px}
-    #print .cv-foot{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    #print .cv-foot{position:absolute;bottom:14mm;left:0;right:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
       font-size:11px;color:#888;border-top:1px solid #ddd;padding-top:8px}
     /* section heading */
     #print .pv-h2{font-size:19px;font-weight:800;color:#111;border-bottom:2px solid #111;
