@@ -1,3 +1,17 @@
+/* ── typography: self-hosted (no external call from a PII app). IBM Plex Sans Arabic carries the
+   Arabic AND the Latin words; IBM Plex Mono is reserved for digits (passport / EMP / counts).
+   unicode-range = the browser fetches only the subsets a page actually uses. ─────────────── */
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/plex-mono-400-latin.woff2) format("woff2");unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/plex-mono-500-latin.woff2) format("woff2");unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/plex-mono-600-latin.woff2) format("woff2");unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/plex-arabic-400-arabic.woff2) format("woff2");unicode-range:U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1}
+@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/plex-arabic-400-latin.woff2) format("woff2");unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/plex-arabic-500-arabic.woff2) format("woff2");unicode-range:U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1}
+@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/plex-arabic-500-latin.woff2) format("woff2");unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/plex-arabic-600-arabic.woff2) format("woff2");unicode-range:U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1}
+@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/plex-arabic-600-latin.woff2) format("woff2");unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
+@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/plex-arabic-700-arabic.woff2) format("woff2");unicode-range:U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E, U+10EC2-10EC4, U+10EFC-10EFF, U+1EE00-1EE03, U+1EE05-1EE1F, U+1EE21-1EE22, U+1EE24, U+1EE27, U+1EE29-1EE32, U+1EE34-1EE37, U+1EE39, U+1EE3B, U+1EE42, U+1EE47, U+1EE49, U+1EE4B, U+1EE4D-1EE4F, U+1EE51-1EE52, U+1EE54, U+1EE57, U+1EE59, U+1EE5B, U+1EE5D, U+1EE5F, U+1EE61-1EE62, U+1EE64, U+1EE67-1EE6A, U+1EE6C-1EE72, U+1EE74-1EE77, U+1EE79-1EE7C, U+1EE7E, U+1EE80-1EE89, U+1EE8B-1EE9B, U+1EEA1-1EEA3, U+1EEA5-1EEA9, U+1EEAB-1EEBB, U+1EEF0-1EEF1}
+@font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/plex-arabic-700-latin.woff2) format("woff2");unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 :root{
     /* exact v1 brand tokens */
     --bg:#1e2422; --bg2:#232a28; --panel:#2a3230; --panel2:#313a37; --card:#2c3533;
@@ -6,9 +20,11 @@
     --copper:#dba875; --copper-dim:#c08f5d; --teal:#6fc0c0; --teal-dim:#4a9090; --indigo:#9b8fe0; --cream:#efe9dd;
     --ok:#63d18a; --warn:#f7b64f; --hot:#ff6068; --red:#ff4d59;
     --scroll:rgba(247,244,236,.16); --scroll-h:rgba(247,244,236,.3);
-    --mono:"Geist Mono",ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
-    --sans:"Geist","Segoe UI",system-ui,"Readex Pro",Tahoma,"Noto Sans Arabic",sans-serif;
-    --radius:11px; --radius-s:8px;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:"IBM Plex Sans Arabic","Segoe UI",system-ui,Tahoma,"Noto Sans Arabic",sans-serif;
+    /* ONE radius scale: 8 small controls · 12 buttons+avatars · 16 cards+search · 999 chips+pills */
+    --radius:12px; --radius-s:8px; --radius-l:16px; --radius-pill:999px;
+    --ava-dim:.9;   /* passport scans are white — a 10% dim on dark keeps them from punching through */
     --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 34px rgba(0,0,0,.28);
     --dia:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%236fc0c0' stroke-width='1.2'%3E%3Cpath d='M44 5 L53 24 L44 43 L35 24 Z'/%3E%3Cpath d='M44 45 L53 64 L44 83 L35 64 Z'/%3E%3Cpath d='M83 44 L64 53 L45 44 L64 35 Z'/%3E%3Cpath d='M5 44 L24 53 L43 44 L24 35 Z'/%3E%3C/g%3E%3C/svg%3E");
     /* the login's spirit, softened for a content surface (dark) — teal glow → indigo */
@@ -21,6 +37,7 @@
     --copper:#a5713f; --copper-dim:#8f6033; --teal:#2f7f7f; --red:#d0242f;
     --scroll:rgba(24,34,32,.2); --scroll-h:rgba(24,34,32,.36);
     --shadow:0 1px 3px rgba(60,90,88,.12),0 8px 24px rgba(60,90,88,.10);
+    --ava-dim:1;
     /* the same spirit, airy for light — pale teal → lavender whisper */
     --app-grad:linear-gradient(150deg,#dfeeeb 0%,#e7edf1 46%,#ece9f5 100%); --dia-opacity:.10;
     /* the diamond stroke must DARKEN on light — a pale-teal line on a pale-teal bg is invisible */
@@ -85,26 +102,32 @@
 
   /* ── app shell ──────────────────────────────────────────────────────────── */
   #app{display:none;max-width:860px;margin:0 auto;padding:20px 18px 60px}
-  .top{display:flex;align-items:center;gap:12px;padding:6px 2px 26px;direction:ltr}
+  .top{display:flex;align-items:center;gap:10px;padding:6px 2px 22px;direction:ltr}
   .top .logo{font-size:20px}
+  /* one-stroke icon set (inline <symbol>s in index.html) — same weight, same optical size everywhere */
+  .ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
   .spacer{flex:1}
-  .add{display:inline-flex;align-items:center;gap:7px;background:var(--copper);color:#160f08;
-    border:1px solid transparent;border-radius:11px;padding:11px 16px;font-weight:700;font-size:14.5px;cursor:pointer;
-    font-family:var(--sans);line-height:1.2}
-  /* normalize the leading icon glyph (＋ / ⚖) so both buttons get an identical line-box height */
-  .add>span:first-child{line-height:1;display:inline-flex;align-items:center;height:20px}
+  /* ONE primary action (إضافة, solid copper); its siblings are a quiet family on the same 40px line */
+  .add{display:inline-flex;align-items:center;gap:8px;height:40px;background:var(--copper);color:#160f08;
+    border:1px solid transparent;border-radius:var(--radius);padding:0 14px;font-weight:700;font-size:14px;cursor:pointer;
+    font-family:var(--sans);line-height:1.2;white-space:nowrap}
   .add:hover{filter:brightness(1.06)}
-  .icon{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:var(--panel);
-    color:var(--ink2);cursor:pointer;font-size:13px;display:grid;place-items:center;font-family:var(--sans)}
+  .add.quiet{background:var(--panel);color:var(--ink);border-color:var(--line);font-weight:600;transition:border-color .12s,color .12s}
+  .add.quiet:hover{filter:none;border-color:var(--copper);color:var(--copper)}
+  .icon{width:40px;height:40px;border:1px solid var(--line);border-radius:var(--radius-s);background:var(--panel);
+    color:var(--ink2);cursor:pointer;font-size:12.5px;font-weight:600;display:grid;place-items:center;font-family:var(--sans)}
+  .icon .ic{width:17px;height:17px}
   .icon:hover{border-color:var(--copper);color:var(--copper)}
   /* ── phones: collapse the «new employee» button to a compact ＋, bigger tap targets ── */
   @media(max-width:520px){
     #app{padding:calc(14px + env(safe-area-inset-top)) 14px calc(40px + env(safe-area-inset-bottom))}
     .top{gap:5px;padding:6px 0 16px}
-    #addtxt,#blawtxt{display:none}
+    #addtxt,#bboardtxt,#blawtxt,#bpendtxt{display:none}   /* all four collapse to icon squares */
+    .add{position:relative}
+    .add .pq-badge{position:absolute;top:-6px;inset-inline-end:-6px;margin:0}   /* the inbox count rides the corner of its square */
     /* both action buttons collapse to a 44 square (matching the utility icons); a floor so they never crush */
     .add{padding:0;width:44px;height:44px;min-width:40px;justify-content:center;border-radius:12px;gap:0}
-    .add>span{font-size:22px!important}
+    .add .ic{width:22px;height:22px}
     .wordmark{font-size:16.5px;letter-spacing:.1em}
     .icon{width:44px;height:44px;font-size:14px}
     #app #q{font-size:17px;padding:16px 50px;border-radius:14px}
@@ -127,23 +150,30 @@
   }
   /* ── the search hero (the whole UI) ─────────────────────────────────────── */
   .hero{position:relative;margin:10px 0 8px}
-  #q{width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:16px;
+  #q{width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius-l);
     color:var(--ink);font-size:22px;padding:20px 56px;font-family:var(--sans)}
   #q:focus{outline:none;border-color:var(--copper);box-shadow:0 0 0 4px rgba(197,149,107,.13)}
   #q::placeholder{color:var(--faint)}
   .hero .mag{position:absolute;inset-inline-start:20px;top:50%;transform:translateY(-50%);
-    color:var(--faint);font-size:20px;pointer-events:none}
+    color:var(--faint);font-size:20px;pointer-events:none;display:grid}
+  .hero .mag .ic{width:20px;height:20px;stroke-width:1.6}
+  /* the «/» key hint: search-first apps show it; hidden where there is no keyboard */
+  .hero .kbd{position:absolute;inset-inline-end:18px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:11px;
+    color:var(--faint);border:1px solid var(--line);border-radius:6px;padding:3px 7px;line-height:1;pointer-events:none}
+  @media (pointer:coarse){.hero .kbd{display:none}}
   .hint{color:var(--faint);font-size:12.5px;text-align:center;margin:10px 0 18px;min-height:16px}
 
   /* ── results ────────────────────────────────────────────────────────────── */
-  .count{color:var(--ink2);font-size:12.5px;margin:2px 4px 10px;font-family:var(--mono)}
+  .count{color:var(--muted);font-size:12.5px;margin:2px 4px 10px;font-family:var(--sans)}   /* words in sans; digits in mono via .num */
+  .count .num{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink2)}
   /* minimalist result filter — one chip per status, live counts, upgradable to more dimensions */
   .filters{display:flex;flex-wrap:wrap;gap:7px;margin:4px 2px 10px}
-  .fchip{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;cursor:pointer;
-    border:1px solid var(--line);background:var(--card);color:var(--ink2);font-size:12.5px;font-weight:600;
+  .fchip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:var(--radius-pill);cursor:pointer;
+    border:1px solid var(--line);background:var(--card);color:var(--ink2);font-size:12.5px;font-weight:500;
     font-family:var(--sans);transition:border-color .12s,background .12s,color .12s}
   .fchip:hover{border-color:var(--copper)}
-  .fchip.on{border-color:var(--copper);background:rgba(197,149,107,.14);color:var(--ink)}
+  .fchip.on{border-color:var(--copper);background:rgba(197,149,107,.14);color:var(--ink);font-weight:600}
+  .fchip .dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--c)}   /* the chip remembers the colour of the status it filters */
   .fchip .fc{font-variant-numeric:tabular-nums;font-size:11px;opacity:.7;font-family:var(--mono)}
   /* #17 (v102) second-level sub-filter for «غير مكتمل» (الكل·الجواز·الفيزا): a copper-tinted BRACKET that
      names its parent, so it visibly belongs to the incomplete chip — not floating under the whole row. */
@@ -160,23 +190,28 @@
   .subchip.on{color:var(--ink);border-color:var(--copper);background:rgba(197,149,107,.16)}
   .subchip .fc{font-variant-numeric:tabular-nums;font-size:10.5px;opacity:.7;font-family:var(--mono)}
   .row{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);
-    border-radius:14px;padding:12px 14px;margin-bottom:9px;cursor:pointer;transition:border-color .12s}
-  .row:hover{border-color:var(--copper)}
-  .ava{width:46px;height:46px;border-radius:11px;flex:none;object-fit:cover;background:var(--bg2);
+    border-radius:var(--radius-l);padding:12px 14px;margin-bottom:9px;cursor:pointer;transition:border-color .12s,background .12s}
+  .row:hover{border-color:var(--copper);background:var(--panel2)}
+  .row:focus-visible{outline:none;border-color:var(--copper);box-shadow:0 0 0 3px rgba(219,168,117,.22)}   /* Tab reaches a row; same ring as the inputs */
+  .ava{width:46px;height:46px;border-radius:var(--radius);flex:none;object-fit:cover;background:var(--bg2);position:relative;
     display:grid;place-items:center;color:var(--faint);font-weight:700;font-family:var(--mono);
     border:1px solid var(--line);overflow:hidden}
-  .ava img{width:100%;height:100%;object-fit:cover}
+  .ava img{width:100%;height:100%;object-fit:cover;filter:brightness(var(--ava-dim))}
+  .ava::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    box-shadow:inset 0 0 0 1px var(--line),inset 0 0 0 3px var(--card)}   /* inner ring + a card-colour gap: the scan sits IN the card, not on it */
   .who{flex:1;min-width:0}
   .nm{font-weight:600;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .nm .native{color:var(--ink2);font-weight:400;margin-inline-start:8px}
-  .sub{color:var(--ink2);font-size:12.5px;margin-top:2px;font-family:var(--mono);
+  .nm .native{color:var(--muted);font-weight:400}
+  .nm .native::before{content:"·";color:var(--faint);margin:0 8px}   /* Latin and native names no longer touch */
+  .sub{color:var(--muted);font-size:12.5px;margin-top:2px;font-family:var(--sans);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sub .num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink2)}   /* mono for digits only — Arabic words stay in sans */
   .sub .id{color:var(--faint)}
   .val{flex:none;text-align:end;font-family:var(--mono);font-size:11.5px}
   /* ONE status chip — colour + icon + text (WCAG 1.4.1); Carbon-mapped; readable on dark.
      text colours are lightened for ≥4.5:1; the icon disc uses the true Carbon token (≥3:1). */
-  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;
-    font-weight:600;font-size:12.5px;font-family:var(--sans);white-space:nowrap;letter-spacing:normal}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:var(--radius-pill);
+    font-weight:500;font-size:12.5px;font-family:var(--sans);white-space:nowrap;letter-spacing:normal}
   .pill .pi{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;
     font-size:10px;font-weight:800;line-height:1}
   .st-valid  {color:#4bd6a0;background:rgba(36,161,72,.16)}   .st-valid .pi{background:#24A148;color:#04140b}
@@ -603,8 +638,6 @@
   /* the Law section (legal search + batch detail) */
   /* المعاملات = a secondary/outline twin of the primary «إضافة» button (same shape, copper outline);
      it FILLS copper when the legal section is active, so it reads as a clear section switch. */
-  .lawbtn{background:transparent;color:var(--ink);border:1px solid var(--copper)}
-  .lawbtn:hover{filter:none;background:color-mix(in srgb,var(--copper) 12%,transparent)}
   #blaw.on{background:var(--copper);color:#160f08;border-color:var(--copper)}
   #blaw.on:hover{filter:brightness(1.06);background:var(--copper)}
   .law-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
@@ -839,7 +872,7 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* #11 (v80) Review filter toggle in the legal section */
 .law-review.on{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--ink)}
 /* #12 (v84) header logo — ICCMC mark, viewBox cropped tight (no dead space), theme-tinted mask */
-.top-logo{display:block;flex:none;align-self:center;height:54px;width:138px;   /* minimalist ICCMC wordmark, aspect 466/182 ≈ 2.56 */
+.top-logo{display:block;flex:none;align-self:center;height:44px;width:113px;   /* minimalist ICCMC wordmark, aspect 466/182 ≈ 2.56 */
   background:var(--ink);
   -webkit-mask:url(logo.svg?v=4) left center/contain no-repeat;
           mask:url(logo.svg?v=4) left center/contain no-repeat}
@@ -848,10 +881,10 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .listbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 4px 10px}
 .listbar .count{margin:0}
 .sortbar{display:inline-flex;align-items:center;gap:2px;flex:none}
-.sort-lbl{font-size:11px;color:var(--faint);margin-inline-end:5px;font-family:var(--mono);letter-spacing:.04em}
-.sort-opt{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:8px;cursor:pointer;transition:color .12s,background .12s}
+.sort-lbl{font-size:11.5px;color:var(--faint);margin-inline-end:5px;font-family:var(--sans)}
+.sort-opt{background:transparent;border:none;color:var(--muted);font-family:var(--sans);font-size:11.5px;font-weight:500;padding:3px 8px;border-radius:var(--radius-s);cursor:pointer;transition:color .12s,background .12s}
 .sort-opt:hover{color:var(--ink)}
-.sort-opt.on{color:var(--ink);background:color-mix(in srgb,var(--copper) 15%,transparent)}
+.sort-opt.on{color:var(--ink);font-weight:600;background:color-mix(in srgb,var(--copper) 15%,transparent)}
 /* #15 (v97) عرض button on passport/visa cards — opens the original scan; copper = obviously clickable */
 .doc-view{margin-inline-start:auto;background:color-mix(in srgb,var(--copper) 14%,transparent);border:1px solid var(--copper);color:var(--ink);border-radius:8px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;white-space:nowrap;transition:background .12s}
 .doc-view:hover{background:color-mix(in srgb,var(--copper) 26%,transparent)}

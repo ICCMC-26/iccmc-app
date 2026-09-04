@@ -151,6 +151,7 @@ assets/app.js       ← THE APP. All the behaviour (search, the legal-batch matc
                        Supabase data layer, …). ⭐ Edit HERE to change how the app works.
 assets/app.css      ← all the styles.
 assets/vendor.js    ← the vendored Supabase library (third-party — don't edit).
+assets/fonts/       ← self-hosted UI fonts (IBM Plex Sans Arabic · IBM Plex Mono, woff2, OFL).
 ocr.html            ← a SEPARATE, self-contained OCR-admin page. Reached at /ocr.html. Its own file.
 ```
 

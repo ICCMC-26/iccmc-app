@@ -19,10 +19,10 @@ const I18N={
   ar:{dir:'rtl', other:'English',
     gtag:'سجل وثائق الموظفين', signin:'تسجيل الدخول ›', signing:'… جارٍ الدخول',
     bad:'بريد أو كلمة مرور غير صحيحة.', need:'أدخل البريد وكلمة المرور.',
-    add:'إضافة', ph:'ابحث عن أي موظف — الاسم، الجواز، التأشيرة، الجنسية…',
+    add:'إضافة', ph:'ابحث بالاسم أو الجواز أو التأشيرة…',
     hint:'اكتب أي شيء أخذناه من الموظف — يظهر فورًا.', all:'كل الموظفين',
-    n_res:n=>`${n} نتيجة`, none:'لا نتائج — جرّب اسمًا أو رقم جواز آخر.',
-    n_res_part:(shown,total)=>`${shown} من ${total} نتيجة — لم تُحمَّل البقية`,
+    n_res:n=>`<span class="num">${n}</span> نتيجة`, n_res_of:(n,total)=>`<span class="num">${n}</span> من <span class="num">${total}</span>`, none:'لا نتائج — جرّب اسمًا أو رقم جواز آخر.',
+    n_res_part:(shown,total)=>`<span class="num">${shown}</span> من <span class="num">${total}</span> نتيجة — لم تُحمَّل البقية`,
     ov_employees:'موظف في السجل', ov_live:'مباشر',
     ov_passports:'الجوازات', ov_onfile:'رقم جواز مسجّل',
     ov_visas:'التأشيرات', ov_docs_for:'تأشيرة لـ', ov_emp:'موظف',
@@ -166,10 +166,10 @@ const I18N={
   en:{dir:'ltr', other:'العربية',
     gtag:'Employee documents registry', signin:'Sign in ›', signing:'… signing in',
     bad:'Wrong email or password.', need:'Enter email and password.',
-    add:'Add', ph:'Search any employee — name, passport, visa, nationality…',
+    add:'Add', ph:'Search by name, passport or visa…',
     hint:'Type anything we captured from the employee — results appear instantly.', all:'All employees',
-    n_res:n=>`${n} result${n===1?'':'s'}`, none:'No matches — try another name or passport number.',
-    n_res_part:(shown,total)=>`${shown} of ${total} results — the rest did not load`,
+    n_res:n=>`<span class="num">${n}</span> result${n===1?'':'s'}`, n_res_of:(n,total)=>`<span class="num">${n}</span> of <span class="num">${total}</span>`, none:'No matches — try another name or passport number.',
+    n_res_part:(shown,total)=>`<span class="num">${shown}</span> of <span class="num">${total}</span> results — the rest did not load`,
     ov_employees:'employees on record', ov_live:'live',
     ov_passports:'Passports', ov_onfile:'passport numbers on file',
     ov_visas:'Visas', ov_docs_for:'documents for', ov_emp:'employees',
@@ -648,7 +648,7 @@ function setLaw(on){
   LAWMODE=!!on; _lawBatch=null; LAW_FILTER='all';   // enter the legal section on "All"
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
   const q=$('#q'); if(q){ q.placeholder=LAWMODE?t('law_ph'):t('ph'); q.value=''; }
-  $('#filters').innerHTML=''; $('#count').textContent='';
+  $('#filters').innerHTML=''; $('#count').innerHTML='';
   search('');
 }
 async function searchLegalBatches(q){
@@ -915,7 +915,7 @@ async function lawFillName(b,i,name){   // fill a name the OCR missed → comple
   }catch(e){ toast(t('lg_savefail')+((e&&e.message)||e)); }
 }
 function renderLawBatch(b){
-  const box=$('#results'); $('#count').textContent='';
+  const box=$('#results'); $('#count').innerHTML='';
   // Inside ONE batch there is nothing to order — the roster is fixed by serial. Hide the sort chips
   // (الرقم / الاسم / الأحدث) here; the list view restores them.
   { const sb2=$('#sortbar'); if(sb2) sb2.style.display='none'; }
@@ -1044,11 +1044,11 @@ function fullFace(path){ return path ? path.replace(/\.jpg$/i,'-full.jpg') : nul
    row here. Each entry matches on the row's overall status; counts are live off the results. */
 const FILTERS=[
   {k:'all',        lab:'f_all',      match:()=>true},
-  {k:'valid',      lab:'valid',      match:s=>s.k==='valid'},
-  {k:'expiring',   lab:'f_expiring', match:s=>s.k==='soon'||s.k==='crit'},
-  {k:'expired',    lab:'expired',    match:s=>s.k==='expired'},
-  {k:'incomplete', lab:'incomplete', match:s=>s.k==='unknown'},
-  {k:'legal',      lab:'f_legal',    match:(s,r)=>LEGAL_INCOMPLETE.has(r.person_id)},   // in a batch missing a stamped paper
+  {k:'valid',      lab:'valid',      dot:'#24A148', match:s=>s.k==='valid'},
+  {k:'expiring',   lab:'f_expiring', dot:'#f1c21b', match:s=>s.k==='soon'||s.k==='crit'},
+  {k:'expired',    lab:'expired',    dot:'#da1e28', match:s=>s.k==='expired'},
+  {k:'incomplete', lab:'incomplete', dot:'#6f6f6f', match:s=>s.k==='unknown'},
+  {k:'legal',      lab:'f_legal',    dot:'var(--indigo)', match:(s,r)=>LEGAL_INCOMPLETE.has(r.person_id)},   // in a batch missing a stamped paper
 ];
 let FILTER='all';
 // second level of «غير مكتمل»: pick which side is missing. الكل = the whole incomplete set (missing passport OR
@@ -1081,11 +1081,11 @@ function rowStatus(r){ return worstOf([statusFromDays(daysTo(r.passport_expiry))
   visaBandStatus(r.soonest_visa_expiry, r.soonest_visa_ceiling, r.soonest_visa_expiry)]); }
 const _VCHUNK=60;                                   // rows in the first window; the rest stream in on scroll
 let _vShown=[], _vCursor=0, _vObs=null;
-function _rowHtml({r,s}){ return `<div class="row" data-id="${esc(r.person_id)}">
+function _rowHtml({r,s}){ return `<div class="row" data-id="${esc(r.person_id)}" role="button" tabindex="0">
       <div class="ava" data-face="${esc(r.photo||'')}">${esc(initials(r.name))}</div>
       <div class="who">
         <div class="nm">${esc(r.name)}${r.name_native?`<span class="native">${esc(r.name_native)}</span>`:''}</div>
-        <div class="sub"><span class="id">${esc(r.person_id)}</span> · ${esc(r.passport_no||'—')} · ${esc(r.nationality?tv(r.nationality):'—')}</div>
+        <div class="sub"><span class="id num">${esc(r.person_id)}</span> · <span class="num">${esc(r.passport_no||'—')}</span> · ${esc(r.nationality?tv(r.nationality):'—')}</div>
       </div>
       <div class="val">${statusChip(s)}</div>
     </div>`; }
@@ -1164,7 +1164,7 @@ function paintFilters(items){    // repaint ONLY the filter chips (counts) — n
   let html=FILTERS.map(f=>{
     const n=items.filter(x=>f.match(x.s,x.r)).length;
     if(f.k!=='all'&&!n) return '';
-    return `<button class="fchip${FILTER===f.k?' on':''}" data-f="${f.k}">${t(f.lab)}<span class="fc">${n}</span></button>`;
+    return `<button class="fchip${FILTER===f.k?' on':''}" data-f="${f.k}">${f.dot?`<span class="dot" style="--c:${f.dot}"></span>`:''}${t(f.lab)}<span class="fc">${n}</span></button>`;
   }).join('');
   // second level: «غير مكتمل» active → a tinted bracket that NAMES its parent, so it clearly belongs to that
   // chip (not the row). Counts are within the incomplete set only.
@@ -1203,10 +1203,17 @@ function render(rows){
   const narrowed = shown.length !== items.length;                 // a chip is filtering
   const total    = (SEARCH_TOTAL===null) ? rows.length : SEARCH_TOTAL;
   const short    = !narrowed && total > rows.length;              // we hold less than exists
-  $('#count').textContent = !rows.length ? ''
-      : narrowed ? t('n_res', shown.length)
+  /* The count only speaks when it adds something the chips do not already say:
+       · a chip narrows the list → «824 من 1600» (the part AND the whole)
+       · a search is typed        → its total (the chips show the search's split, not the registry's)
+       · truncated               → the honest admission, unchanged
+       · الكل on the whole roster → silence; «الكل 1600» is already on screen. */
+  const _qv = ($('#q')&&$('#q').value.trim());
+  $('#count').innerHTML = !rows.length ? ''
+      : narrowed ? t('n_res_of', shown.length, total)
       : short    ? t('n_res_part', rows.length, total)
-      :            t('n_res', total);
+      : _qv      ? t('n_res', total)
+      :            '';
   if(!rows.length){box.innerHTML=`<div class="empty">${$('#q')&&$('#q').value?t('none'):t('all')}</div>`;return}
   if(!shown.length){box.innerHTML=`<div class="empty">${t('f_none')}</div>`;return}
   // VIRTUALISED: a first window of rows, then the next chunk streams in as the user scrolls near the bottom.
@@ -5288,6 +5295,14 @@ $('#results').addEventListener('click',e=>{
   if(pr){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(pr.dataset.lawprint)); if(b)printBatch(b); return; }
   const lb=e.target.closest('[data-batch]'); if(lb){openLawBatch(lb.dataset.batch);return}
   const row=e.target.closest('.row'); if(row&&row.dataset.id)openEmployee(row.dataset.id);});
+$('#results').addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ')return;
+  const row=e.target.closest('.row'); if(row&&row.dataset.id){ e.preventDefault(); openEmployee(row.dataset.id); } });
+document.addEventListener('keydown',e=>{ if(e.key!=='/'||e.ctrlKey||e.metaKey||e.altKey)return;   // «/» → search, like every search-first app
+  const a=document.activeElement; if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable))return;
+  const q=$('#q'); if(!q||!q.offsetParent)return;
+  if(document.querySelector('#detail.on,#lightbox.on,#istimara.on'))return;      // an overlay owns the screen
+  const r=q.getBoundingClientRect(); if(r.bottom>0&&r.top<innerHeight){ const el=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2); if(el&&el!==q&&!q.contains(el)&&!el.closest('.hero'))return; }
+  e.preventDefault(); q.focus(); q.select(); });
 $('#detail').addEventListener('click',e=>{const _lg=e.target.closest('[data-lawgo]');if(_lg){gotoLawBatch(_lg.dataset.lawgo);return;}if(e.target.closest('.d-close'))closeEmployee();if(e.target.closest('.d-print'))printEmployee();
   const f=e.target.closest('.d-face');if(f&&f.dataset.url)openLightbox(f.dataset.url)});
 $('#lightbox').addEventListener('click',()=>$('#lightbox').classList.remove('on'));

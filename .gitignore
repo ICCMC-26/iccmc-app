@@ -39,6 +39,10 @@
 # The تعهد letterhead logo (Shanghai Electric), shown in the builder workspace so it mirrors the
 # exported PDF (the PDF gets its own copy from the Word template). Image only — no code/keys.
 !assets/taahud-logo.jpg
+# Self-hosted UI fonts (IBM Plex Sans Arabic + IBM Plex Mono, OFL-1.1) — binary woff2 only, so the app
+# makes no call to a font CDN. Explicit folder + extension, nothing else can ride in.
+!assets/fonts/
+!assets/fonts/*.woff2
 # GitHub Pages: serve every file verbatim (skip Jekyll processing).
 !.nojekyll
 # The repo map — explains which file is the app's source of truth (for contributors + a fresh Claude).
