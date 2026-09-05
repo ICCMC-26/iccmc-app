@@ -130,8 +130,8 @@
     .add .ic{width:22px;height:22px}
     .wordmark{font-size:16.5px;letter-spacing:.1em}
     .icon{width:44px;height:44px;font-size:14px}
-    #app #q{font-size:17px;padding:16px 50px;border-radius:14px}
-    #app .hero .mag{inset-inline-start:17px;font-size:18px}
+    #app #q{font-size:17px}
+    #app .sbox{padding:8px 12px;min-height:54px}
     /* stacked row: the status pill drops to its own line so a long name never truncates */
     #app .row{flex-wrap:wrap;padding:12px;gap:10px 12px}
     #app .who{flex:1 1 auto}
@@ -150,17 +150,67 @@
   }
   /* ── the search hero (the whole UI) ─────────────────────────────────────── */
   .hero{position:relative;margin:10px 0 8px}
-  #q{width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius-l);
-    color:var(--ink);font-size:22px;padding:20px 56px;font-family:var(--sans)}
-  #q:focus{outline:none;border-color:var(--copper);box-shadow:0 0 0 4px rgba(197,149,107,.13)}
+  /* THE FILTER LIVES IN THE SEARCH BOX. .sbox carries the box look; #q is a bare input inside it; the
+     selection sits before it as tokens, the one «تصفية» button after it, and the drawer opens under the box. */
+  .sbox{display:flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius-l);padding:10px 16px 10px 12px;min-height:64px}
+  .sbox:focus-within{border-color:var(--copper);box-shadow:0 0 0 4px rgba(197,149,107,.13)}
+  .sbox .mag{color:var(--faint);display:grid;flex:none;pointer-events:none}
+  .sbox .mag .ic{width:20px;height:20px;stroke-width:1.6}
+  #q{flex:1;min-width:120px;background:transparent;border:0;outline:0;color:var(--ink);font-size:22px;padding:4px 6px;font-family:var(--sans)}
   #q::placeholder{color:var(--faint)}
-  .hero .mag{position:absolute;inset-inline-start:20px;top:50%;transform:translateY(-50%);
-    color:var(--faint);font-size:20px;pointer-events:none;display:grid}
-  .hero .mag .ic{width:20px;height:20px;stroke-width:1.6}
-  /* the «/» key hint: search-first apps show it; hidden where there is no keyboard */
-  .hero .kbd{position:absolute;inset-inline-end:18px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:11px;
-    color:var(--faint);border:1px solid var(--line);border-radius:6px;padding:3px 7px;line-height:1;pointer-events:none}
-  @media (pointer:coarse){.hero .kbd{display:none}}
+  .ftoks{display:contents}
+  .token{display:inline-flex;align-items:center;gap:6px;padding:3px 5px 3px 10px;border-radius:var(--radius-pill);border:1px solid var(--copper);background:rgba(197,149,107,.14);color:var(--ink);font-size:12.5px;font-weight:500;white-space:nowrap}
+  .token .k{color:var(--muted);font-weight:400}
+  .token .x{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;color:var(--faint);font-size:11px;background:none;border:0;cursor:pointer;font:inherit}
+  .token .x:hover{background:var(--panel2);color:var(--ink)}
+  .token .dot,.chip .dot,.short .dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--c);display:inline-block}
+  .fbtn{display:inline-flex;align-items:center;gap:7px;flex:none;height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:border-color .12s,color .12s}
+  .fbtn:hover{border-color:var(--copper);color:var(--copper)}
+  .fbtn.on{border-color:var(--copper);color:var(--ink);background:rgba(197,149,107,.14)}
+  .fbtn .ic{width:15px;height:15px}
+  .fbtn .n{font-family:var(--mono);font-size:10.5px;background:var(--copper);color:#1a1206;border-radius:999px;padding:2px 6px;font-weight:700;line-height:1}
+  .fbtn[hidden]{display:none}
+  /* the drawer: full width of the box; header = title + the complete-file shortcut · body = label column + chips ·
+     optional 4th row = the missing-paper toggles · footer = live count, clear, done */
+  .fpanel{position:absolute;z-index:6;top:calc(100% + 8px);inset-inline:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-l);box-shadow:var(--shadow);overflow:hidden}
+  .fpanel[hidden]{display:none}
+  .p-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1px solid var(--line)}
+  .p-head .t{font-size:13px;font-weight:600;color:var(--ink)}
+  .short{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:var(--radius-pill);border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+  .short.on{border-color:var(--ok);background:rgba(36,161,72,.14)}
+  .p-body{display:grid;grid-template-columns:112px 1fr;row-gap:2px;padding:10px 16px 12px}
+  .p-body .lab{display:flex;align-items:center;min-height:38px;font-size:12.5px;font-weight:600;color:var(--muted)}
+  .p-body .opts{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:38px}
+  .chip{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;border-radius:var(--radius-pill);border:1px solid transparent;background:none;color:var(--ink2);font-size:12.5px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:border-color .12s,background .12s,color .12s}
+  .chip:hover{border-color:var(--line);color:var(--ink)}
+  .chip.on{border-color:var(--copper);background:rgba(197,149,107,.14);color:var(--ink);font-weight:600}
+  .chip .fc,.short .fc,.tog .fc{font-family:var(--mono);font-size:11px;opacity:.65;font-variant-numeric:tabular-nums}
+  .p-body .sub{grid-column:1/-1;display:grid;grid-template-columns:112px 1fr;margin-top:2px;padding-top:8px;border-top:1px dashed var(--line)}
+  .tog{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;border-radius:var(--radius-pill);border:1px solid transparent;background:none;color:var(--ink2);font-size:12.5px;cursor:pointer;font-family:var(--sans)}
+  .tog::before{content:"";width:12px;height:12px;border-radius:4px;border:1.5px solid var(--faint);flex:none}
+  .tog.on{color:var(--ink);border-color:var(--copper);background:rgba(197,149,107,.16)}
+  .tog.on::before{background:var(--copper);border-color:var(--copper)}
+  .p-foot{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 12px;border-top:1px solid var(--line);background:var(--bg2)}
+  .p-foot .cnt{font-size:12.5px;color:var(--muted)}.p-foot .cnt .num{color:var(--ink)}
+  .p-foot .acts{display:flex;align-items:center;gap:8px}
+  .p-foot .clear{color:var(--muted);font-size:12.5px;padding:6px 10px;border-radius:8px;background:none;border:0;cursor:pointer;font-family:var(--sans)}
+  .p-foot .clear:hover{color:var(--ink);background:var(--panel2)}
+  .p-foot .done{height:34px;padding:0 16px;border-radius:10px;background:var(--copper);color:#160f08;font-weight:700;font-size:13px;border:0;cursor:pointer;font-family:var(--sans)}
+  .filters:empty{display:none}
+  /* the card's state corner: pill, then the three document marks (quiet at green), then one reason line */
+  .emp-val{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:112px;text-align:start}
+  .mk{display:inline-flex;align-items:center;gap:7px;padding-inline-start:5px}
+  .mk span{position:relative;display:inline-grid}
+  .mk svg{width:14px;height:14px;stroke:var(--c);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .mk svg[data-ok]{opacity:.38}
+  .mk span::after{content:attr(data-t);position:absolute;bottom:calc(100% + 6px);inset-inline-start:50%;transform:translateX(50%);background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:10.5px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;z-index:3}
+  .mk span:hover::after{opacity:1}
+  .why{font-size:11.5px;color:var(--muted);white-space:nowrap;padding-inline-start:5px;font-family:var(--sans)}.why b{font-weight:600;color:var(--ink2)}
+  .legend{display:inline-flex;align-items:center;gap:10px;color:var(--faint);font-size:11px}
+  .legend[hidden]{display:none}
+  .legend svg{width:12px;height:12px;stroke:var(--faint);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;margin-inline-end:3px;vertical-align:-2px}
+  .lg-note{color:var(--copper);font-size:11.5px;font-weight:600;margin-inline-start:4px;cursor:help}
+  @media(max-width:560px){.p-body{grid-template-columns:1fr}.p-body .lab{min-height:24px;margin-top:4px}.p-body .sub{grid-template-columns:1fr}}
   .hint{color:var(--faint);font-size:12.5px;text-align:center;margin:10px 0 18px;min-height:16px}
 
   /* ── results ────────────────────────────────────────────────────────────── */

@@ -48,6 +48,9 @@ const I18N={
     soon:'ينتهي خلال', day:'يوم', expired:'منتهٍ', valid:'ساري', nodocs:'لا وثائق', incomplete:'غير مكتمل',
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
+    f_filter:'تصفية', f_done:'تم', f_clear:'مسح الكل', f_pick:'اختر حالة لكل وثيقة', f_pass:'الجواز', f_visa:'التأشيرة', f_legalfile:'الملف القانوني',
+    f_paper:'الورقة الناقصة', f_complete_file:'ملف مكتمل', f_complete:'مكتمل', f_missing:'ناقص', f_nodoc:'لا يوجد', why_visa:'تأشيرته لم تُجدَّد',
+    law_window:'تجاوزت المهلة', law_window_t:'مرّت 90 يومًا على المنح ولم تُربط أي فيزا — امسح التأشيرات أو أرشِف الدفعة', law_spread:'تباعد في تواريخ الإصدار — راجعها',
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
     t_passport:'جواز السفر', t_visa:'التأشيرة', t_print:'طباعة', t_close:'إغلاق',
     hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند', vhx_title:'سِجل التأشيرات',
@@ -195,6 +198,9 @@ const I18N={
     soon:'expires in', day:'d', expired:'Expired', valid:'Valid', nodocs:'No documents', incomplete:'Incomplete',
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
+    f_filter:'Filter', f_done:'Done', f_clear:'Clear all', f_pick:'Pick a state per document', f_pass:'Passport', f_visa:'Visa', f_legalfile:'Legal file',
+    f_paper:'Missing paper', f_complete_file:'Complete file', f_complete:'Complete', f_missing:'Incomplete', f_nodoc:'None', why_visa:'his visa is not renewed',
+    law_window:'window passed', law_window_t:'90 days since the grant and no visa connected — scan the visas or archive the batch', law_spread:'issue dates spread — review',
     out:'Sign out?', soon_v2:'Add employee — coming next.',
     t_passport:'Passport', t_visa:'Visa', t_print:'Print', t_close:'Close',
     hx_title:'Document history', hx_retired:'past', hx_open:'Open document', vhx_title:'Visa history',
@@ -641,9 +647,7 @@ async function search(q){
   render(LAST);                                        // PAINT after one round-trip — don't wait on the 2nd query
   // the per-row legal-gap counts (a filter-chip only) load in the BACKGROUND, then re-render — they never
   // block the results from appearing. A newer keystroke (seq bumped) discards a stale background result.
-  refreshLegalFlags(LAST.map(r=>r.person_id)).then(()=>{ if(seq!==_seq) return;
-    if(PERF.smartFlags){ paintFilters(_rItems); if(FILTER==='legal') render(LAST); }  // #1: chips-only; roster stays put unless the legal filter is active
-    else render(LAST); });
+  // (the legal facet reads legal_t/i/m/complete straight from the roster RPC — the old per-search legal_batch_members round-trip is gone)
 }
 
 /* ══ THE LAW SECTION — a dedicated SEARCH/READ surface for legal batches (owner's ask) ══════════
@@ -656,6 +660,7 @@ function setLaw(on){
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
   const q=$('#q'); if(q){ q.placeholder=LAWMODE?t('law_ph'):t('ph'); q.value=''; }
   $('#filters').innerHTML=''; $('#count').innerHTML='';
+  _fOpen=false; paintFilters(_rItems||[]);   // the drawer belongs to the employee page; the legal section has its own chips
   search('');
 }
 async function searchLegalBatches(q){
@@ -688,12 +693,12 @@ let _LBL={};   // #Phase2: batch_id -> v_legal_batch_link row (connection + stat
 let _LVISA={};   // #Review: person_id -> their current visa row (to flag static batches near an active visa)
 async function loadLegalLinks(ids){
   ids=[...new Set((ids||[]).filter(Boolean))]; if(!ids.length) return;
-  try{ const {data}=await sb.from('v_legal_batch_link').select('batch_id,connected,batch_expiry,status,expiry_variants,connected_visa_id').in('batch_id',ids);
+  try{ const {data}=await sb.from('v_legal_batch_link').select('batch_id,connected,batch_expiry,status,expiry_variants,connected_visa_id,batch_floor,batch_ceiling,spread_days,flag').in('batch_id',ids);
     (data||[]).forEach(r=>{ _LBL[r.batch_id]=r; }); }catch(_){}
 }
 function legalStatusChip(id){   // batch presence = its connected visa's status; static -> NO chip (honest)
   const l=_LBL[id]; if(!l||!l.connected||!l.status||l.status==='static') return '';
-  const _w=l.expiry_variants>1?` <span class="law-flag" title="${LANG==='ar'?'تعارض في الدفعة — راجعها':'batch mismatch — review'}">⚑</span>`:'';
+  const _w=l.flag==='spread'?` <span class="law-flag" title="${esc(t('law_spread'))}">⚑</span>`:'';   // R4: issue dates >60 days apart inside one batch
   return phaseChip(l.status)+_w;
 }
 /* RETIRED FROM THE DOSSIER (2026-08-12) — kept because it is the only code that answers "which
@@ -712,7 +717,9 @@ function visaLegalCover(v){   // #Phase2b: from a visa, show the legal batch it 
 function isStaticBatch(id){ const l=_LBL[id]; return !l || !l.connected || l.status==='static'; }   // no connecting visa yet → life unknown
 function awaitingLabel(id){   // static presence → honest "pending; the visa that will time it hasn't landed"
   if(!isStaticBatch(id)) return '';
-  return `<span class="lg-await" title="${LANG==='ar'?'لا فيزا مرتبطة بعد — تتحدد حياته عند ظهور الفيزا':'no connected visa yet — its life resolves when the visa appears'}">${LANG==='ar'?'⏳ بانتظار الفيزا':'⏳ awaiting visa'}</span>`;
+  const l=_LBL[id], late=!!(l&&l.flag==='window_passed');   // R6: منح + 90 days passed, still no visa → a live note, never a rule
+  return `<span class="lg-await" title="${LANG==='ar'?'لا فيزا مرتبطة بعد — تتحدد حياته عند ظهور الفيزا':'no connected visa yet — its life resolves when the visa appears'}">${LANG==='ar'?'⏳ بانتظار الفيزا':'⏳ awaiting visa'}</span>`
+       +(late?` <span class="lg-note" title="${esc(t('law_window_t'))}">${t('law_window')}</span>`:'');
 }
 function legalChipOrAwait(id){ return legalStatusChip(id) || awaitingLabel(id); }   // a visa timed it → phase chip; else the pending label
 /* legal-section case filter — chips like the employee search; each batch bucketed by its case */
@@ -758,19 +765,21 @@ const _paperMissing=(b,key)=>ptKeys().filter(ptReq).includes(key) && !batchPaper
 // A filter matches on the batch's CASE (active/expiring/…) and may also inspect the batch itself —
 // «أختام ناقصة» is a different dimension: a batch can be perfectly active and still miss a stamp.
 const LAW_FILTERS=[
-  {k:'all',      ar:'الكل',           en:'All',      match:()=>true},
+  {k:'all',      ar:'الكل',           en:'All',      match:c=>c!=='expired'},     // the working list — the archive has its own chip
   {k:'active',   ar:'ساري',           en:'Active',   match:c=>c==='active'},
   {k:'expiring', ar:'قارب الانتهاء',  en:'Expiring', match:c=>c==='expiring'},
   {k:'awaiting', ar:'بانتظار الفيزا', en:'Awaiting', match:c=>c==='awaiting'},
   {k:'nostamp',  ar:'أختام ناقصة',    en:'Missing stamps',  match:(c,b)=>_batchNoStamp(b)},
-  {k:'incomplete',ar:'غير مكتمل',     en:'Incomplete',      match:(c,b)=>_batchIncomplete(b)},
-  {k:'flag',     ar:'مراجعة',         en:'Review',   match:c=>c==='flag'},
+  {k:'incomplete',ar:'ناقص',          en:'Incomplete',      match:(c,b)=>_batchIncomplete(b)},
+  {k:'flag',     ar:'مراجعة',         en:'Review',   match:(c,b)=>c==='flag'||!!_lblFlag(b)},   // + the view's flags (spread · window passed)
   {k:'expired',  ar:'الأرشيف',        en:'Archive',  match:c=>c==='expired'},
 ];
 /* SUB-CHIPS — the same shape as the passport/visa «غير مكتمل» sides: pick the filter, then narrow it
    to the exact gap. Registry-driven by stamp NAME and paper KEY, so a new paper type of an existing
    role needs no edit here. */
-let LAW_SIDE='all';
+let LAW_SIDE='all';   // 'all' | one key | several keys joined by ',' (the «ناقص» sides combine with AND)
+const _lawSideKeys=()=>LAW_SIDE==='all'?[]:LAW_SIDE.split(',');
+const _lblFlag=b=>{ const l=_LBL[b&&b.batch_id]; return (l&&l.flag)||null; };
 const LAW_SIDES={
   nostamp:[
     {k:'all',      ar:'الكل',            en:'All',              match:()=>true},
@@ -806,9 +815,9 @@ function renderLaw(rows){
     if(LAW_FILTER!=='all' && (!_f || !cased.some(x=>_f.match(x.c,x.b)))) { LAW_FILTER='all'; LAW_SIDE='all'; }
     const _sides=LAW_SIDES[LAW_FILTER], _F=LAW_FILTERS.find(f=>f.k===LAW_FILTER);
     if(_sides && LAW_SIDE!=='all'){
-      const _sd=_sides.find(s=>s.k===LAW_SIDE);
+      const _ks=_lawSideKeys().map(k=>_sides.find(s=>s.k===k));
       const _in=cased.filter(x=>_F.match(x.c,x.b)).map(x=>x.b);
-      if(!_sd || !_in.some(_sd.match)) LAW_SIDE='all'; } }
+      if(!_ks.length || _ks.some(sd=>!sd) || !_in.some(b=>_ks.every(sd=>sd.match(b)))) LAW_SIDE='all'; } }
   const bar=$('#filters');
   if(bar){
     let html=LAW_FILTERS.map(f=>{ const n=cased.filter(x=>f.match(x.c,x.b)).length;
@@ -824,7 +833,8 @@ function renderLaw(rows){
       // level clearly belongs to that chip rather than floating on the row
       const opts=sides.map(sd=>{ const n=inSet.filter(sd.match).length;
         if(sd.k!=='all' && !n) return '';
-        return `<button class="subchip${LAW_SIDE===sd.k?' on':''}" data-ls="${sd.k}">${LANG==='ar'?sd.ar:sd.en}<span class="fc">${n}</span></button>`;
+        const on=sd.k==='all' ? LAW_SIDE==='all' : _lawSideKeys().includes(sd.k);
+        return `<button class="subchip${on?' on':''}" data-ls="${sd.k}">${LANG==='ar'?sd.ar:sd.en}<span class="fc">${n}</span></button>`;
       }).join('');
       html+=`<div class="subfilter"><div class="sf-box" role="group" aria-label="${esc(parent)}">`
         +`<span class="sf-parent">${esc(parent)}</span><span class="sf-div"></span>${opts}</div></div>`;
@@ -834,8 +844,9 @@ function renderLaw(rows){
   const F=LAW_FILTERS.find(f=>f.k===LAW_FILTER)||LAW_FILTERS[0];
   let _shownC=cased.filter(x=>F.match(x.c,x.b));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
   { const sides=LAW_SIDES[LAW_FILTER];             // then narrow to the chosen side, if one is picked
-    if(sides && LAW_SIDE!=='all'){ const sd=sides.find(s=>s.k===LAW_SIDE); if(sd) _shownC=_shownC.filter(x=>sd.match(x.b)); } }
-  $('#count').textContent=_shownC.length?t('n_res',_shownC.length):'';
+    if(sides && LAW_SIDE!=='all'){ const ks=_lawSideKeys().map(k=>sides.find(s=>s.k===k)).filter(Boolean); _shownC=_shownC.filter(x=>ks.every(sd=>sd.match(x.b))); } }
+  $('#count').innerHTML=_shownC.length?t('n_res',_shownC.length):'';
+  { const lg=$('#legend'); if(lg) lg.hidden=true; }
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
     <span class="law-actR"><span class="law-newwrap">
       <button class="law-add" id="law-add">＋ ${t('lg_manual_h')} <span class="law-caret">▾</span></button>
@@ -881,7 +892,11 @@ function renderLaw(rows){
   if(bar) bar.querySelectorAll('[data-lf]').forEach(el=>el.onclick=()=>{
     _lawBatch=null; LAW_FILTER=el.getAttribute('data-lf'); LAW_SIDE='all'; renderLaw(); });
   if(bar) bar.querySelectorAll('[data-ls]').forEach(el=>el.onclick=()=>{
-    _lawBatch=null; LAW_SIDE=el.getAttribute('data-ls'); renderLaw(); });
+    _lawBatch=null; const k=el.getAttribute('data-ls');
+    if(LAW_FILTER==='incomplete' && k!=='all'){ const ks=new Set(_lawSideKeys()); ks.has(k)?ks.delete(k):ks.add(k); LAW_SIDE=ks.size?[...ks].join(','):'all'; }   // press one, two, or all three
+    else LAW_SIDE=k;
+    renderLaw(); });
+  { const el=$('#law-badge'); if(el){ const n=cased.filter(x=>x.c==='flag'||!!_lblFlag(x.b)).length; el.textContent=n; el.hidden=!n; } }   // header count = batches awaiting a judgment
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
 async function gotoLawBatch(id){ closeEmployee(); setLaw(true); await search(''); openLawBatch(id); }
@@ -1049,27 +1064,34 @@ function loadFace(el, path, clickable, fallback){
 function fullFace(path){ return path ? path.replace(/\.jpg$/i,'-full.jpg') : null; }
 /* Result filter — a registry, so a future dimension (nationality, doc type…) is just a new
    row here. Each entry matches on the row's overall status; counts are live off the results. */
-const FILTERS=[
-  {k:'all',        lab:'f_all',      match:()=>true},
-  {k:'valid',      lab:'valid',      dot:'#24A148', match:s=>s.k==='valid'},
-  {k:'expiring',   lab:'f_expiring', dot:'#f1c21b', match:s=>s.k==='soon'||s.k==='crit'},
-  {k:'expired',    lab:'expired',    dot:'#da1e28', match:s=>s.k==='expired'},
-  {k:'incomplete', lab:'incomplete', dot:'#6f6f6f', match:s=>s.k==='unknown'},
-  {k:'legal',      lab:'f_legal',    dot:'var(--indigo)', match:(s,r)=>LEGAL_INCOMPLETE.has(r.person_id)},   // in a batch missing a stamped paper
-];
-let FILTER='all';
-// second level of «غير مكتمل»: pick which side is missing. الكل = the whole incomplete set (missing passport OR
-// visa); الجواز = no passport date; الفيزا = no current visa. Someone missing BOTH shows under both (counts overlap).
-let INC_SIDE='all';
-const INC_SIDES=[
-  {k:'all',  lab:'inc_all',  match:()=>true},
-  {k:'pass', lab:'inc_pass', match:r=>!r.passport_expiry},
-  {k:'visa', lab:'inc_visa', match:r=>!r.soonest_visa_expiry},
-];
+/* ── THE ROSTER FILTER: three facets (passport · visa · legal papers) combined with AND, one shortcut, and
+   the missing-paper toggles. It lives INSIDE the search box (button → drawer → tokens). One state object;
+   every consumer reads through fHit(). Persisted like the sort. Legal papers come from the roster RPC
+   (v_person_legal: papers in LIVE batches only — the main page justifies presence today). ── */
+const F_DOC=[['all','f_all',null],['valid','valid','#24A148'],['soon','f_expiring','#f1c21b'],['expired','expired','#da1e28'],['none','f_nodoc','#6f6f6f']];
+const F_LEG=[['all','f_all',null],['complete','f_complete','#24A148'],['missing','f_missing','#6f6f6f']];
+const FS={pass:'all',visa:'all',legal:'all',miss:new Set()};
+(()=>{ try{ const s=JSON.parse(localStorage.getItem('iccmc_filter')||'null'); if(s){ FS.pass=s.pass||'all'; FS.visa=s.visa||'all'; FS.legal=s.legal||'all'; FS.miss=new Set(s.miss||[]); } }catch(_){} })();
+function fSave(){ try{ localStorage.setItem('iccmc_filter',JSON.stringify({pass:FS.pass,visa:FS.visa,legal:FS.legal,miss:[...FS.miss]})); }catch(_){} }
+// per-document states of one row — the engine's keys collapsed to the four filter words; legal from the RPC columns
+const _fDoc=k=> k==='valid'?'valid' : (k==='soon'||k==='crit')?'soon' : k==='expired'?'expired' : 'none';
+function docStates(r){ return {
+  pass:  _fDoc(statusFromDays(daysTo(r.passport_expiry)).k),
+  visa:  _fDoc(visaBandStatus(r.soonest_visa_expiry, r.soonest_visa_ceiling, r.soonest_visa_expiry).k),
+  legal: r.legal_complete ? 'complete' : 'missing',
+  papers:{taahud:!!r.legal_t, istimara:!!r.legal_i, manh:!!r.legal_m} }; }
+function fHit(x,f){ f=f||FS; const d=x.d;
+  if(f.pass!=='all'  && d.pass!==f.pass)   return false;
+  if(f.visa!=='all'  && d.visa!==f.visa)   return false;
+  if(f.legal!=='all' && d.legal!==f.legal) return false;
+  if(f.legal==='missing' && f.miss.size){ for(const k of f.miss) if(d.papers[k]) return false; }   // AND: missing EVERY chosen paper
+  return true; }
+const fAny  =()=>FS.pass!=='all'||FS.visa!=='all'||FS.legal!=='all';
+const fShort=()=>FS.pass==='valid'&&FS.visa==='valid'&&FS.legal==='complete';
+let LEGAL_INCOMPLETE=new Set();   // kept for compatibility (refreshLegalFlags); the roster no longer filters on it
 /* who has a GAP in their legal file — a member of ≥1 batch where a paper isn't present-AND-stamped.
    Computed off the visible result set (one .in() query per search), so the chip counts live and a
    person with NO legal batch is never falsely flagged. */
-let LEGAL_INCOMPLETE=new Set();
 async function refreshLegalFlags(ids){
   LEGAL_INCOMPLETE=new Set();
   if(!ids.length)return;
@@ -1088,13 +1110,23 @@ function rowStatus(r){ return worstOf([statusFromDays(daysTo(r.passport_expiry))
   visaBandStatus(r.soonest_visa_expiry, r.soonest_visa_ceiling, r.soonest_visa_expiry)]); }
 const _VCHUNK=60;                                   // rows in the first window; the rest stream in on scroll
 let _vShown=[], _vCursor=0, _vObs=null;
-function _rowHtml({r,s}){ return `<div class="row" data-id="${esc(r.person_id)}" role="button" tabindex="0">
+const _MKC={valid:'#24A148',soon:'#f1c21b',expired:'#da1e28',missing:'#6f6f6f',none:'var(--faint)'};
+function rowMarks(d){ if(!d) return '';   // the three one-stroke marks, quiet at green, named on hover
+  const w=st=>t(st==='none'?'f_nodoc':st==='soon'?'f_expiring':st);
+  const anyP=Object.values(d.papers).some(Boolean), lst=d.legal==='complete'?'valid':(anyP?'missing':'none');
+  const L=[['d-pass',t('f_pass'),d.pass,w(d.pass)],['d-visa',t('f_visa'),d.visa,w(d.visa)],['d-legal',t('f_legalfile'),lst,t(d.legal==='complete'?'f_complete':'f_missing')]];
+  return `<span class="mk">${L.map(([ic,nm,st,tx])=>`<span data-t="${esc(nm+' · '+tx)}"><svg style="--c:${_MKC[st]}"${st==='valid'?' data-ok="1"':''}><use href="#${ic}"/></svg></span>`).join('')}</span>`; }
+function rowWhy(d){ if(!d) return '';   // one reason line, only when there is something to explain
+  if(d.legal==='missing'){ const miss=ptKeys().filter(ptReq).filter(k=>!d.papers[k]).map(ptLabel); return `<span class="why"><b>${t('f_missing')}</b> · ${esc(miss.join('، '))}</span>`; }
+  if(d.visa==='expired'||d.visa==='none') return `<span class="why"><b>${t('f_complete')}</b> · ${t('why_visa')}</span>`;
+  return ''; }
+function _rowHtml({r,s,d}){ return `<div class="row" data-id="${esc(r.person_id)}" role="button" tabindex="0">
       <div class="ava" data-face="${esc(r.photo||'')}">${esc(initials(r.name))}</div>
       <div class="who">
         <div class="nm">${esc(r.name)}${r.name_native?`<span class="native">${esc(r.name_native)}</span>`:''}</div>
         <div class="sub"><span class="id num">${esc(r.person_id)}</span> · <span class="num">${esc(r.passport_no||'—')}</span> · ${esc(r.nationality?tv(r.nationality):'—')}</div>
       </div>
-      <div class="val">${statusChip(s)}</div>
+      <div class="val emp-val">${statusChip(s)}${rowMarks(d)}${rowWhy(d)}</div>
     </div>`; }
 function _vChunk(box){
   const end=Math.min(_vCursor+_VCHUNK, _vShown.length);
@@ -1166,26 +1198,35 @@ function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; tr
   paintSort();
   if(LAWMODE){ LAWLAST=sortLawRows(LAWLAST); renderLaw(LAWLAST); }   // stay in the legal section, sort the batches
   else { LAST=sortRows(LAST); render(LAST); } }
-function paintFilters(items){    // repaint ONLY the filter chips (counts) — no roster teardown
-  const bar=$('#filters'); if(!bar) return;
-  let html=FILTERS.map(f=>{
-    const n=items.filter(x=>f.match(x.s,x.r)).length;
-    if(f.k!=='all'&&!n) return '';
-    return `<button class="fchip${FILTER===f.k?' on':''}" data-f="${f.k}">${f.dot?`<span class="dot" style="--c:${f.dot}"></span>`:''}${t(f.lab)}<span class="fc">${n}</span></button>`;
-  }).join('');
-  // second level: «غير مكتمل» active → a tinted bracket that NAMES its parent, so it clearly belongs to that
-  // chip (not the row). Counts are within the incomplete set only.
-  if(FILTER==='incomplete'){
-    const incF=FILTERS.find(f=>f.k==='incomplete');
-    const inc=items.filter(x=>incF.match(x.s,x.r)).map(x=>x.r);
-    const opts=INC_SIDES.map(sd=>{ const n=inc.filter(sd.match).length;
-      if(sd.k!=='all'&&!n) return '';
-      return `<button class="subchip${INC_SIDE===sd.k?' on':''}" data-inc="${sd.k}">${t(sd.lab)}<span class="fc">${n}</span></button>`;
-    }).join('');
-    html+=`<div class="subfilter"><div class="sf-box" role="group" aria-label="${esc(t('incomplete'))}">`
-      +`<span class="sf-parent">${t('incomplete')}</span><span class="sf-div"></span>${opts}</div></div>`;
-  }
-  bar.innerHTML=html;
+let _fOpen=false;
+function paintFilters(items){   // the filter's three surfaces: tokens in the box · the button + its count · the drawer
+  const toks=$('#ftoks'), btn=$('#fbtn'), pan=$('#fpanel'); if(!toks||!btn||!pan) return;
+  if(LAWMODE){ toks.innerHTML=''; btn.hidden=true; pan.hidden=true; return; }   // the legal section has its own chips
+  btn.hidden=false; items=items||[];
+  const cnt=f=>items.filter(x=>fHit(x,f)).length;
+  const clone=()=>({pass:FS.pass,visa:FS.visa,legal:FS.legal,miss:new Set(FS.miss)});
+  const countFor=(dim,k)=>{ const f=clone(); f[dim]=k; if(!(dim==='legal'&&k==='missing')) f.miss=new Set(); return cnt(f); };
+  const missCount=k=>{ const f=clone(); f.miss.add(k); return cnt(f); };
+  const lab=(dim,k)=>(dim==='legal'?F_LEG:F_DOC).find(x=>x[0]===k)||F_DOC[0];
+  const DIMS=[['pass','f_pass',F_DOC],['visa','f_visa',F_DOC],['legal','f_legalfile',F_LEG]];
+  const SH={ar:{pass:'جواز',visa:'تأشيرة',legal:'قانوني'},en:{pass:'passport',visa:'visa',legal:'legal'}};
+  // tokens: the selection, readable as a sentence inside the box
+  let tk=''; DIMS.forEach(([d])=>{ if(FS[d]==='all') return; const L=lab(d,FS[d]); let txt=t(L[1]);
+    if(d==='legal'&&FS.legal==='missing'&&FS.miss.size) txt+=' · '+[...FS.miss].map(ptLabel).join('، ');
+    tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${esc(txt)}<button class="x" type="button" data-fdim="${d}" title="✕">✕</button></span>`; });
+  toks.innerHTML=tk;
+  const n=['pass','visa','legal'].filter(d=>FS[d]!=='all').length;
+  btn.classList.toggle('on',n>0); $('#fbtntxt').textContent=t('f_filter'); const bn=$('#fbtn-n'); bn.textContent=n; bn.hidden=!n;
+  // the drawer: label column + chips (a chip that would count 0 is not drawn, الكل always is)
+  let body=''; DIMS.forEach(([d,l,st])=>{ body+=`<div class="lab">${t(l)}</div><div class="opts">`+st.map(([k,lb,c])=>{ const m=countFor(d,k); if(k!=='all'&&!m) return '';
+    return `<button class="chip${FS[d]===k?' on':''}" type="button" data-fdim="${d}" data-fk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('')+`</div>`; });
+  if(FS.legal==='missing'){ body+=`<div class="sub"><div class="lab">${t('f_paper')}</div><div class="opts">`
+    +ptKeys().filter(ptReq).map(k=>`<button class="tog${FS.miss.has(k)?' on':''}" type="button" data-fmiss="${k}">${ptLabel(k)}<span class="fc">${missCount(k)}</span></button>`).join('')+`</div></div>`; }
+  const shown=cnt(FS);
+  pan.innerHTML=`<div class="p-head"><span class="t">${t('f_filter')}</span><button class="short${fShort()?' on':''}" type="button" data-fshort="1"><span class="dot" style="--c:#24A148"></span>${t('f_complete_file')}<span class="fc">${cnt({pass:'valid',visa:'valid',legal:'complete',miss:new Set()})}</span></button></div>
+    <div class="p-body">${body}</div>
+    <div class="p-foot"><span class="cnt">${n?`<span class="num">${shown}</span> ${LANG==='ar'?'من':'of'} <span class="num">${items.length}</span>`:t('f_pick')}</span><span class="acts">${n?`<button class="clear" type="button" data-fclear="1">${t('f_clear')}</button>`:''}<button class="done" type="button" data-fclose="1">${t('f_done')}</button></span></div>`;
+  pan.hidden=!_fOpen;
 }
 function render(rows){
   const box=$('#results');
@@ -1193,12 +1234,10 @@ function render(rows){
   // instead of re-parsing every row's dates again (a new search replaces LAST → recompute).
   let items;
   if(rows===_rRef && _rItems){ items=_rItems; }
-  else { items=rows.map(r=>({r, s:rowStatus(r)})); _rItems=items; _rRef=rows; }
+  else { items=rows.map(r=>({r, s:rowStatus(r), d:docStates(r)})); _rItems=items; _rRef=rows; }
   // chips: hide an empty group (except All) so the bar stays minimal
   paintFilters(items);
-  const F=FILTERS.find(f=>f.k===FILTER)||FILTERS[0];
-  let shown=items.filter(x=>F.match(x.s,x.r));
-  if(FILTER==='incomplete'&&INC_SIDE!=='all'){ const sd=INC_SIDES.find(s=>s.k===INC_SIDE); if(sd) shown=shown.filter(x=>sd.match(x.r)); }
+  let shown=items.filter(x=>fHit(x));
   /* Which number is the honest one depends on what the user is looking at:
        · a filter chip is active  → they asked for a SUBSET, so the subset's size is the answer
        · no filter               → they asked for everything, so the DATABASE's total is the answer
@@ -1216,6 +1255,7 @@ function render(rows){
        · truncated               → the honest admission, unchanged
        · الكل on the whole roster → silence; «الكل 1600» is already on screen. */
   const _qv = ($('#q')&&$('#q').value.trim());
+  { const lg=$('#legend'); if(lg){ lg.hidden=!rows.length; lg.innerHTML=[['d-pass','f_pass'],['d-visa','f_visa'],['d-legal','f_legalfile']].map(([ic,k])=>`<span><svg><use href="#${ic}"/></svg>${t(k)}</span>`).join(''); } }
   $('#count').innerHTML = !rows.length ? ''
       : narrowed ? t('n_res_of', shown.length, total)
       : short    ? t('n_res_part', rows.length, total)
@@ -2022,7 +2062,10 @@ function ikWatchBacklog(){
   }, IK_DRAIN_MS);
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') ikResync(); });
-if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){ ikResync(); ikWatchBacklog(); loadPaperTypes(); loadAgentVersion(); } });   // (app.js has no LIVE flag — sb is always created)
+if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){ ikResync(); ikWatchBacklog(); loadPaperTypes(); loadAgentVersion(); lawBadge(); } });
+async function lawBadge(){   // header count of legal batches awaiting a human judgment (= the section's review chip)
+  try{ const rows=await searchLegalBatches(''); const n=rows.filter(b=>_batchSectionCase(b)==='flag'||!!_lblFlag(b)).length;
+    const el=$('#law-badge'); if(el){ el.textContent=n; el.hidden=!n; } }catch(_){} }   // (app.js has no LIVE flag — sb is always created)
 
 // the OCR-line stages, shown live on a processing row so the paper's movement is visible
 const IK_STAGE_L={'captured':['التُقط','captured'],'raw-uploaded':['حُفظت الصورة','image saved'],
@@ -4186,7 +4229,7 @@ function _classVsVisa(b,cv){   // classify a STATIC batch against a given curren
   const gap=_daysBetween(cv.issue, b.manh_date);   // issue − منح  (positive = منح before the visa)
   if(gap > BATCH_WINDOW) return 'past';            // منح well older than the current visa's window → past
   if(gap >= 0) return 'flag';                      // sits inside/near the window yet didn't connect → illogical
-  return cv.phase==='expiring' ? 'awaiting' : 'flag';   // منح newer than issue: expiring→coming renewal; active→too early→flag
+  return 'awaiting';   // منح newer than his visa = the next batch, filed whenever the company likes (R7) — waiting, never a flag
 }
 function _batchClass(id,b){
   const l=_LBL[id];
@@ -5293,10 +5336,17 @@ $('#ik-list').addEventListener('click',e=>{
   const rt=e.target.closest('[data-retry]'); if(rt)ikRetry(+rt.dataset.retry);
 });
 $('#q').addEventListener('input',onType);
-$('#filters').addEventListener('click',e=>{
-  const sub=e.target.closest('[data-inc]'); if(sub){ INC_SIDE=sub.dataset.inc; render(LAST); return; }   // pick passport/visa side
-  const c=e.target.closest('[data-f]'); if(c){ if(c.dataset.f!=='incomplete') INC_SIDE='all'; FILTER=c.dataset.f; render(LAST); }  // leaving incomplete resets the side
-});
+/* the filter drawer — one button, tokens in the box, chips in the drawer; every change re-renders the roster */
+function fSet(d,k){ FS[d]=(FS[d]===k&&k!=='all')?'all':k; if(d==='legal'&&FS.legal!=='missing') FS.miss.clear(); fSave(); render(LAST||[]); }
+$('#fbtn').addEventListener('click',()=>{ _fOpen=!_fOpen; paintFilters(_rItems||[]); });
+$('#ftoks').addEventListener('click',e=>{ const x=e.target.closest('[data-fdim]'); if(x) fSet(x.dataset.fdim,'all'); });
+$('#fpanel').addEventListener('click',e=>{
+  if(e.target.closest('[data-fclose]')){ _fOpen=false; paintFilters(_rItems||[]); return; }
+  if(e.target.closest('[data-fclear]')){ FS.pass=FS.visa=FS.legal='all'; FS.miss.clear(); fSave(); render(LAST||[]); return; }
+  if(e.target.closest('[data-fshort]')){ if(fShort()){FS.pass=FS.visa=FS.legal='all';} else {FS.pass='valid';FS.visa='valid';FS.legal='complete';} FS.miss.clear(); fSave(); render(LAST||[]); return; }
+  const m=e.target.closest('[data-fmiss]'); if(m){ const k=m.dataset.fmiss; FS.miss.has(k)?FS.miss.delete(k):FS.miss.add(k); fSave(); render(LAST||[]); return; }
+  const c=e.target.closest('[data-fdim]'); if(c) fSet(c.dataset.fdim,c.dataset.fk); });
+document.addEventListener('click',e=>{ if(_fOpen && !e.target.closest('.hero')){ _fOpen=false; const p=$('#fpanel'); if(p)p.hidden=true; } });
 $('#results').addEventListener('click',e=>{
   const pr=e.target.closest('[data-lawprint]');       // print straight from the card, without opening it
   if(pr){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(pr.dataset.lawprint)); if(b)printBatch(b); return; }
@@ -5314,6 +5364,7 @@ $('#detail').addEventListener('click',e=>{const _lg=e.target.closest('[data-lawg
   const f=e.target.closest('.d-face');if(f&&f.dataset.url)openLightbox(f.dataset.url)});
 $('#lightbox').addEventListener('click',()=>$('#lightbox').classList.remove('on'));
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
+  if(_fOpen){ _fOpen=false; const p=$('#fpanel'); if(p)p.hidden=true; return; }
   if($('#lightbox').classList.contains('on'))$('#lightbox').classList.remove('on');
   else if($('#istimara').classList.contains('on'))istRequestClose();
   else if($('#legalform').classList.contains('on'))legalClose();

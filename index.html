@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=121">
+<link rel="stylesheet" href="assets/app.css?v=122">
 </head>
 <body>
 
@@ -38,6 +38,11 @@
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m20.5 20.5-4.2-4.2"/></symbol>
   <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9M18.4 6.6a9 9 0 1 1-12.8 0"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></symbol>
+  <!-- the three document marks on every roster card: passport · visa · legal (one-stroke, tinted by state) -->
+  <symbol id="d-pass" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.6"/><path d="M8 17c1-2 2.5-3 4-3s3 1 4 3"/></symbol>
+  <symbol id="d-visa" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 12h18M8 9.5h3M8 14.5h6"/></symbol>
+  <symbol id="d-legal" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M3 8h3c2 0 4-1 6-2 2 1 4 2 6 2h3"/><path d="m5 8-2.5 7c.7.6 1.6 1 2.5 1s1.8-.4 2.5-1L5 8ZM19 8l-2.5 7c.7.6 1.6 1 2.5 1s1.8-.4 2.5-1L19 8Z"/></symbol>
 </svg>
 
 <!-- ══ the app ══ -->
@@ -47,21 +52,26 @@
     <span class="spacer"></span>
     <button class="add" id="add"><svg class="ic"><use href="#i-plus"/></svg><span id="addtxt">إضافة</span></button>
     <button class="add quiet" id="bboard" title="اللوحة / Board"><svg class="ic"><use href="#i-board"/></svg><span id="bboardtxt">اللوحة</span></button>
-    <button class="add quiet lawbtn" id="blaw" title="المعاملات القانونية / Legal procedures"><svg class="ic"><use href="#i-scale"/></svg><span id="blawtxt">المعاملات</span></button>
+    <button class="add quiet lawbtn" id="blaw" title="المعاملات القانونية / Legal procedures"><svg class="ic"><use href="#i-scale"/></svg><span id="blawtxt">المعاملات</span><span class="pq-badge" id="law-badge" hidden>0</span></button>
     <button class="add quiet pendbtn" id="bpend" title="الوارد — ما لم يُودَع بعد / Inbox — not committed yet"><svg class="ic"><use href="#i-inbox"/></svg><span id="bpendtxt">الوارد</span><span class="pq-badge" id="pq-badge" hidden>0</span></button>
     <button class="icon" id="tlang" title="EN / ع">ع</button>
     <button class="icon" id="ttheme" title="فاتح / داكن"><svg class="ic"><use href="#i-theme"/></svg></button>
     <button class="icon" id="tout" title="خروج"><svg class="ic"><use href="#i-power"/></svg></button>
   </div>
 
+  <!-- the filter lives IN the search box: tokens before the input, one «تصفية» button after it, the drawer beneath -->
   <div class="hero">
-    <span class="mag"><svg class="ic"><use href="#i-search"/></svg></span>
-    <input id="q" autocomplete="off" spellcheck="false" placeholder="ابحث بالاسم أو الجواز أو التأشيرة…">
-    <span class="kbd" aria-hidden="true">/</span>
+    <div class="sbox">
+      <span class="mag"><svg class="ic"><use href="#i-search"/></svg></span>
+      <span class="ftoks" id="ftoks"></span>
+      <input id="q" autocomplete="off" spellcheck="false" placeholder="ابحث بالاسم أو الجواز أو التأشيرة…">
+      <button class="fbtn" id="fbtn" type="button"><svg class="ic"><use href="#i-filter"/></svg><span id="fbtntxt">تصفية</span><span class="n" id="fbtn-n" hidden>0</span></button>
+    </div>
+    <div class="fpanel" id="fpanel" hidden></div>
   </div>
 
   <div class="filters" id="filters"></div>
-  <div class="listbar"><div class="count" id="count"></div><div class="sortbar" id="sortbar"></div></div>
+  <div class="listbar"><div class="count" id="count"></div><span class="legend" id="legend" hidden></span><div class="sortbar" id="sortbar"></div></div>
   <div id="results"></div>
 </div>
 
@@ -135,6 +145,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=254"></script>
+<script src="assets/app.js?v=255"></script>
 </body>
 </html>
