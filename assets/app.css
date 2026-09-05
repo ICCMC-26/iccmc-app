@@ -185,7 +185,11 @@
   .chip:hover{border-color:var(--line);color:var(--ink)}
   .chip.on{border-color:var(--copper);background:rgba(197,149,107,.14);color:var(--ink);font-weight:600}
   .chip .fc,.short .fc,.tog .fc{font-family:var(--mono);font-size:11px;opacity:.65;font-variant-numeric:tabular-nums}
-  .p-body .sub{grid-column:1/-1;display:grid;grid-template-columns:112px 1fr;margin-top:2px;padding-top:8px;border-top:1px dashed var(--line)}
+  .opts .div{width:1px;height:18px;background:var(--line);margin:0 4px;flex:none}   /* the toggles join their parent's line after this */
+  .tog.dim{opacity:.4;pointer-events:none}   /* a toggle set is FIXED: a zero shows dimmed, never disappears */
+  .chip.grave{border-style:dashed;border-color:var(--line);color:var(--muted);margin-inline-start:6px}   /* the archive: reachable, never in the way */
+  .chip.grave.on{border-style:solid;border-color:var(--copper);color:var(--ink)}
+  .short.law.on{border-color:var(--copper);background:rgba(219,168,117,.16)}   /* «مراجعة» lights copper, not green */
   .tog{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;border-radius:var(--radius-pill);border:1px solid transparent;background:none;color:var(--ink2);font-size:12.5px;cursor:pointer;font-family:var(--sans)}
   .tog::before{content:"";width:12px;height:12px;border-radius:4px;border:1.5px solid var(--faint);flex:none}
   .tog.on{color:var(--ink);border-color:var(--copper);background:rgba(197,149,107,.16)}
@@ -210,7 +214,7 @@
   .legend[hidden]{display:none}
   .legend svg{width:12px;height:12px;stroke:var(--faint);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;margin-inline-end:3px;vertical-align:-2px}
   .lg-note{color:var(--copper);font-size:11.5px;font-weight:600;margin-inline-start:4px;cursor:help}
-  @media(max-width:560px){.p-body{grid-template-columns:1fr}.p-body .lab{min-height:24px;margin-top:4px}.p-body .sub{grid-template-columns:1fr}}
+  @media(max-width:560px){.p-body{grid-template-columns:1fr}.p-body .lab{min-height:24px;margin-top:4px}}
   .hint{color:var(--faint);font-size:12.5px;text-align:center;margin:10px 0 18px;min-height:16px}
 
   /* ── results ────────────────────────────────────────────────────────────── */

@@ -51,6 +51,8 @@ const I18N={
     f_filter:'تصفية', f_done:'تم', f_clear:'مسح الكل', f_pick:'اختر حالة لكل وثيقة', f_pass:'الجواز', f_visa:'التأشيرة', f_legalfile:'الملف القانوني',
     f_paper:'الورقة الناقصة', f_complete_file:'ملف مكتمل', f_complete:'مكتمل', f_missing:'ناقص', f_nodoc:'لا يوجد', why_visa:'تأشيرته لم تُجدَّد',
     law_window:'تجاوزت المهلة', law_window_t:'مرّت 90 يومًا على المنح ولم تُربط أي فيزا — امسح التأشيرات أو أرشِف الدفعة', law_spread:'تباعد في تواريخ الإصدار — راجعها',
+    f_life:'الحالة', f_papers:'الأوراق', f_stamps:'الأختام', f_pcomplete:'مكتملة', f_pmissing:'ناقصة', f_review:'مراجعة', f_pick_law:'اختر حالة أو أوراقًا أو أختامًا',
+    law_awaiting:'بانتظار الفيزا', law_archive:'الأرشيف', st_company:'ختم الشركة', st_ministry:'ختم الوزارة', n_batches:n=>`<span class="num">${n}</span> دفعة`,
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
     t_passport:'جواز السفر', t_visa:'التأشيرة', t_print:'طباعة', t_close:'إغلاق',
     hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند', vhx_title:'سِجل التأشيرات',
@@ -201,6 +203,8 @@ const I18N={
     f_filter:'Filter', f_done:'Done', f_clear:'Clear all', f_pick:'Pick a state per document', f_pass:'Passport', f_visa:'Visa', f_legalfile:'Legal file',
     f_paper:'Missing paper', f_complete_file:'Complete file', f_complete:'Complete', f_missing:'Incomplete', f_nodoc:'None', why_visa:'his visa is not renewed',
     law_window:'window passed', law_window_t:'90 days since the grant and no visa connected — scan the visas or archive the batch', law_spread:'issue dates spread — review',
+    f_life:'Status', f_papers:'Papers', f_stamps:'Stamps', f_pcomplete:'Complete', f_pmissing:'Incomplete', f_review:'Review', f_pick_law:'Pick a status, papers, or stamps',
+    law_awaiting:'Awaiting visa', law_archive:'Archive', st_company:'Company stamp', st_ministry:'Ministry stamp', n_batches:n=>`<span class="num">${n}</span> batch${n===1?'':'es'}`,
     out:'Sign out?', soon_v2:'Add employee — coming next.',
     t_passport:'Passport', t_visa:'Visa', t_print:'Print', t_close:'Close',
     hx_title:'Document history', hx_retired:'past', hx_open:'Open document', vhx_title:'Visa history',
@@ -341,6 +345,7 @@ function applyLang(){
   paintAgentLink();
   if($('#intake').classList.contains('on'))ikRender();   // re-label file rows
   paintSort();                                            // re-label the sort control for the new language
+  _rItems=null; _rRef=null;   // the status text (ساري / Valid…) is baked into the cached row items — recompute in the new language
   if(LAWMODE)renderLaw(LAWLAST); else render(LAST);       // re-label result chrome (law or employees)
   // AN OPEN PANEL MUST FOLLOW THE LANGUAGE TOO. These three draw once and then sit there, so a
   // switch left them in the old language until they were closed and reopened — measured: 13 Arabic
@@ -656,7 +661,7 @@ async function search(q){
    Click a batch → its papers (view links) + the full roster, each member linking to his employee dossier. */
 let LAWMODE=false, LAWLAST=[], _lawBatch=null, LAW_FILTER='all';   // legal-section case filter (chips)
 function setLaw(on){
-  LAWMODE=!!on; _lawBatch=null; LAW_FILTER='all';   // enter the legal section on "All"
+  LAWMODE=!!on; _lawBatch=null; LAW_FILTER='all'; lsReset();   // enter the legal section on "All"
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
   const q=$('#q'); if(q){ q.placeholder=LAWMODE?t('law_ph'):t('ph'); q.value=''; }
   $('#filters').innerHTML=''; $('#count').innerHTML='';
@@ -797,6 +802,58 @@ const LAW_SIDES={
 // reads as itself. (The employee's legal card used to print the raw «~…» id while the legal section
 // showed the friendly label, so the same batch appeared under two different names.)
 function batchName(b){ b=b||{}; const id=String(b.batch_id||''); return id.startsWith('~')?batchLabel(b):id; }
+/* ── THE LEGAL FILTER: the roster's drawer (box → «تصفية» → drawer → tokens) with the section's own facets —
+   الحالة (the batch's life; الكل = the living, الأرشيف a dashed chip at the end) · الأوراق · الأختام, each with
+   toggles that combine with AND, and the «مراجعة» shortcut (batches a person must judge). It reads the CASE the
+   section already computes and the registry predicates that already exist — no new rule anywhere. ── */
+const L_LIFE=[['all','f_all',null],['active','valid','#24A148'],['expiring','f_expiring','#f1c21b'],['awaiting','law_awaiting','#6f6f6f'],['expired','law_archive','#da1e28']];
+const L_PAP =[['all','f_all',null],['complete','f_pcomplete','#24A148'],['missing','f_pmissing','#6f6f6f']];
+const L_STM =[['all','f_all',null],['complete','f_pcomplete','#24A148'],['missing','f_pmissing','#f1c21b']];
+const L_STAMPS=[['company','st_company'],['ministry','st_ministry']];
+const LS={life:'all',pap:'all',stm:'all',missP:new Set(),missS:new Set(),review:false};
+function lsReset(){ LS.life=LS.pap=LS.stm='all'; LS.missP.clear(); LS.missS.clear(); LS.review=false; }
+const lsClone=()=>({life:LS.life,pap:LS.pap,stm:LS.stm,missP:new Set(LS.missP),missS:new Set(LS.missS),review:LS.review});
+const lsAny=()=>LS.life!=='all'||LS.pap!=='all'||LS.stm!=='all'||LS.review;
+function lawHit(x,f){ f=f||LS; const c=x.c, b=x.b;
+  if(f.life==='all'){ if(c==='expired') return false; }                              // الكل = the living
+  else if(f.life==='awaiting'){ if(!(c==='awaiting'||c==='flag')) return false; }     // static, flagged or not
+  else if(c!==f.life) return false;
+  if(f.pap!=='all' && (_batchIncomplete(b)?'missing':'complete')!==f.pap) return false;
+  if(f.pap==='missing' && f.missP.size){ for(const k of f.missP) if(!_paperMissing(b,k)) return false; }     // AND
+  if(f.stm!=='all' && (_batchNoStamp(b)?'missing':'complete')!==f.stm) return false;
+  if(f.stm==='missing' && f.missS.size){ for(const k of f.missS) if(!_stampMissingBy(b,k)) return false; }  // AND
+  if(f.review && !(c==='flag'||!!_lblFlag(b))) return false;
+  return true; }
+function paintLawFilters(cased){
+  const toks=$('#ftoks'), btn=$('#fbtn'), pan=$('#fpanel'); if(!toks||!btn||!pan) return;
+  btn.hidden=false; cased=cased||[];
+  const cnt=f=>cased.filter(x=>lawHit(x,f)).length;
+  const countFor=(dim,k)=>{ const f=lsClone(); f[dim]=k; if(dim==='pap'&&k!=='missing') f.missP=new Set(); if(dim==='stm'&&k!=='missing') f.missS=new Set(); return cnt(f); };
+  const DIMS=[['life','f_life',L_LIFE],['pap','f_papers',L_PAP],['stm','f_stamps',L_STM]];
+  const SH={ar:{life:'حالة',pap:'أوراق',stm:'أختام'},en:{life:'status',pap:'papers',stm:'stamps'}};
+  const lab=(dim,k)=>DIMS.find(x=>x[0]===dim)[2].find(x=>x[0]===k);
+  let tk=''; DIMS.forEach(([d])=>{ if(LS[d]==='all') return; const L=lab(d,LS[d]); let txt=t(L[1]);
+    if(d==='pap'&&LS.pap==='missing'&&LS.missP.size) txt+=' · '+[...LS.missP].map(ptLabel).join(LANG==='ar'?'، ':', ');
+    if(d==='stm'&&LS.stm==='missing'&&LS.missS.size) txt+=' · '+[...LS.missS].map(k=>t(L_STAMPS.find(s=>s[0]===k)[1])).join(LANG==='ar'?'، ':', ');
+    tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${esc(txt)}<button class="x" type="button" data-ldim="${d}" data-lk="all" title="✕">✕</button></span>`; });
+  if(LS.review) tk+=`<span class="token"><span class="k">${t('f_review')}</span><button class="x" type="button" data-lreview="1" title="✕">✕</button></span>`;
+  toks.innerHTML=tk;
+  const n=(LS.life!=='all'?1:0)+(LS.pap!=='all'?1:0)+(LS.stm!=='all'?1:0)+(LS.review?1:0);
+  btn.classList.toggle('on',n>0); $('#fbtntxt').textContent=t('f_filter'); const bn=$('#fbtn-n'); bn.textContent=n; bn.hidden=!n;
+  let body=''; DIMS.forEach(([d,l,st])=>{ body+=`<div class="lab">${t(l)}</div><div class="opts">`+st.map(([k,lb,c])=>{ const m=countFor(d,k); if(k!=='all'&&k!=='expired'&&!m) return '';
+      return `<button class="chip${LS[d]===k?' on':''}${k==='expired'?' grave':''}" type="button" data-ldim="${d}" data-lk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('');
+    // toggles join their parent's line; a fixed set always shows, zero = dimmed
+    if(d==='pap'&&LS.pap==='missing'){ body+=`<span class="div"></span>`+ptKeys().filter(ptReq).map(k=>{ const f=lsClone(); f.missP.add(k); const m=cnt(f), on=LS.missP.has(k);
+      return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-lmiss="${k}">${ptLabel(k)}<span class="fc">${m}</span></button>`; }).join(''); }
+    if(d==='stm'&&LS.stm==='missing'){ body+=`<span class="div"></span>`+L_STAMPS.map(([k,lb])=>{ const f=lsClone(); f.missS.add(k); const m=cnt(f), on=LS.missS.has(k);
+      return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-lstm="${k}">${t(lb)}<span class="fc">${m}</span></button>`; }).join(''); }
+    body+=`</div>`; });
+  const shown=cnt(LS), rv=lsClone(); rv.review=true;
+  pan.innerHTML=`<div class="p-head"><span class="t">${t('f_filter')}</span><button class="short law${LS.review?' on':''}" type="button" data-lreview="1"><span class="dot" style="--c:var(--copper)"></span>${t('f_review')}<span class="fc">${cnt(rv)}</span></button></div>
+    <div class="p-body">${body}</div>
+    <div class="p-foot"><span class="cnt">${n?t('n_batches',shown):t('f_pick_law')}</span><span class="acts">${n?`<button class="clear" type="button" data-lclear="1">${t('f_clear')}</button>`:''}<button class="done" type="button" data-fclose="1">${t('f_done')}</button></span></div>`;
+  pan.hidden=!_fOpen;
+}
 function renderLaw(rows){
   if(_lawBatch){ renderLawBatch(_lawBatch); return; }
   rows=rows||LAWLAST; const box=$('#results');
@@ -818,33 +875,9 @@ function renderLaw(rows){
       const _ks=_lawSideKeys().map(k=>_sides.find(s=>s.k===k));
       const _in=cased.filter(x=>_F.match(x.c,x.b)).map(x=>x.b);
       if(!_ks.length || _ks.some(sd=>!sd) || !_in.some(b=>_ks.every(sd=>sd.match(b)))) LAW_SIDE='all'; } }
-  const bar=$('#filters');
-  if(bar){
-    let html=LAW_FILTERS.map(f=>{ const n=cased.filter(x=>f.match(x.c,x.b)).length;
-      if(f.k!=='all' && !n) return '';
-      return `<button class="fchip${LAW_FILTER===f.k?' on':''}" data-lf="${f.k}">${LANG==='ar'?f.ar:f.en}<span class="fc">${n}</span></button>`; }).join('');
-    // the chosen filter's own sides, counted WITHIN it — «which gap exactly?»
-    const sides=LAW_SIDES[LAW_FILTER];
-    if(sides){
-      const F0=LAW_FILTERS.find(f=>f.k===LAW_FILTER);
-      const inSet=cased.filter(x=>F0.match(x.c,x.b)).map(x=>x.b);
-      const parent=LANG==='ar'?F0.ar:F0.en;
-      // the SAME tinted bracket the employee «غير مكتمل» uses — it names its parent so the second
-      // level clearly belongs to that chip rather than floating on the row
-      const opts=sides.map(sd=>{ const n=inSet.filter(sd.match).length;
-        if(sd.k!=='all' && !n) return '';
-        const on=sd.k==='all' ? LAW_SIDE==='all' : _lawSideKeys().includes(sd.k);
-        return `<button class="subchip${on?' on':''}" data-ls="${sd.k}">${LANG==='ar'?sd.ar:sd.en}<span class="fc">${n}</span></button>`;
-      }).join('');
-      html+=`<div class="subfilter"><div class="sf-box" role="group" aria-label="${esc(parent)}">`
-        +`<span class="sf-parent">${esc(parent)}</span><span class="sf-div"></span>${opts}</div></div>`;
-    }
-    bar.innerHTML=html;
-  }
-  const F=LAW_FILTERS.find(f=>f.k===LAW_FILTER)||LAW_FILTERS[0];
-  let _shownC=cased.filter(x=>F.match(x.c,x.b));   // keep {b,c}: the row reuses the case — no recomputing the flag per row
-  { const sides=LAW_SIDES[LAW_FILTER];             // then narrow to the chosen side, if one is picked
-    if(sides && LAW_SIDE!=='all'){ const ks=_lawSideKeys().map(k=>sides.find(s=>s.k===k)).filter(Boolean); _shownC=_shownC.filter(x=>ks.every(sd=>sd.match(x.b))); } }
+  paintLawFilters(cased);                              // the drawer — same box, same button, the section's own facets
+  { const bar=$('#filters'); if(bar) bar.innerHTML=''; }   // the old chip bar stays empty (CSS hides an empty bar)
+  let _shownC=cased.filter(x=>lawHit(x));              // keep {b,c}: the row reuses the case — no recomputing the flag per row
   $('#count').innerHTML=_shownC.length?t('n_res',_shownC.length):'';
   { const lg=$('#legend'); if(lg) lg.hidden=true; }
   const addBtn=`<div class="law-actions"><button class="law-home" id="law-home">${t('law_main')}</button>
@@ -854,7 +887,7 @@ function renderLaw(rows){
         <button data-new="istimara"><b>${t('mk_ist')}</b><em>${t('mk_ist_s')}</em></button>
         <button data-new="taahud"><b>${t('mk_taa')}</b><em>${t('mk_taa_s')}</em></button>
       </div></span></span></div>`;
-  const _empty = LAW_FILTER==='all' ? t('law_none') : (LANG==='ar'?'لا دفعات في هذا التصنيف':'No batches in this filter');
+  const _empty = !lsAny() ? t('law_none') : (LANG==='ar'?'لا دفعات في هذا التصنيف':'No batches in this filter');
   const body = !_shownC.length ? `<div class="empty">${_empty}</div>`
     : _shownC.map(({b,c})=>{ const s=lawPaperStatus(b);
     // the OLD ⚑ (law-flag) = a batch that can't connect to a منح (endpoint name missing); distinct from the timing flag below
@@ -889,13 +922,6 @@ function renderLaw(rows){
      closed over, which a background refresh may have replaced while the batch was open.)
      Changing the FILTER also resets its side — otherwise «ختم الوزارة ناقص» would silently still be
      applied after switching to a filter where it means nothing (the same rule the employee chips use). */
-  if(bar) bar.querySelectorAll('[data-lf]').forEach(el=>el.onclick=()=>{
-    _lawBatch=null; LAW_FILTER=el.getAttribute('data-lf'); LAW_SIDE='all'; renderLaw(); });
-  if(bar) bar.querySelectorAll('[data-ls]').forEach(el=>el.onclick=()=>{
-    _lawBatch=null; const k=el.getAttribute('data-ls');
-    if(LAW_FILTER==='incomplete' && k!=='all'){ const ks=new Set(_lawSideKeys()); ks.has(k)?ks.delete(k):ks.add(k); LAW_SIDE=ks.size?[...ks].join(','):'all'; }   // press one, two, or all three
-    else LAW_SIDE=k;
-    renderLaw(); });
   { const el=$('#law-badge'); if(el){ const n=cased.filter(x=>x.c==='flag'||!!_lblFlag(x.b)).length; el.textContent=n; el.hidden=!n; } }   // header count = batches awaiting a judgment
 }
 function openLawBatch(id){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(id)); if(!b)return; _lawBatch=b; renderLaw(); }
@@ -938,6 +964,7 @@ async function lawFillName(b,i,name){   // fill a name the OCR missed → comple
 }
 function renderLawBatch(b){
   const box=$('#results'); $('#count').innerHTML='';
+  { const fb=$('#fbtn'), fp=$('#fpanel'), ft=$('#ftoks'); if(fb) fb.hidden=true; if(fp) fp.hidden=true; if(ft) ft.innerHTML=''; }   // one batch: nothing to filter
   // Inside ONE batch there is nothing to order — the roster is fixed by serial. Hide the sort chips
   // (الرقم / الاسم / الأحدث) here; the list view restores them.
   { const sb2=$('#sortbar'); if(sb2) sb2.style.display='none'; }
@@ -1117,7 +1144,7 @@ function rowMarks(d){ if(!d) return '';   // the three one-stroke marks, quiet a
   const L=[['d-pass',t('f_pass'),d.pass,w(d.pass)],['d-visa',t('f_visa'),d.visa,w(d.visa)],['d-legal',t('f_legalfile'),lst,t(d.legal==='complete'?'f_complete':'f_missing')]];
   return `<span class="mk">${L.map(([ic,nm,st,tx])=>`<span data-t="${esc(nm+' · '+tx)}"><svg style="--c:${_MKC[st]}"${st==='valid'?' data-ok="1"':''}><use href="#${ic}"/></svg></span>`).join('')}</span>`; }
 function rowWhy(d){ if(!d) return '';   // one reason line, only when there is something to explain
-  if(d.legal==='missing'){ const miss=ptKeys().filter(ptReq).filter(k=>!d.papers[k]).map(ptLabel); return `<span class="why"><b>${t('f_missing')}</b> · ${esc(miss.join('، '))}</span>`; }
+  if(d.legal==='missing'){ const miss=ptKeys().filter(ptReq).filter(k=>!d.papers[k]).map(ptLabel); return `<span class="why"><b>${t('f_missing')}</b> · ${esc(miss.join(LANG==='ar'?'، ':', '))}</span>`; }
   if(d.visa==='expired'||d.visa==='none') return `<span class="why"><b>${t('f_complete')}</b> · ${t('why_visa')}</span>`;
   return ''; }
 function _rowHtml({r,s,d}){ return `<div class="row" data-id="${esc(r.person_id)}" role="button" tabindex="0">
@@ -1212,16 +1239,19 @@ function paintFilters(items){   // the filter's three surfaces: tokens in the bo
   const SH={ar:{pass:'جواز',visa:'تأشيرة',legal:'قانوني'},en:{pass:'passport',visa:'visa',legal:'legal'}};
   // tokens: the selection, readable as a sentence inside the box
   let tk=''; DIMS.forEach(([d])=>{ if(FS[d]==='all') return; const L=lab(d,FS[d]); let txt=t(L[1]);
-    if(d==='legal'&&FS.legal==='missing'&&FS.miss.size) txt+=' · '+[...FS.miss].map(ptLabel).join('، ');
+    if(d==='legal'&&FS.legal==='missing'&&FS.miss.size) txt+=' · '+[...FS.miss].map(ptLabel).join(LANG==='ar'?'، ':', ');
     tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${esc(txt)}<button class="x" type="button" data-fdim="${d}" title="✕">✕</button></span>`; });
   toks.innerHTML=tk;
   const n=['pass','visa','legal'].filter(d=>FS[d]!=='all').length;
   btn.classList.toggle('on',n>0); $('#fbtntxt').textContent=t('f_filter'); const bn=$('#fbtn-n'); bn.textContent=n; bn.hidden=!n;
   // the drawer: label column + chips (a chip that would count 0 is not drawn, الكل always is)
   let body=''; DIMS.forEach(([d,l,st])=>{ body+=`<div class="lab">${t(l)}</div><div class="opts">`+st.map(([k,lb,c])=>{ const m=countFor(d,k); if(k!=='all'&&!m) return '';
-    return `<button class="chip${FS[d]===k?' on':''}" type="button" data-fdim="${d}" data-fk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('')+`</div>`; });
-  if(FS.legal==='missing'){ body+=`<div class="sub"><div class="lab">${t('f_paper')}</div><div class="opts">`
-    +ptKeys().filter(ptReq).map(k=>`<button class="tog${FS.miss.has(k)?' on':''}" type="button" data-fmiss="${k}">${ptLabel(k)}<span class="fc">${missCount(k)}</span></button>`).join('')+`</div></div>`; }
+    return `<button class="chip${FS[d]===k?' on':''}" type="button" data-fdim="${d}" data-fk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('');
+    // the paper toggles join their parent's line after a thin divider — one line per facet, it grows in place.
+    // They are a FIXED set, so all of them always show; one that would count zero is dimmed, never hidden.
+    if(d==='legal'&&FS.legal==='missing'){ body+=`<span class="div"></span>`+ptKeys().filter(ptReq).map(k=>{ const m=missCount(k), on=FS.miss.has(k);
+      return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-fmiss="${k}">${ptLabel(k)}<span class="fc">${m}</span></button>`; }).join(''); }
+    body+=`</div>`; });
   const shown=cnt(FS);
   pan.innerHTML=`<div class="p-head"><span class="t">${t('f_filter')}</span><button class="short${fShort()?' on':''}" type="button" data-fshort="1"><span class="dot" style="--c:#24A148"></span>${t('f_complete_file')}<span class="fc">${cnt({pass:'valid',visa:'valid',legal:'complete',miss:new Set()})}</span></button></div>
     <div class="p-body">${body}</div>
@@ -3340,7 +3370,7 @@ async function ikDoAdd(forcePid){
   // MANDATORY: a field this document REQUIRES cannot be committed empty — the reviewer opened
   // this because it was missing/unsure, so a hand-typed value is required before continuing.
   const _need=(jk._req||REQ_BY_TYPE[j.doc_type]||[]).filter(k=>!String(f[k]||'').trim());
-  if(_need.length){ toast(t('rv_need')+' '+_need.map(fieldLabel).join('، ')); return; }
+  if(_need.length){ toast(t('rv_need')+' '+_need.map(fieldLabel).join(LANG==='ar'?'، ':', ')); return; }
   // logical date check — refuse an impossible ordering with a clear reason, before any write
   const derr=validateDates(f); if(derr){ toast(derr); return; }
   // The reviewer's eye is the gate — never hard-block on an empty flagged field (a visa grant
@@ -5338,15 +5368,25 @@ $('#ik-list').addEventListener('click',e=>{
 $('#q').addEventListener('input',onType);
 /* the filter drawer — one button, tokens in the box, chips in the drawer; every change re-renders the roster */
 function fSet(d,k){ FS[d]=(FS[d]===k&&k!=='all')?'all':k; if(d==='legal'&&FS.legal!=='missing') FS.miss.clear(); fSave(); render(LAST||[]); }
-$('#fbtn').addEventListener('click',()=>{ _fOpen=!_fOpen; paintFilters(_rItems||[]); });
-$('#ftoks').addEventListener('click',e=>{ const x=e.target.closest('[data-fdim]'); if(x) fSet(x.dataset.fdim,'all'); });
+$('#fbtn').addEventListener('click',()=>{ _fOpen=!_fOpen; if(LAWMODE) renderLaw(); else paintFilters(_rItems||[]); });
+$('#ftoks').addEventListener('click',e=>{
+  if(LAWMODE){ const y=e.target.closest('[data-ldim]'); if(y){ const d=y.dataset.ldim; LS[d]='all'; if(d==='pap')LS.missP.clear(); if(d==='stm')LS.missS.clear(); renderLaw(); return; }
+    if(e.target.closest('[data-lreview]')){ LS.review=false; renderLaw(); } return; }
+  const x=e.target.closest('[data-fdim]'); if(x) fSet(x.dataset.fdim,'all'); });
 $('#fpanel').addEventListener('click',e=>{
-  if(e.target.closest('[data-fclose]')){ _fOpen=false; paintFilters(_rItems||[]); return; }
+  if(e.target.closest('[data-fclose]')){ _fOpen=false; if(LAWMODE) renderLaw(); else paintFilters(_rItems||[]); return; }
+  if(LAWMODE){   // the legal drawer: its own state, the same gestures
+    if(e.target.closest('[data-lclear]')){ lsReset(); renderLaw(); return; }
+    if(e.target.closest('[data-lreview]')){ LS.review=!LS.review; renderLaw(); return; }
+    const mp=e.target.closest('[data-lmiss]'); if(mp){ const k=mp.dataset.lmiss; LS.missP.has(k)?LS.missP.delete(k):LS.missP.add(k); renderLaw(); return; }
+    const ms=e.target.closest('[data-lstm]');  if(ms){ const k=ms.dataset.lstm;  LS.missS.has(k)?LS.missS.delete(k):LS.missS.add(k); renderLaw(); return; }
+    const lc=e.target.closest('[data-ldim]');  if(lc){ const d=lc.dataset.ldim, k=lc.dataset.lk; LS[d]=(LS[d]===k&&k!=='all')?'all':k;
+      if(d==='pap'&&LS.pap!=='missing')LS.missP.clear(); if(d==='stm'&&LS.stm!=='missing')LS.missS.clear(); renderLaw(); }
+    return; }
   if(e.target.closest('[data-fclear]')){ FS.pass=FS.visa=FS.legal='all'; FS.miss.clear(); fSave(); render(LAST||[]); return; }
   if(e.target.closest('[data-fshort]')){ if(fShort()){FS.pass=FS.visa=FS.legal='all';} else {FS.pass='valid';FS.visa='valid';FS.legal='complete';} FS.miss.clear(); fSave(); render(LAST||[]); return; }
   const m=e.target.closest('[data-fmiss]'); if(m){ const k=m.dataset.fmiss; FS.miss.has(k)?FS.miss.delete(k):FS.miss.add(k); fSave(); render(LAST||[]); return; }
   const c=e.target.closest('[data-fdim]'); if(c) fSet(c.dataset.fdim,c.dataset.fk); });
-document.addEventListener('click',e=>{ if(_fOpen && !e.target.closest('.hero')){ _fOpen=false; const p=$('#fpanel'); if(p)p.hidden=true; } });
 $('#results').addEventListener('click',e=>{
   const pr=e.target.closest('[data-lawprint]');       // print straight from the card, without opening it
   if(pr){ const b=(LAWLAST||[]).find(x=>String(x.batch_id)===String(pr.dataset.lawprint)); if(b)printBatch(b); return; }
