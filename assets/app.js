@@ -767,6 +767,9 @@ const _stampMissingBy=(b,authority)=>ptKeys().filter(ptReq).some(k=>{
 });
 /* which single PAPER is missing — drives the sub-chips inside «غير مكتمل» */
 const _paperMissing=(b,key)=>ptKeys().filter(ptReq).includes(key) && !batchPaper(b,key).present;
+/* does the batch HOLD this authority's stamp: at least one present paper carries it, and none of them lacks it */
+const _stampHeld=(b,authority)=>{ let any=false, miss=false; ptKeys().filter(ptReq).forEach(k=>{ const x=batchPaper(b,k); if(!x.present) return;
+  (ptStamps(k)||[]).forEach(nm=>{ if(_stampAuthority(k,nm)!==authority) return; any=true; if(!b[_stampCol(k,nm)]) miss=true; }); }); return any&&!miss; };
 // A filter matches on the batch's CASE (active/expiring/…) and may also inspect the batch itself —
 // «أختام ناقصة» is a different dimension: a batch can be perfectly active and still miss a stamp.
 const LAW_FILTERS=[
@@ -807,51 +810,44 @@ function batchName(b){ b=b||{}; const id=String(b.batch_id||''); return id.start
    toggles that combine with AND, and the «مراجعة» shortcut (batches a person must judge). It reads the CASE the
    section already computes and the registry predicates that already exist — no new rule anywhere. ── */
 const L_LIFE=[['all','f_all',null],['active','valid','#24A148'],['expiring','f_expiring','#f1c21b'],['awaiting','law_awaiting','#6f6f6f'],['expired','law_archive','#da1e28']];
-const L_PAP =[['all','f_all',null],['complete','f_pcomplete','#24A148'],['missing','f_pmissing','#6f6f6f']];
-const L_STM =[['all','f_all',null],['complete','f_pcomplete','#24A148'],['missing','f_pmissing','#f1c21b']];
 const L_STAMPS=[['company','st_company'],['ministry','st_ministry']];
-const LS={life:'all',pap:'all',stm:'all',missP:new Set(),missS:new Set(),review:false};
-function lsReset(){ LS.life=LS.pap=LS.stm='all'; LS.missP.clear(); LS.missS.clear(); LS.review=false; }
-const lsClone=()=>({life:LS.life,pap:LS.pap,stm:LS.stm,missP:new Set(LS.missP),missS:new Set(LS.missS),review:LS.review});
-const lsAny=()=>LS.life!=='all'||LS.pap!=='all'||LS.stm!=='all'||LS.review;
+/* LS.hold / LS.stamp = «what they hold» (exact combination): ticked = must hold, unticked = must not, empty = no filter */
+const LS={life:'all',hold:new Set(),stamp:new Set(),review:false};
+function lsReset(){ LS.life='all'; LS.hold.clear(); LS.stamp.clear(); LS.review=false; }
+const lsClone=()=>({life:LS.life,hold:new Set(LS.hold),stamp:new Set(LS.stamp),review:LS.review});
+const lsAny=()=>LS.life!=='all'||LS.hold.size>0||LS.stamp.size>0||LS.review;
+const _exact=(has,keys,sel)=>!sel.size || keys.every(k=>sel.has(k)?has(k):!has(k));
 function lawHit(x,f){ f=f||LS; const c=x.c, b=x.b;
   if(f.life==='all'){ if(c==='expired') return false; }                              // الكل = the living
   else if(f.life==='awaiting'){ if(!(c==='awaiting'||c==='flag')) return false; }     // static, flagged or not
   else if(c!==f.life) return false;
-  if(f.pap!=='all' && (_batchIncomplete(b)?'missing':'complete')!==f.pap) return false;
-  if(f.pap==='missing' && f.missP.size){ for(const k of f.missP) if(!_paperMissing(b,k)) return false; }     // AND
-  if(f.stm!=='all' && (_batchNoStamp(b)?'missing':'complete')!==f.stm) return false;
-  if(f.stm==='missing' && f.missS.size){ for(const k of f.missS) if(!_stampMissingBy(b,k)) return false; }  // AND
+  if(!_exact(k=>batchPaper(b,k).present, ptKeys().filter(ptReq), f.hold)) return false;
+  if(!_exact(k=>_stampHeld(b,k), L_STAMPS.map(s=>s[0]), f.stamp)) return false;
   if(f.review && !(c==='flag'||!!_lblFlag(b))) return false;
   return true; }
 function paintLawFilters(cased){
   const toks=$('#ftoks'), btn=$('#fbtn'), pan=$('#fpanel'); if(!toks||!btn||!pan) return;
   btn.hidden=false; cased=cased||[];
-  const cnt=f=>cased.filter(x=>lawHit(x,f)).length;
-  const countFor=(dim,k)=>{ const f=lsClone(); f[dim]=k; if(dim==='pap'&&k!=='missing') f.missP=new Set(); if(dim==='stm'&&k!=='missing') f.missS=new Set(); return cnt(f); };
-  const DIMS=[['life','f_life',L_LIFE],['pap','f_papers',L_PAP],['stm','f_stamps',L_STM]];
-  const SH={ar:{life:'حالة',pap:'أوراق',stm:'أختام'},en:{life:'status',pap:'papers',stm:'stamps'}};
-  const lab=(dim,k)=>DIMS.find(x=>x[0]===dim)[2].find(x=>x[0]===k);
-  let tk=''; DIMS.forEach(([d])=>{ if(LS[d]==='all') return; const L=lab(d,LS[d]); let txt=t(L[1]);
-    if(d==='pap'&&LS.pap==='missing'&&LS.missP.size) txt+=' · '+t('f_lacks_b').replace(':','')+' '+[...LS.missP].map(ptLabel).join(LANG==='ar'?'، ':', ');
-    if(d==='stm'&&LS.stm==='missing'&&LS.missS.size) txt+=' · '+t('f_lacks_b').replace(':','')+' '+[...LS.missS].map(k=>t(L_STAMPS.find(s=>s[0]===k)[1])).join(LANG==='ar'?'، ':', ');
-    tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${esc(txt)}<button class="x" type="button" data-ldim="${d}" data-lk="all" title="✕">✕</button></span>`; });
+  const cnt=f=>cased.filter(x=>lawHit(x,f)).length, shown=cnt(LS), total=cased.filter(x=>x.c!=='expired').length;
+  const SH={ar:{life:'حالة',hold:'أوراق',stamp:'أختام'},en:{life:'status',hold:'papers',stamp:'stamps'}};
+  const PK=ptKeys().filter(ptReq), SK=L_STAMPS.map(s=>s[0]), stLab=k=>t(L_STAMPS.find(s=>s[0]===k)[1]);
+  const glyphs=(keys,lab,sel)=>keys.map(k=>`${esc(lab(k))} <span class="${sel.has(k)?'ok':'no'}">${sel.has(k)?'✓':'–'}</span>`).join(' · ');
+  let tk=''; if(LS.life!=='all'){ const L=L_LIFE.find(x=>x[0]===LS.life); tk+=`<span class="token"><span class="k">${SH[LANG].life}:</span><span class="dot" style="--c:${L[2]}"></span>${t(L[1])}<button class="x" type="button" data-ldim="life" data-lk="all" title="✕">✕</button></span>`; }
+  if(LS.hold.size)  tk+=`<span class="token"><span class="k">${SH[LANG].hold}:</span>${glyphs(PK,ptLabel,LS.hold)}<button class="x" type="button" data-lhold-all="1" title="✕">✕</button></span>`;
+  if(LS.stamp.size) tk+=`<span class="token"><span class="k">${SH[LANG].stamp}:</span>${glyphs(SK,stLab,LS.stamp)}<button class="x" type="button" data-lstamp-all="1" title="✕">✕</button></span>`;
   if(LS.review) tk+=`<span class="token"><span class="k">${t('f_review')}</span><button class="x" type="button" data-lreview="1" title="✕">✕</button></span>`;
   toks.innerHTML=tk;
-  const n=(LS.life!=='all'?1:0)+(LS.pap!=='all'?1:0)+(LS.stm!=='all'?1:0)+(LS.review?1:0);
+  const n=(LS.life!=='all'?1:0)+(LS.hold.size?1:0)+(LS.stamp.size?1:0)+(LS.review?1:0);
   btn.classList.toggle('on',n>0); $('#fbtntxt').textContent=t('f_filter'); const bn=$('#fbtn-n'); bn.textContent=n; bn.hidden=!n;
-  let body=''; DIMS.forEach(([d,l,st])=>{ body+=`<div class="lab">${t(l)}</div><div class="opts">`+st.map(([k,lb,c])=>{ const m=countFor(d,k); if(k!=='all'&&k!=='expired'&&!m) return '';
-      return `<button class="chip${LS[d]===k?' on':''}${k==='expired'?' grave':''}" type="button" data-ldim="${d}" data-lk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('');
-    // toggles join their parent's line; a fixed set always shows, zero = dimmed
-    if(d==='pap'&&LS.pap==='missing'){ body+=`<span class="div"></span><span class="olab">${t('f_lacks_b')}</span>`+ptKeys().filter(ptReq).map(k=>{ const f=lsClone(); f.missP.add(k); const m=cnt(f), on=LS.missP.has(k);
-      return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-lmiss="${k}">${ptLabel(k)}<span class="fc">${m}</span></button>`; }).join(''); }
-    if(d==='stm'&&LS.stm==='missing'){ body+=`<span class="div"></span><span class="olab">${t('f_lacks_b')}</span>`+L_STAMPS.map(([k,lb])=>{ const f=lsClone(); f.missS.add(k); const m=cnt(f), on=LS.missS.has(k);
-      return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-lstm="${k}">${t(lb)}<span class="fc">${m}</span></button>`; }).join(''); }
-    body+=`</div>`; });
-  const shown=cnt(LS), rv=lsClone(); rv.review=true;
+  let body=`<div class="lab">${t('f_life')}</div><div class="opts">`+L_LIFE.map(([k,lb,c])=>{ const f=lsClone(); f.life=k; const m=cnt(f); if(k!=='all'&&k!=='expired'&&!m) return '';
+      return `<button class="chip${LS.life===k?' on':''}${k==='expired'?' grave':''}" type="button" data-ldim="life" data-lk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('')+`</div>`;
+  const boxLine=(lab,keys,labOf,sel,act)=>`<div class="lab">${t(lab)}</div><div class="opts${sel.size?' live':''}"><button class="chip${sel.size?'':' on'}" type="button" data-${act}-all="1">${t('f_all')}</button><span class="div"></span>`
+    +keys.map(k=>`<button class="box${sel.has(k)?' on':''}" type="button" data-${act}="${k}">${esc(labOf(k))}</button>`).join('')+(sel.size?`<span class="cnt">${t('n_batches',shown)}</span>`:'')+`</div>`;
+  body+=boxLine('f_papers',PK,ptLabel,LS.hold,'lhold')+boxLine('f_stamps',SK,stLab,LS.stamp,'lstamp');
+  const rv=lsClone(); rv.review=true;
   pan.innerHTML=`<div class="p-head"><span class="t">${t('f_filter')}</span><button class="short law${LS.review?' on':''}" type="button" data-lreview="1"><span class="dot" style="--c:var(--copper)"></span>${t('f_review')}<span class="fc">${cnt(rv)}</span></button></div>
     <div class="p-body">${body}</div>
-    <div class="p-foot"><span class="cnt">${n?t('n_batches',shown):t('f_pick_law')}</span><span class="acts">${n?`<button class="clear" type="button" data-lclear="1">${t('f_clear')}</button>`:''}<button class="done" type="button" data-fclose="1">${t('f_done')}</button></span></div>`;
+    <div class="p-foot"><span class="cnt"></span><span class="acts">${n?`<button class="clear" type="button" data-lclear="1">${t('f_clear')}</button>`:''}<button class="done" type="button" data-fclose="1">${t('f_done')}</button></span></div>`;
   pan.hidden=!_fOpen;
 }
 function renderLaw(rows){
@@ -1096,11 +1092,11 @@ function fullFace(path){ return path ? path.replace(/\.jpg$/i,'-full.jpg') : nul
    every consumer reads through fHit(). Persisted like the sort. Legal papers come from the roster RPC
    (v_person_legal: papers in LIVE batches only — the main page justifies presence today). ── */
 const F_DOC=[['all','f_all',null],['valid','valid','#24A148'],['soon','f_expiring','#f1c21b'],['expired','expired','#da1e28'],['none','f_nodoc','#6f6f6f']];
-const F_LEG=[['all','f_all',null],['complete','f_complete','#24A148'],['missing','f_missing','#6f6f6f']];
-const FS={pass:'all',visa:'all',legal:'all',miss:new Set()};
-(()=>{ try{ const s=JSON.parse(localStorage.getItem('iccmc_filter')||'null'); if(s){ FS.pass=s.pass||'all'; FS.visa=s.visa||'all'; FS.legal=s.legal||'all'; FS.miss=new Set(s.miss||[]); } }catch(_){} })();
-function fSave(){ try{ localStorage.setItem('iccmc_filter',JSON.stringify({pass:FS.pass,visa:FS.visa,legal:FS.legal,miss:[...FS.miss]})); }catch(_){} }
-// per-document states of one row — the engine's keys collapsed to the four filter words; legal from the RPC columns
+/* FS.hold = «what they hold» on the legal line (exact combination): ticked = must hold, unticked = must not, empty = no filter */
+const FS={pass:'all',visa:'all',hold:new Set()};
+(()=>{ try{ const s=JSON.parse(localStorage.getItem('iccmc_filter')||'null'); if(s){ FS.pass=s.pass||'all'; FS.visa=s.visa||'all'; FS.hold=new Set(s.hold||[]); } }catch(_){} })();
+function fSave(){ try{ localStorage.setItem('iccmc_filter',JSON.stringify({pass:FS.pass,visa:FS.visa,hold:[...FS.hold]})); }catch(_){} }
+// per-document states of one row — the engine's keys collapsed to the four filter words; legal papers from the RPC columns
 const _fDoc=k=> k==='valid'?'valid' : (k==='soon'||k==='crit')?'soon' : k==='expired'?'expired' : 'none';
 function docStates(r){ return {
   pass:  _fDoc(statusFromDays(daysTo(r.passport_expiry)).k),
@@ -1108,13 +1104,12 @@ function docStates(r){ return {
   legal: r.legal_complete ? 'complete' : 'missing',
   papers:{taahud:!!r.legal_t, istimara:!!r.legal_i, manh:!!r.legal_m} }; }
 function fHit(x,f){ f=f||FS; const d=x.d;
-  if(f.pass!=='all'  && d.pass!==f.pass)   return false;
-  if(f.visa!=='all'  && d.visa!==f.visa)   return false;
-  if(f.legal!=='all' && d.legal!==f.legal) return false;
-  if(f.legal==='missing' && f.miss.size){ for(const k of f.miss) if(d.papers[k]) return false; }   // AND: missing EVERY chosen paper
+  if(f.pass!=='all' && d.pass!==f.pass) return false;
+  if(f.visa!=='all' && d.visa!==f.visa) return false;
+  if(f.hold.size){ for(const k of ptKeys().filter(ptReq)) if(f.hold.has(k)?!d.papers[k]:!!d.papers[k]) return false; }   // exact combination
   return true; }
-const fAny  =()=>FS.pass!=='all'||FS.visa!=='all'||FS.legal!=='all';
-const fShort=()=>FS.pass==='valid'&&FS.visa==='valid'&&FS.legal==='complete';
+const fAny  =()=>FS.pass!=='all'||FS.visa!=='all'||FS.hold.size>0;
+const fShort=()=>FS.pass==='valid'&&FS.visa==='valid'&&ptKeys().filter(ptReq).every(k=>FS.hold.has(k));
 let LEGAL_INCOMPLETE=new Set();   // kept for compatibility (refreshLegalFlags); the roster no longer filters on it
 /* who has a GAP in their legal file — a member of ≥1 batch where a paper isn't present-AND-stamped.
    Computed off the visible result set (one .in() query per search), so the chip counts live and a
@@ -1228,34 +1223,29 @@ function setSort(k){ if(k===SORT||!SORT_OPTS.some(o=>o.k===k))return; SORT=k; tr
 let _fOpen=false;
 function paintFilters(items){   // the filter's three surfaces: tokens in the box · the button + its count · the drawer
   const toks=$('#ftoks'), btn=$('#fbtn'), pan=$('#fpanel'); if(!toks||!btn||!pan) return;
-  if(LAWMODE){ toks.innerHTML=''; btn.hidden=true; pan.hidden=true; return; }   // the legal section has its own chips
+  if(LAWMODE){ toks.innerHTML=''; btn.hidden=true; pan.hidden=true; return; }   // the legal section paints its own drawer
   btn.hidden=false; items=items||[];
-  const cnt=f=>items.filter(x=>fHit(x,f)).length;
-  const clone=()=>({pass:FS.pass,visa:FS.visa,legal:FS.legal,miss:new Set(FS.miss)});
-  const countFor=(dim,k)=>{ const f=clone(); f[dim]=k; if(!(dim==='legal'&&k==='missing')) f.miss=new Set(); return cnt(f); };
-  const missCount=k=>{ const f=clone(); f.miss.add(k); return cnt(f); };
-  const lab=(dim,k)=>(dim==='legal'?F_LEG:F_DOC).find(x=>x[0]===k)||F_DOC[0];
-  const DIMS=[['pass','f_pass',F_DOC],['visa','f_visa',F_DOC],['legal','f_legalfile',F_LEG]];
+  const cnt=f=>items.filter(x=>fHit(x,f)).length, shown=cnt(FS);
+  const clone=()=>({pass:FS.pass,visa:FS.visa,hold:new Set(FS.hold)});
+  const countFor=(dim,k)=>{ const f=clone(); f[dim]=k; return cnt(f); };
+  const PK=ptKeys().filter(ptReq);
+  const DIMS=[['pass','f_pass'],['visa','f_visa']];
   const SH={ar:{pass:'جواز',visa:'تأشيرة',legal:'قانوني'},en:{pass:'passport',visa:'visa',legal:'legal'}};
-  // tokens: the selection, readable as a sentence inside the box
-  let tk=''; DIMS.forEach(([d])=>{ if(FS[d]==='all') return; const L=lab(d,FS[d]); let txt=t(L[1]);
-    if(d==='legal'&&FS.legal==='missing'&&FS.miss.size) txt+=' · '+t('f_lacks_p').replace(':','')+' '+[...FS.miss].map(ptLabel).join(LANG==='ar'?'، ':', ');
-    tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${esc(txt)}<button class="x" type="button" data-fdim="${d}" title="✕">✕</button></span>`; });
+  let tk=''; DIMS.forEach(([d])=>{ if(FS[d]==='all') return; const L=F_DOC.find(x=>x[0]===FS[d]);
+    tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${t(L[1])}<button class="x" type="button" data-fdim="${d}" title="✕">✕</button></span>`; });
+  if(FS.hold.size) tk+=`<span class="token"><span class="k">${SH[LANG].legal}:</span>${PK.map(k=>`${esc(ptLabel(k))} <span class="${FS.hold.has(k)?'ok':'no'}">${FS.hold.has(k)?'✓':'–'}</span>`).join(' · ')}<button class="x" type="button" data-fhold-all="1" title="✕">✕</button></span>`;
   toks.innerHTML=tk;
-  const n=['pass','visa','legal'].filter(d=>FS[d]!=='all').length;
+  const n=DIMS.filter(([d])=>FS[d]!=='all').length+(FS.hold.size?1:0);
   btn.classList.toggle('on',n>0); $('#fbtntxt').textContent=t('f_filter'); const bn=$('#fbtn-n'); bn.textContent=n; bn.hidden=!n;
-  // the drawer: label column + chips (a chip that would count 0 is not drawn, الكل always is)
-  let body=''; DIMS.forEach(([d,l,st])=>{ body+=`<div class="lab">${t(l)}</div><div class="opts">`+st.map(([k,lb,c])=>{ const m=countFor(d,k); if(k!=='all'&&!m) return '';
-    return `<button class="chip${FS[d]===k?' on':''}" type="button" data-fdim="${d}" data-fk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('');
-    // the paper toggles join their parent's line after a thin divider — one line per facet, it grows in place.
-    // They are a FIXED set, so all of them always show; one that would count zero is dimmed, never hidden.
-    if(d==='legal'&&FS.legal==='missing'){ body+=`<span class="div"></span><span class="olab">${t('f_lacks_p')}</span>`+ptKeys().filter(ptReq).map(k=>{ const m=missCount(k), on=FS.miss.has(k);
-      return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-fmiss="${k}">${ptLabel(k)}<span class="fc">${m}</span></button>`; }).join(''); }
-    body+=`</div>`; });
-  const shown=cnt(FS);
-  pan.innerHTML=`<div class="p-head"><span class="t">${t('f_filter')}</span><button class="short${fShort()?' on':''}" type="button" data-fshort="1"><span class="dot" style="--c:#24A148"></span>${t('f_complete_file')}<span class="fc">${cnt({pass:'valid',visa:'valid',legal:'complete',miss:new Set()})}</span></button></div>
+  let body=''; DIMS.forEach(([d,l])=>{ body+=`<div class="lab">${t(l)}</div><div class="opts">`+F_DOC.map(([k,lb,c])=>{ const m=countFor(d,k); if(k!=='all'&&!m) return '';
+    return `<button class="chip${FS[d]===k?' on':''}" type="button" data-fdim="${d}" data-fk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('')+`</div>`; });
+  // the legal line: «tick what they hold» — الكل, then one box per paper; once live, glyphs + the count at the end of the line
+  body+=`<div class="lab">${t('f_legalfile')}</div><div class="opts${FS.hold.size?' live':''}"><button class="chip${FS.hold.size?'':' on'}" type="button" data-fhold-all="1">${t('f_all')}</button><span class="div"></span>`
+    +PK.map(k=>`<button class="box${FS.hold.has(k)?' on':''}" type="button" data-fhold="${k}">${esc(ptLabel(k))}</button>`).join('')
+    +(FS.hold.size?`<span class="cnt"><span class="num">${shown}</span> ${LANG==='ar'?'من':'of'} <span class="num">${items.length}</span></span>`:'')+`</div>`;
+  pan.innerHTML=`<div class="p-head"><span class="t">${t('f_filter')}</span><button class="short${fShort()?' on':''}" type="button" data-fshort="1"><span class="dot" style="--c:#24A148"></span>${t('f_complete_file')}<span class="fc">${cnt({pass:'valid',visa:'valid',hold:new Set(PK)})}</span></button></div>
     <div class="p-body">${body}</div>
-    <div class="p-foot"><span class="cnt">${n?`<span class="num">${shown}</span> ${LANG==='ar'?'من':'of'} <span class="num">${items.length}</span>`:t('f_pick')}</span><span class="acts">${n?`<button class="clear" type="button" data-fclear="1">${t('f_clear')}</button>`:''}<button class="done" type="button" data-fclose="1">${t('f_done')}</button></span></div>`;
+    <div class="p-foot"><span class="cnt"></span><span class="acts">${n?`<button class="clear" type="button" data-fclear="1">${t('f_clear')}</button>`:''}<button class="done" type="button" data-fclose="1">${t('f_done')}</button></span></div>`;
   pan.hidden=!_fOpen;
 }
 function render(rows){
@@ -5367,25 +5357,30 @@ $('#ik-list').addEventListener('click',e=>{
 });
 $('#q').addEventListener('input',onType);
 /* the filter drawer — one button, tokens in the box, chips in the drawer; every change re-renders the roster */
-function fSet(d,k){ FS[d]=(FS[d]===k&&k!=='all')?'all':k; if(d==='legal'&&FS.legal!=='missing') FS.miss.clear(); fSave(); render(LAST||[]); }
+function fSet(d,k){ FS[d]=(FS[d]===k&&k!=='all')?'all':k; fSave(); render(LAST||[]); }
 $('#fbtn').addEventListener('click',()=>{ _fOpen=!_fOpen; if(LAWMODE) renderLaw(); else paintFilters(_rItems||[]); });
 $('#ftoks').addEventListener('click',e=>{
-  if(LAWMODE){ const y=e.target.closest('[data-ldim]'); if(y){ const d=y.dataset.ldim; LS[d]='all'; if(d==='pap')LS.missP.clear(); if(d==='stm')LS.missS.clear(); renderLaw(); return; }
+  if(LAWMODE){ if(e.target.closest('[data-ldim]')){ LS.life='all'; renderLaw(); return; }
+    if(e.target.closest('[data-lhold-all]')){ LS.hold.clear(); renderLaw(); return; }
+    if(e.target.closest('[data-lstamp-all]')){ LS.stamp.clear(); renderLaw(); return; }
     if(e.target.closest('[data-lreview]')){ LS.review=false; renderLaw(); } return; }
+  if(e.target.closest('[data-fhold-all]')){ FS.hold.clear(); fSave(); render(LAST||[]); return; }
   const x=e.target.closest('[data-fdim]'); if(x) fSet(x.dataset.fdim,'all'); });
 $('#fpanel').addEventListener('click',e=>{
   if(e.target.closest('[data-fclose]')){ _fOpen=false; if(LAWMODE) renderLaw(); else paintFilters(_rItems||[]); return; }
   if(LAWMODE){   // the legal drawer: its own state, the same gestures
     if(e.target.closest('[data-lclear]')){ lsReset(); renderLaw(); return; }
     if(e.target.closest('[data-lreview]')){ LS.review=!LS.review; renderLaw(); return; }
-    const mp=e.target.closest('[data-lmiss]'); if(mp){ const k=mp.dataset.lmiss; LS.missP.has(k)?LS.missP.delete(k):LS.missP.add(k); renderLaw(); return; }
-    const ms=e.target.closest('[data-lstm]');  if(ms){ const k=ms.dataset.lstm;  LS.missS.has(k)?LS.missS.delete(k):LS.missS.add(k); renderLaw(); return; }
-    const lc=e.target.closest('[data-ldim]');  if(lc){ const d=lc.dataset.ldim, k=lc.dataset.lk; LS[d]=(LS[d]===k&&k!=='all')?'all':k;
-      if(d==='pap'&&LS.pap!=='missing')LS.missP.clear(); if(d==='stm'&&LS.stm!=='missing')LS.missS.clear(); renderLaw(); }
+    if(e.target.closest('[data-lhold-all]')){ LS.hold.clear(); renderLaw(); return; }
+    if(e.target.closest('[data-lstamp-all]')){ LS.stamp.clear(); renderLaw(); return; }
+    const h=e.target.closest('[data-lhold]');  if(h){ const k=h.dataset.lhold;  LS.hold.has(k)?LS.hold.delete(k):LS.hold.add(k);   renderLaw(); return; }
+    const st=e.target.closest('[data-lstamp]'); if(st){ const k=st.dataset.lstamp; LS.stamp.has(k)?LS.stamp.delete(k):LS.stamp.add(k); renderLaw(); return; }
+    const lc=e.target.closest('[data-ldim]');  if(lc){ const k=lc.dataset.lk; LS.life=(LS.life===k&&k!=='all')?'all':k; renderLaw(); }
     return; }
-  if(e.target.closest('[data-fclear]')){ FS.pass=FS.visa=FS.legal='all'; FS.miss.clear(); fSave(); render(LAST||[]); return; }
-  if(e.target.closest('[data-fshort]')){ if(fShort()){FS.pass=FS.visa=FS.legal='all';} else {FS.pass='valid';FS.visa='valid';FS.legal='complete';} FS.miss.clear(); fSave(); render(LAST||[]); return; }
-  const m=e.target.closest('[data-fmiss]'); if(m){ const k=m.dataset.fmiss; FS.miss.has(k)?FS.miss.delete(k):FS.miss.add(k); fSave(); render(LAST||[]); return; }
+  if(e.target.closest('[data-fclear]')){ FS.pass=FS.visa='all'; FS.hold.clear(); fSave(); render(LAST||[]); return; }
+  if(e.target.closest('[data-fshort]')){ const PK=ptKeys().filter(ptReq); if(fShort()){FS.pass=FS.visa='all';FS.hold.clear();} else {FS.pass='valid';FS.visa='valid';FS.hold=new Set(PK);} fSave(); render(LAST||[]); return; }
+  if(e.target.closest('[data-fhold-all]')){ FS.hold.clear(); fSave(); render(LAST||[]); return; }
+  const h=e.target.closest('[data-fhold]'); if(h){ const k=h.dataset.fhold; FS.hold.has(k)?FS.hold.delete(k):FS.hold.add(k); fSave(); render(LAST||[]); return; }
   const c=e.target.closest('[data-fdim]'); if(c) fSet(c.dataset.fdim,c.dataset.fk); });
 $('#results').addEventListener('click',e=>{
   const pr=e.target.closest('[data-lawprint]');       // print straight from the card, without opening it
