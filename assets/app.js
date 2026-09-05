@@ -52,7 +52,7 @@ const I18N={
     f_paper:'الورقة الناقصة', f_complete_file:'ملف مكتمل', f_complete:'مكتمل', f_missing:'ناقص', f_nodoc:'لا يوجد', why_visa:'تأشيرته لم تُجدَّد',
     law_window:'تجاوزت المهلة', law_window_t:'مرّت 90 يومًا على المنح ولم تُربط أي فيزا — امسح التأشيرات أو أرشِف الدفعة', law_spread:'تباعد في تواريخ الإصدار — راجعها',
     f_life:'الحالة', f_papers:'الأوراق', f_stamps:'الأختام', f_pcomplete:'مكتملة', f_pmissing:'ناقصة', f_review:'مراجعة', f_pick_law:'اختر حالة أو أوراقًا أو أختامًا',
-    law_awaiting:'بانتظار الفيزا', law_archive:'الأرشيف', st_company:'ختم الشركة', st_ministry:'ختم الوزارة', n_batches:n=>`<span class="num">${n}</span> دفعة`,
+    f_lacks_p:'ينقصه:', f_lacks_b:'ينقصها:', law_awaiting:'بانتظار الفيزا', law_archive:'الأرشيف', st_company:'ختم الشركة', st_ministry:'ختم الوزارة', n_batches:n=>`<span class="num">${n}</span> دفعة`,
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
     t_passport:'جواز السفر', t_visa:'التأشيرة', t_print:'طباعة', t_close:'إغلاق',
     hx_title:'سِجل الوثائق', hx_retired:'سابقة', hx_open:'فتح المستند', vhx_title:'سِجل التأشيرات',
@@ -204,7 +204,7 @@ const I18N={
     f_paper:'Missing paper', f_complete_file:'Complete file', f_complete:'Complete', f_missing:'Incomplete', f_nodoc:'None', why_visa:'his visa is not renewed',
     law_window:'window passed', law_window_t:'90 days since the grant and no visa connected — scan the visas or archive the batch', law_spread:'issue dates spread — review',
     f_life:'Status', f_papers:'Papers', f_stamps:'Stamps', f_pcomplete:'Complete', f_pmissing:'Incomplete', f_review:'Review', f_pick_law:'Pick a status, papers, or stamps',
-    law_awaiting:'Awaiting visa', law_archive:'Archive', st_company:'Company stamp', st_ministry:'Ministry stamp', n_batches:n=>`<span class="num">${n}</span> batch${n===1?'':'es'}`,
+    f_lacks_p:'missing:', f_lacks_b:'missing:', law_awaiting:'Awaiting visa', law_archive:'Archive', st_company:'Company stamp', st_ministry:'Ministry stamp', n_batches:n=>`<span class="num">${n}</span> batch${n===1?'':'es'}`,
     out:'Sign out?', soon_v2:'Add employee — coming next.',
     t_passport:'Passport', t_visa:'Visa', t_print:'Print', t_close:'Close',
     hx_title:'Document history', hx_retired:'past', hx_open:'Open document', vhx_title:'Visa history',
@@ -833,8 +833,8 @@ function paintLawFilters(cased){
   const SH={ar:{life:'حالة',pap:'أوراق',stm:'أختام'},en:{life:'status',pap:'papers',stm:'stamps'}};
   const lab=(dim,k)=>DIMS.find(x=>x[0]===dim)[2].find(x=>x[0]===k);
   let tk=''; DIMS.forEach(([d])=>{ if(LS[d]==='all') return; const L=lab(d,LS[d]); let txt=t(L[1]);
-    if(d==='pap'&&LS.pap==='missing'&&LS.missP.size) txt+=' · '+[...LS.missP].map(ptLabel).join(LANG==='ar'?'، ':', ');
-    if(d==='stm'&&LS.stm==='missing'&&LS.missS.size) txt+=' · '+[...LS.missS].map(k=>t(L_STAMPS.find(s=>s[0]===k)[1])).join(LANG==='ar'?'، ':', ');
+    if(d==='pap'&&LS.pap==='missing'&&LS.missP.size) txt+=' · '+t('f_lacks_b').replace(':','')+' '+[...LS.missP].map(ptLabel).join(LANG==='ar'?'، ':', ');
+    if(d==='stm'&&LS.stm==='missing'&&LS.missS.size) txt+=' · '+t('f_lacks_b').replace(':','')+' '+[...LS.missS].map(k=>t(L_STAMPS.find(s=>s[0]===k)[1])).join(LANG==='ar'?'، ':', ');
     tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${esc(txt)}<button class="x" type="button" data-ldim="${d}" data-lk="all" title="✕">✕</button></span>`; });
   if(LS.review) tk+=`<span class="token"><span class="k">${t('f_review')}</span><button class="x" type="button" data-lreview="1" title="✕">✕</button></span>`;
   toks.innerHTML=tk;
@@ -843,9 +843,9 @@ function paintLawFilters(cased){
   let body=''; DIMS.forEach(([d,l,st])=>{ body+=`<div class="lab">${t(l)}</div><div class="opts">`+st.map(([k,lb,c])=>{ const m=countFor(d,k); if(k!=='all'&&k!=='expired'&&!m) return '';
       return `<button class="chip${LS[d]===k?' on':''}${k==='expired'?' grave':''}" type="button" data-ldim="${d}" data-lk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('');
     // toggles join their parent's line; a fixed set always shows, zero = dimmed
-    if(d==='pap'&&LS.pap==='missing'){ body+=`<span class="div"></span>`+ptKeys().filter(ptReq).map(k=>{ const f=lsClone(); f.missP.add(k); const m=cnt(f), on=LS.missP.has(k);
+    if(d==='pap'&&LS.pap==='missing'){ body+=`<span class="div"></span><span class="olab">${t('f_lacks_b')}</span>`+ptKeys().filter(ptReq).map(k=>{ const f=lsClone(); f.missP.add(k); const m=cnt(f), on=LS.missP.has(k);
       return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-lmiss="${k}">${ptLabel(k)}<span class="fc">${m}</span></button>`; }).join(''); }
-    if(d==='stm'&&LS.stm==='missing'){ body+=`<span class="div"></span>`+L_STAMPS.map(([k,lb])=>{ const f=lsClone(); f.missS.add(k); const m=cnt(f), on=LS.missS.has(k);
+    if(d==='stm'&&LS.stm==='missing'){ body+=`<span class="div"></span><span class="olab">${t('f_lacks_b')}</span>`+L_STAMPS.map(([k,lb])=>{ const f=lsClone(); f.missS.add(k); const m=cnt(f), on=LS.missS.has(k);
       return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-lstm="${k}">${t(lb)}<span class="fc">${m}</span></button>`; }).join(''); }
     body+=`</div>`; });
   const shown=cnt(LS), rv=lsClone(); rv.review=true;
@@ -1239,7 +1239,7 @@ function paintFilters(items){   // the filter's three surfaces: tokens in the bo
   const SH={ar:{pass:'جواز',visa:'تأشيرة',legal:'قانوني'},en:{pass:'passport',visa:'visa',legal:'legal'}};
   // tokens: the selection, readable as a sentence inside the box
   let tk=''; DIMS.forEach(([d])=>{ if(FS[d]==='all') return; const L=lab(d,FS[d]); let txt=t(L[1]);
-    if(d==='legal'&&FS.legal==='missing'&&FS.miss.size) txt+=' · '+[...FS.miss].map(ptLabel).join(LANG==='ar'?'، ':', ');
+    if(d==='legal'&&FS.legal==='missing'&&FS.miss.size) txt+=' · '+t('f_lacks_p').replace(':','')+' '+[...FS.miss].map(ptLabel).join(LANG==='ar'?'، ':', ');
     tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${esc(txt)}<button class="x" type="button" data-fdim="${d}" title="✕">✕</button></span>`; });
   toks.innerHTML=tk;
   const n=['pass','visa','legal'].filter(d=>FS[d]!=='all').length;
@@ -1249,7 +1249,7 @@ function paintFilters(items){   // the filter's three surfaces: tokens in the bo
     return `<button class="chip${FS[d]===k?' on':''}" type="button" data-fdim="${d}" data-fk="${k}">${c?`<span class="dot" style="--c:${c}"></span>`:''}${t(lb)}<span class="fc">${m}</span></button>`; }).join('');
     // the paper toggles join their parent's line after a thin divider — one line per facet, it grows in place.
     // They are a FIXED set, so all of them always show; one that would count zero is dimmed, never hidden.
-    if(d==='legal'&&FS.legal==='missing'){ body+=`<span class="div"></span>`+ptKeys().filter(ptReq).map(k=>{ const m=missCount(k), on=FS.miss.has(k);
+    if(d==='legal'&&FS.legal==='missing'){ body+=`<span class="div"></span><span class="olab">${t('f_lacks_p')}</span>`+ptKeys().filter(ptReq).map(k=>{ const m=missCount(k), on=FS.miss.has(k);
       return `<button class="tog${on?' on':''}${(!m&&!on)?' dim':''}" type="button" data-fmiss="${k}">${ptLabel(k)}<span class="fc">${m}</span></button>`; }).join(''); }
     body+=`</div>`; });
   const shown=cnt(FS);
