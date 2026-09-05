@@ -409,7 +409,14 @@ async function signIn(){
 function enterApp(){$('#gate').style.display='none';$('#app').style.display='block';applyLang();$('#q').focus();search('');subscribeLive();
   // Fetched alongside the first search, never before it: the roster is what the user came for,
   // and the overview must not delay a single row of it.
-  loadOverview();}
+  loadOverview();
+  // WhatsApp kiosk door: ?legal=<scan_hash> lands straight on that paper's own
+  // review screen instead of making a signed-in reviewer hunt it out of the
+  // whole pending pool by eye. One-shot — the param is stripped right away so
+  // a later refresh of this same tab doesn't reopen it (2026-09-06).
+  const _legalHash=new URLSearchParams(location.search).get('legal');
+  if(_legalHash){ history.replaceState(null,'',location.pathname); openLegalReview(_legalHash); }
+}
 
 /* live-sync: when an OCR'd employee is committed to persons/visas, re-run the
    current search so the search page updates itself — no manual refresh. RLS still
