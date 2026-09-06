@@ -1539,9 +1539,9 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .sel-opts{padding:16px 16px 6px}
 .pk-box .sel-opts .ist-src-opt{padding:20px 14px 16px}
 /* «تحديد» lives in the legend/sort row, as a quiet chip — not in the header (v290) */
-.sel-chip{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--line2);color:var(--muted);font-family:var(--sans);font-size:11.5px;font-weight:500;padding:3px 9px;border-radius:var(--radius-s);cursor:pointer;transition:color .12s,border-color .12s;margin-inline-start:6px}
-.sel-chip .ic{width:13px;height:13px}
-.sel-chip:hover{color:var(--copper);border-color:var(--copper)}
+.sel-chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--ink);font-family:var(--sans);font-size:12.5px;font-weight:600;height:28px;padding:0 11px;border-radius:var(--radius-s);cursor:pointer;transition:color .12s,border-color .12s,background .12s;margin-inline-end:10px;flex:none}
+.sel-chip .ic{width:14px;height:14px;color:var(--copper)}
+.sel-chip:hover{color:var(--copper);border-color:var(--copper);background:rgba(197,149,107,.10)}
 .sel-chip[hidden]{display:none}
 .pk-ft .pk-add.quiet{background:var(--panel);color:var(--ink);border-color:var(--line)}
 .pk-ft .pk-add.quiet[disabled]{opacity:.45}
