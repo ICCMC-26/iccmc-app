@@ -536,8 +536,8 @@
   .ik-viewbar{display:flex;justify-content:flex-end;align-items:center;gap:16px;margin-bottom:8px}
   /* v271: the tidy control — the same quiet text as the view toggle, one hairline apart; it only exists
      while there is something finished to clear, so it fades in rather than popping. */
-  .ik-tidy{flex:none;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:12.5px;font-weight:600;padding:2px 10px 2px 2px;
-    font-family:var(--sans);border-inline-end:1px solid var(--line);animation:iktidyin .18s ease-out}
+  .ik-tidy{flex:none;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:12.5px;font-weight:600;padding:2px;padding-inline-end:14px;
+    font-family:var(--sans);border-inline-end:1px solid var(--line);animation:iktidyin .18s ease-out}   /* v272: the hairline sits 14px past the text in either direction */
   .ik-tidy:hover{color:var(--copper)}
   .ik-legend .ik-tidy{margin-inline-end:-2px}
   @keyframes iktidyin{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
