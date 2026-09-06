@@ -2102,7 +2102,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){
   loadPaperTypes();                                 // 3 rows, and the roster's legal line renders from it
   afterFirstPaint(async()=>{ try{ await loadAgentVersion(); }catch(_){}    // the rest in a LINE, after the paint (v265)
-                             try{ await lawBadge(); }catch(_){}
+                             // v269: the «المعاملات» button no longer carries a count (owner's ask) — its 4-query lawBadge() is not run
                              ikResync(); ikWatchBacklog(); });
 } });
 async function lawBadge(){   // header count of legal batches awaiting a human judgment (= the section's review chip)
