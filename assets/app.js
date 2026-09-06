@@ -704,7 +704,7 @@ async function loadLegalLinks(ids){
 function legalStatusChip(id){   // batch presence = its connected visa's status; static -> NO chip (honest)
   const l=_LBL[id]; if(!l||!l.connected||!l.status||l.status==='static') return '';
   const _w=l.flag==='spread'?` <span class="law-flag" title="${esc(t('law_spread'))}">⚑</span>`:'';   // R4: issue dates >60 days apart inside one batch
-  return phaseChip(l.status)+_w;
+  return statusChip(visaBandStatus(l.batch_floor,l.batch_ceiling,l.batch_expiry))+_w;   // the batch's range through the ONE life reader (warns on approach, like the visa)
 }
 /* RETIRED FROM THE DOSSIER (2026-08-12) — kept because it is the only code that answers "which
    visa backs this batch", and a man holding two visas would need that answer again.
@@ -730,9 +730,11 @@ function legalChipOrAwait(id){ return legalStatusChip(id) || awaitingLabel(id); 
 /* legal-section case filter — chips like the employee search; each batch bucketed by its case */
 function _batchSectionCase(b){
   const l=_LBL[b.batch_id];
-  if(l && l.status==='expired')  return 'expired';
-  if(l && l.status==='active')   return 'active';
-  if(l && l.status==='expiring') return 'expiring';
+  if(l && l.connected && l.batch_floor && l.batch_ceiling){   // a clocked batch: the SAME band reader as the visa and the roster
+    const k=visaBandStatus(l.batch_floor,l.batch_ceiling,l.batch_expiry).k;
+    return k==='expired' ? 'expired' : (k==='soon'||k==='crit') ? 'expiring' : 'active';   // approach to the floor = قارب الانتهاء
+  }
+  if(l && l.status==='expired')  return 'expired';   // (defensive: a connected row without its range)
   return _batchFlagged(b) ? 'flag' : 'awaiting';   // static → flagged (review) or awaiting
 }
 // the stamp gate, batch-wide: every REQUIRED paper present AND trusted (all its stamps marked).
@@ -1324,20 +1326,9 @@ function badge(dateStr,estimated){
 /* A visa's validity is a RANGE (entry date unknown): floor = issue + مدة الإقامة,
    ceiling = issue + مدة الإقامة + صلاحية الدخول. Three phases — active (today<floor) ·
    expiring/uncertain (floor..ceiling; may already be expired, depends on entry date) · expired (today>ceiling). */
-function phaseChip(status){
-  if(status==='expired') return statusChip({k:'expired',ic:'✕',txt:t('expired')});
-  if(status==='expiring'){
-    const note=LANG==='ar'?'قد تكون منتهية — بحسب تاريخ الدخول':'may have expired — depends on entry date';
-    return statusChip({k:'soon',ic:'!',txt:(LANG==='ar'?'قارب الانتهاء':'Expiring')})
-      +`<span class="est" title="${esc(note)}">${LANG==='ar'?'بحسب الدخول':'per entry'}</span>`; }
-  return statusChip({k:'valid',ic:'✓',txt:t('valid')});   // active — definitely valid
-}
-function visaPhase(v){
-  const fl=v&&v.visa_valid_floor, ce=v&&v.visa_valid_ceiling;
-  if(!fl||!ce) return statusChip(statusFromDays(null));   // missing inputs → honest gray (OCR gate prevents this going forward)
-  const dFloor=daysTo(fl), dCeil=daysTo(ce);
-  return phaseChip(dFloor>0?'active':(dCeil>=0?'expiring':'expired'));
-}
+/* phaseChip was REMOVED (v260) with visaPhase — see below. */
+/* visaPhase was REMOVED (v260): it read the visa as three phases and stayed green until the floor day, while every
+   other surface read visaBandStatus and warned on approach. One life reader now: visaBandStatus. */
 async function openEmployee(pid){
   const [pr,vr,lr,dr]=await Promise.all([
     sb.from('persons').select('*').eq('person_id',pid).maybeSingle(),
