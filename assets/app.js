@@ -156,6 +156,8 @@ const I18N={
     ist_agent_other:'المستندات الأخرى تذهب إلى «الوارد» ولا تُدرج في هذا الجدول', ist_add_more:'أضِف موظفين — اسحب هنا أو انقر', ist_drop_sub:'أو انقر للاختيار · صورة أو PDF · عدة موظفين معًا', ist_big_pick:'دفعة كبيرة — تُرفع من هنا، أبقِ الصفحة مفتوحة. للمجلدات الكبيرة: أداة الرفع',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
+    ist_src_q:'من أين نضيف الموظفين؟', ist_src_pc:'من جهازك', ist_src_pc_s:'صورة أو PDF للجواز — تُقرأ عبر خط القراءة', ist_src_reg:'من السجل', ist_src_reg_s:'ابحث وحدّد موظفين مسجّلين — بلا قراءة جديدة',
+    ist_pk_h:'اختر من السجل', ist_pk_ph:'ابحث بالاسم أو الجواز أو الجنسية…', ist_pk_sel:n=>`${n} محدد`, ist_pk_add:n=>n?`أضِف ${n}`:'أضِف', ist_pk_in:'في الجدول', ist_pk_none:'لا نتائج', ist_pk_more:n=>`يُعرض أول ${n} — ضيّق البحث`, ist_pk_done:n=>`أُضيف ${n} من السجل`, ist_pk_cancel:'إلغاء', ist_pk_keys:'↑↓ تنقّل · مسافة تحديد · Enter إضافة · Esc إغلاق',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
     ist_export:'تصدير', ist_export_tip:'ينزّل الملف بالصيغة المختارة إلى جهازك', ist_export_doc:'تصدير المستند', ist_bundle:'تصدير الملفات الشخصية', ist_fmt_pdf:'مستند جاهز للطباعة', ist_fmt_docx:'مستند قابل للتعديل', ist_fmt_xlsx:'جدول قابل للتعديل', ist_bundle_working:'جارٍ تجميع الملفات…', ist_bundle_done:'تم تنزيل الملفات الشخصية ✓', ist_bundle_fail:'تعذّر التجميع — أعِد المحاولة', ist_bundle_empty:'أضِف موظفاً واحداً على الأقل', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل الملف ✓', ist_pdf_fail:'تعذّر إنشاء الملف — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء الملف…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_waiting:'في الطابور خلف قراءات الجوازات — لحظات', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
     ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
@@ -315,6 +317,8 @@ const I18N={
     ist_agent_wait:'waiting for passports from the uploader…', ist_agent_got:n=>`${n} added from the uploader`,
     ist_agent_other:'Other documents go to «الوارد» and are not added to this table', ist_add_more:'Add employees — drag here or click', ist_drop_sub:'or click to browse · image or PDF · many employees at once', ist_big_pick:'Big batch — uploading from here, keep this page open. For folder-sized batches: the uploader',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
+    ist_src_q:'Where do the employees come from?', ist_src_pc:'From this device', ist_src_pc_s:'A passport image or PDF — read through the OCR line', ist_src_reg:'From the registry', ist_src_reg_s:'Search and tick registered employees — no new read',
+    ist_pk_h:'Pick from the registry', ist_pk_ph:'Search by name, passport or nationality…', ist_pk_sel:n=>`${n} selected`, ist_pk_add:n=>n?`Add ${n}`:'Add', ist_pk_in:'in the table', ist_pk_none:'No results', ist_pk_more:n=>`Showing the first ${n} — narrow the search`, ist_pk_done:n=>`${n} added from the registry`, ist_pk_cancel:'Cancel', ist_pk_keys:'↑↓ move · Space tick · Enter add · Esc close',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
     ist_export:'Export', ist_export_tip:'Downloads the file in the selected format to your device', ist_export_doc:'Export document', ist_bundle:'Personal files', ist_fmt_pdf:'Print-ready document', ist_fmt_docx:'Editable document', ist_fmt_xlsx:'Editable table', ist_bundle_working:'Collecting the files…', ist_bundle_done:'Personal files downloaded ✓', ist_bundle_fail:'Could not collect — try again', ist_bundle_empty:'Add at least one employee', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'File downloaded ✓', ist_pdf_fail:'Could not create the file — try again', ist_pdf_working:'Building your file…', ist_pdf_step1:'Preparing the data', ist_pdf_step2:'Building the official paper', ist_pdf_waiting:'Queued behind the passport readers — a moment', ist_pdf_step3:'Waking the renderer — the first export takes a moment', ist_pdf_step4:'Downloading…',
@@ -3911,7 +3915,7 @@ function istRenderRows(){
   const dz=$('#ist-drop'); if(dz){
     // Like the main OCR drop box (#dz): click = file picker, drop = direct intake (≤12);
     // >12 files (or the gentle link) open the Agent. Nothing bypasses the OCR line.
-    dz.onclick=e=>{ if(e.target.closest('#ist-agent-link')) return; istPickFiles(); };
+    dz.onclick=e=>{ if(e.target.closest('#ist-agent-link')) return; istChooseSource(); };   // v284: PC or registry
     dz.ondragover=e=>{ e.preventDefault(); dz.classList.add('over'); };
     dz.ondragleave=()=>dz.classList.remove('over');
     dz.ondrop=e=>{ e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files.length) istIntake(e.dataTransfer.files); };
@@ -3920,6 +3924,120 @@ function istRenderRows(){
 }
 function istPickFiles(){ const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
   inp.onchange=()=>{ if(inp.files&&inp.files.length) istIntake(inp.files); }; inp.click(); }
+/* ═══ WHERE DO THE EMPLOYEES COME FROM? (v284) ═══════════════════════════════════════════════
+   Clicking the add-zone used to jump straight to the OS file picker. Now it asks, gently, once:
+   «من جهازك» (the OCR line, exactly as before) or «من السجل» — a picker over the registry: one
+   search box, results as you type (the same search_employees_json the roster uses), a tick per
+   employee, the selection kept across searches, and one button that names the count («أضِف 3»).
+   Rows already in the table are shown ticked-and-locked («في الجدول») so nothing is added twice.
+   Drag-and-drop onto the zone is unchanged. Keyboard: ↑↓ move · Space tick · Enter add · Esc close.
+   A registry pick never re-reads a passport: the row is built from the persons record and lands
+   as «landed», then the same FACT fills run (residence ← the passport's country, visited ← visas). */
+function istChooseSource(){
+  let o=$('#ist-src'); if(!o){ o=document.createElement('div'); o.id='ist-src'; $('#istimara').appendChild(o); }
+  o.innerHTML=`<div class="ist-src-box" role="dialog" aria-label="${esc(t('ist_src_q'))}">
+    <div class="ist-src-q">${esc(t('ist_src_q'))}</div>
+    <div class="ist-src-opts">
+      <button class="ist-src-opt" data-src="pc"><span class="ist-src-ic">⬆</span><b>${esc(t('ist_src_pc'))}</b><small>${esc(t('ist_src_pc_s'))}</small></button>
+      <button class="ist-src-opt" data-src="reg"><span class="ist-src-ic">⌕</span><b>${esc(t('ist_src_reg'))}</b><small>${esc(t('ist_src_reg_s'))}</small></button>
+    </div></div>`;
+  const close=()=>{ o.classList.remove('on'); document.removeEventListener('keydown',onKey); };
+  const onKey=e=>{ if(e.key==='Escape'){ e.stopPropagation(); close(); } };
+  o.onclick=e=>{ const b=e.target.closest('[data-src]');
+    if(b){ close(); if(b.dataset.src==='pc') istPickFiles(); else istPickRegistry(); return; }
+    if(!e.target.closest('.ist-src-box')) close(); };
+  document.addEventListener('keydown',onKey);
+  o.classList.add('on'); const first=o.querySelector('[data-src="pc"]'); if(first) first.focus();
+}
+let _ISTPK=null;   // {sel:Map(person_id→row), rows:[], seq, cur}
+function istPkInTable(r){ const no=String(r.passport_no||'').trim(); const pid=r.person_id;
+  return ((_IST&&_IST.rows)||[]).some(x=>(pid&&x._pid===pid)||(no&&String(x.passport_no||'').trim()===no)); }
+function istPickRegistry(){
+  _ISTPK={sel:new Map(), rows:[], seq:0, cur:-1};
+  let m=$('#istpick'); if(!m){ m=document.createElement('div'); m.id='istpick'; $('#istimara').appendChild(m); }
+  m.innerHTML=`<div class="pk-box" role="dialog" aria-label="${esc(t('ist_pk_h'))}">
+    <div class="pk-hd"><b>${esc(t('ist_pk_h'))}</b><span class="pk-keys">${esc(t('ist_pk_keys'))}</span><button class="icon pk-x" title="${esc(t('ist_pk_cancel'))}">✕</button></div>
+    <div class="pk-search"><span class="mag"><svg class="ic"><use href="#i-search"/></svg></span><input id="pk-q" placeholder="${esc(t('ist_pk_ph'))}" autocomplete="off" spellcheck="false"></div>
+    <div class="pk-list" id="pk-list" role="listbox" aria-multiselectable="true"></div>
+    <div class="pk-chips" id="pk-chips" hidden></div>
+    <div class="pk-ft"><span class="pk-count" id="pk-count">${esc(t('ist_pk_sel',0))}</span><span class="spacer"></span>
+      <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button><button class="add pk-add" id="pk-add" disabled>${esc(t('ist_pk_add',0))}</button></div></div>`;
+  const q=$('#pk-q'), list=$('#pk-list');
+  const close=()=>{ m.classList.remove('on'); document.removeEventListener('keydown',onKey); _ISTPK=null; };
+  const onKey=e=>{
+    if(e.key==='Escape'){ e.stopPropagation(); close(); return; }
+    const P=_ISTPK; if(!P) return; const n=P.rows.length;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); if(!n) return;
+      P.cur=e.key==='ArrowDown'?Math.min(n-1,P.cur+1):Math.max(0,P.cur-1); istPkPaintCursor(); return; }
+    if(e.key===' '&&document.activeElement!==q){ e.preventDefault(); if(P.cur>=0) istPkToggle(P.rows[P.cur]); return; }
+    if(e.key===' '&&document.activeElement===q&&!q.value&&P.cur>=0){ e.preventDefault(); istPkToggle(P.rows[P.cur]); return; }
+    if(e.key==='Enter'){ e.preventDefault(); if(P.sel.size) istPkAdd(); return; }
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'){ e.preventDefault();   // tick every visible row that is not already in the table
+      P.rows.forEach(r=>{ if(!istPkInTable(r)&&!P.sel.has(r.person_id)) P.sel.set(r.person_id,r); }); istPkPaint(); }
+  };
+  document.addEventListener('keydown',onKey);
+  m.querySelector('.pk-x').onclick=close; m.querySelector('.pk-cancel').onclick=close;
+  m.onclick=e=>{ if(!e.target.closest('.pk-box')) close(); };
+  $('#pk-add').onclick=()=>istPkAdd();
+  list.onclick=e=>{ const row=e.target.closest('[data-pk]'); if(!row||row.classList.contains('in')) return;
+    const r=_ISTPK.rows.find(x=>x.person_id===row.dataset.pk); if(r) istPkToggle(r); };
+  let tm=null; q.oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>istPkSearch(q.value),160); };
+  m.classList.add('on'); q.focus(); istPkSearch('');
+  m._close=close;
+}
+const IST_PK_CAP=300;
+async function istPkSearch(qv){
+  const P=_ISTPK; if(!P) return; const seq=++P.seq;
+  const got=await rpcJson('search_employees_json',{q:String(qv||'').trim()});
+  if(!_ISTPK||seq!==_ISTPK.seq) return;                       // a newer keystroke won, or the picker closed
+  const rows=(got.data||[]);
+  _ISTPK.rows=(String(qv||'').trim()?rows:sortRows(rows)).slice(0,IST_PK_CAP);
+  _ISTPK.over=rows.length>IST_PK_CAP; _ISTPK.cur=_ISTPK.rows.length?0:-1;
+  istPkPaint();
+}
+function istPkPaint(){
+  const P=_ISTPK; if(!P) return; const list=$('#pk-list'); if(!list) return;
+  if(!P.rows.length){ list.innerHTML=`<div class="pk-empty">${esc(t('ist_pk_none'))}</div>`; istPkFoot(); return; }
+  list.innerHTML=P.rows.map((r,i)=>{ const inT=istPkInTable(r), on=P.sel.has(r.person_id);
+    return `<div class="pk-row${on?' on':''}${inT?' in':''}${i===P.cur?' cur':''}" data-pk="${esc(r.person_id)}" role="option" aria-selected="${on||inT}">
+      <span class="pk-cb">${(on||inT)?'✓':''}</span>
+      <span class="pk-who"><b>${esc(r.name||'')}</b>${r.name_native?` <i>${esc(r.name_native)}</i>`:''}<small>${esc(r.person_id||'')} · ${esc(r.passport_no||'—')} · ${esc(r.nationality||'')}</small></span>
+      ${inT?`<span class="pk-tag">${esc(t('ist_pk_in'))}</span>`:''}</div>`; }).join('')
+    +(P.over?`<div class="pk-empty">${esc(t('ist_pk_more',IST_PK_CAP))}</div>`:'');
+  istPkFoot(); istPkPaintCursor(false);
+}
+function istPkPaintCursor(scroll=true){ const P=_ISTPK; if(!P) return; const list=$('#pk-list'); if(!list) return;
+  list.querySelectorAll('.pk-row').forEach((el,i)=>{ el.classList.toggle('cur',i===P.cur); if(i===P.cur&&scroll) el.scrollIntoView({block:'nearest'}); }); }
+function istPkToggle(r){ const P=_ISTPK; if(!P||!r||istPkInTable(r)) return;
+  if(P.sel.has(r.person_id)) P.sel.delete(r.person_id); else P.sel.set(r.person_id,r);
+  const el=$('#pk-list')&&$('#pk-list').querySelector(`[data-pk="${CSS.escape(r.person_id)}"]`);
+  if(el){ el.classList.toggle('on',P.sel.has(r.person_id)); el.setAttribute('aria-selected',String(P.sel.has(r.person_id))); el.querySelector('.pk-cb').textContent=P.sel.has(r.person_id)?'✓':''; }
+  istPkFoot(); }
+function istPkFoot(){ const P=_ISTPK; if(!P) return; const n=P.sel.size;
+  const c=$('#pk-count'); if(c) c.textContent=t('ist_pk_sel',n);
+  const b=$('#pk-add'); if(b){ b.textContent=t('ist_pk_add',n); b.disabled=!n; }
+  // the selected set, as removable chips — it survives every new search, so the user always sees what «أضِف n» will add
+  const ch=$('#pk-chips'); if(ch){ ch.hidden=!n;
+    ch.innerHTML=[...P.sel.values()].map(r=>`<span class="pk-chip">${esc(r.name||r.person_id)}<button data-unpick="${esc(r.person_id)}" title="${esc(t('ist_pk_cancel'))}">✕</button></span>`).join('');
+    ch.querySelectorAll('[data-unpick]').forEach(x=>x.onclick=e=>{ e.stopPropagation(); const r=P.sel.get(x.dataset.unpick); if(r) istPkToggle(r); else { P.sel.delete(x.dataset.unpick); istPkPaint(); } }); } }
+async function istPkAdd(){
+  const P=_ISTPK; if(!P||!P.sel.size||!_IST) return; const ids=[...P.sel.keys()];
+  const b=$('#pk-add'); if(b) b.disabled=true;
+  let people=[];
+  try{ const {data,error}=await sb.from('persons').select('person_id,name_latin,nationality,passport_no,passport_expiry,issuing_country').in('person_id',ids);
+       if(error) throw error; people=data||[]; }
+  catch(e){ toast((e&&e.message)||String(e)); if(b) b.disabled=false; return; }
+  const byId=new Map(people.map(p=>[p.person_id,p])); let n=0;
+  for(const id of ids){ const p=byId.get(id)||P.sel.get(id); if(!p) continue;
+    if(istPkInTable({person_id:id,passport_no:p.passport_no})) continue;             // never twice
+    const row={name:p.name_latin||p.name||'', nationality:p.nationality||'', passport_no:p.passport_no||'', passport_expiry:p.passport_expiry||'', _status:'landed', _pid:id};
+    _istFactSet(row,'res_country',istResCountry(p));                                // fact: residence ← the passport's country
+    istPrefillRow(row); _IST.rows.push(row); n++;
+    istFactVisited(row,id).catch(()=>{});                                             // fact: visited ← any visa on file
+  }
+  if(n){ _IST._dirty=true; istRenderRows(); toast(t('ist_pk_done',n)); }
+  const m=$('#istpick'); if(m&&m._close) m._close();
+}
 // ⚑ مراجعة → open the SAME OCR review pane on this scan (see the passport, fix the number, confirm). On commit,
 // ikDoAdd writes the corrected data back into this استمارة row (via _rvJob._istRow) and flips it to done.
 function istOpenReview(i){
