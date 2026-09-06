@@ -1408,6 +1408,9 @@ function renderDetail(p,vs,legal,hist){
   // NOT drag this badge to expired, so the detail top badge agrees with the roster (which already
   // ranks by the current visa per country). A missing visa still counts as an unknown slot, so
   // "no visa on record" surfaces as gray "Incomplete" here exactly as in the listing.
+  // ONE band engine for the visa everywhere on this page: the header verdict below AND the visa card's own chip
+  // both read visaBandStatus (warns on approach to the floor). The card used to read visaPhase, which stayed
+  // green «ساري» until the floor day itself — so the header said «ينتهي خلال 26 يوم» while the card said valid.
   const verdict = `<div class="d-verdict">${statusChip(worstOf([statusFromDays(daysTo(p.passport_expiry)),
     ...(curVisas.length?curVisas.map(v=>visaBandStatus(v.visa_valid_floor,v.visa_valid_ceiling,v.visa_expiry)):[statusFromDays(null)])]))}</div>`;
   const P=['passport_no','passport_type','passport_issue','passport_expiry','dob','sex','nationality','place_of_birth','issuing_country','issuing_authority','national_id_no'];
@@ -1416,7 +1419,7 @@ function renderDetail(p,vs,legal,hist){
       <div class="doc-h"><span class="doc-t">${t('t_passport')}</span>${badge(p.passport_expiry)}${docViewBtn(p.passport_scan||p.id_scan)}</div>
       <div class="grid">${P.map(k=>cell(k,p[k])).join('')}</div></div>` : '';
   const visaCards = curVisas.length ? curVisas.map(v=>`<div class="doc">
-      <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${visaPhase(v)}${docViewBtn(v.visa_scan)}</div>
+      <div class="doc-h"><span class="doc-t">${t('t_visa')}</span>${statusChip(visaBandStatus(v.visa_valid_floor,v.visa_valid_ceiling,v.visa_expiry))}${docViewBtn(v.visa_scan)}</div>
       <div class="grid">${V.map(k=>cell(k,v[k])).join('')}</div></div>`).join('')
     : `<div class="doc empty2">${t('t_novisa')}</div>`;
   $('#detail').innerHTML=`
