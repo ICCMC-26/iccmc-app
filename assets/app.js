@@ -150,7 +150,7 @@ const I18N={
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
-    ist_export:'تصدير', ist_export_tip:'ينزّل الملف بالصيغة المختارة إلى جهازك', ist_export_doc:'تصدير المستند', ist_bundle:'تصدير الملفات الشخصية', ist_fmt_pdf:'مستند جاهز للطباعة', ist_fmt_docx:'مستند قابل للتعديل', ist_fmt_xlsx:'جدول قابل للتعديل', ist_bundle_working:'جارٍ تجميع الملفات…', ist_bundle_done:'تم تنزيل الملفات الشخصية ✓', ist_bundle_fail:'تعذّر التجميع — أعِد المحاولة', ist_bundle_empty:'أضِف موظفاً واحداً على الأقل', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل الملف ✓', ist_pdf_fail:'تعذّر إنشاء الملف — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء الملف…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
+    ist_export:'تصدير', ist_export_tip:'ينزّل الملف بالصيغة المختارة إلى جهازك', ist_export_doc:'تصدير المستند', ist_bundle:'تصدير الملفات الشخصية', ist_fmt_pdf:'مستند جاهز للطباعة', ist_fmt_docx:'مستند قابل للتعديل', ist_fmt_xlsx:'جدول قابل للتعديل', ist_bundle_working:'جارٍ تجميع الملفات…', ist_bundle_done:'تم تنزيل الملفات الشخصية ✓', ist_bundle_fail:'تعذّر التجميع — أعِد المحاولة', ist_bundle_empty:'أضِف موظفاً واحداً على الأقل', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل الملف ✓', ist_pdf_fail:'تعذّر إنشاء الملف — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء الملف…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_waiting:'في الطابور خلف قراءات الجوازات — لحظات', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
     ist_not_passport:'ورقة قانونية — ليست جوازاً. هذا الجدول للجوازات فقط؛ عالِجها من قسم المعاملات.', ist_remove:'إزالة',
     mk_ist:'إنشاء استمارة', mk_ist_s:'استمارة سمة الدخول', mk_taa:'إنشاء تعهد', mk_taa_s:'تعهد الشركة بالموظفين',
     taa_h:'تعهد الشركة', taa_title:'م/ تعهد', taa_to:'الى مديرية شؤون الاقامة',
@@ -303,7 +303,7 @@ const I18N={
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
-    ist_export:'Export', ist_export_tip:'Downloads the file in the selected format to your device', ist_export_doc:'Export document', ist_bundle:'Personal files', ist_fmt_pdf:'Print-ready document', ist_fmt_docx:'Editable document', ist_fmt_xlsx:'Editable table', ist_bundle_working:'Collecting the files…', ist_bundle_done:'Personal files downloaded ✓', ist_bundle_fail:'Could not collect — try again', ist_bundle_empty:'Add at least one employee', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'File downloaded ✓', ist_pdf_fail:'Could not create the file — try again', ist_pdf_working:'Building your file…', ist_pdf_step1:'Preparing the data', ist_pdf_step2:'Building the official paper', ist_pdf_step3:'Waking the renderer — the first export takes a moment', ist_pdf_step4:'Downloading…',
+    ist_export:'Export', ist_export_tip:'Downloads the file in the selected format to your device', ist_export_doc:'Export document', ist_bundle:'Personal files', ist_fmt_pdf:'Print-ready document', ist_fmt_docx:'Editable document', ist_fmt_xlsx:'Editable table', ist_bundle_working:'Collecting the files…', ist_bundle_done:'Personal files downloaded ✓', ist_bundle_fail:'Could not collect — try again', ist_bundle_empty:'Add at least one employee', ist_export_empty:'Add at least one employee before exporting', ist_pdf_done:'File downloaded ✓', ist_pdf_fail:'Could not create the file — try again', ist_pdf_working:'Building your file…', ist_pdf_step1:'Preparing the data', ist_pdf_step2:'Building the official paper', ist_pdf_waiting:'Queued behind the passport readers — a moment', ist_pdf_step3:'Waking the renderer — the first export takes a moment', ist_pdf_step4:'Downloading…',
     ist_not_passport:'A legal paper — not a passport. This table is passports only; handle it in the Procedures section.', ist_remove:'Remove',
     mk_ist:'New entry form', mk_ist_s:'Entry-visa form (استمارة)', mk_taa:'New undertaking', mk_taa_s:'Company undertaking (تعهد)',
     taa_h:'Company undertaking', taa_title:'Re / Undertaking', taa_to:'To the Directorate of Residence Affairs',
@@ -4120,6 +4120,46 @@ function istWarmWorker(){
   _istWarmed=Date.now();
   try{ fetch(IST_WORKER,{mode:'no-cors',cache:'no-store'}).catch(()=>{}); }catch(_){}
 }
+/* ── DIRECT WAKE-UP (v268) ───────────────────────────────────────────────────────────────
+   Measured on real exports: the DB trigger's call reached the worker 0.1-40 s after the row was
+   inserted (Supabase's outbound queue hands over batch by batch, and the intake pump's 50-60 s
+   passport reads sit in those batches), and once it never arrived (Cloud Run answered "busy",
+   nobody retried, the export died at the 71 s cap). So the app now calls the worker ITSELF right
+   after inserting the row, signed with the user's own session token (the worker verifies it with
+   Supabase auth; no secret in the browser). The worker claims the row atomically, so the trigger
+   can still fire without a second paper. A "busy" or network answer is retried with backoff. */
+const IST_WAKE_BACKOFF=[1000,2000,4000,8000,15000];   // ≈30 s of patience for a full worker
+async function istWake(id){
+  let tok=null; try{ const {data:{session}}=await sb.auth.getSession(); tok=session&&session.access_token; }catch(_){}
+  if(!tok) return {ok:false, why:'no session'};
+  for(let i=0;i<=IST_WAKE_BACKOFF.length;i++){
+    try{
+      const r=await fetch(IST_WORKER,{method:'POST',cache:'no-store',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
+        body:JSON.stringify({action:'render_istimara', id})});
+      if(r.ok) return {ok:true, tries:i+1};
+      if(r.status===401) return {ok:false, why:'unauthorized'};     // not worth retrying — the trigger path remains
+    }catch(_){}
+    if(i<IST_WAKE_BACKOFF.length) await new Promise(res=>setTimeout(res,IST_WAKE_BACKOFF[i]));
+  }
+  return {ok:false, why:'busy'};
+}
+/* ONE waiter for every export (paper / bundle). Polls the row; keeps waiting while it is still
+   queued or rendering — up to IST_WAIT_MAX_MS, not a fixed number of turns — and after
+   IST_WAIT_NOTE_MS says honestly that the export is waiting behind the passport readers. */
+const IST_WAIT_MAX_MS=180000, IST_WAIT_NOTE_MS=12000;
+async function istAwaitRender(id, onNote){
+  const t0=Date.now(); let row=null, noted=false, i=0;
+  while(Date.now()-t0 < IST_WAIT_MAX_MS){
+    await new Promise(r=>setTimeout(r, i<16?400:1200)); i++;
+    const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,file_path,error').eq('id',id).single();
+    if(r2){ row=r2; const key=row.file_path||row.pdf_path;
+      if(row.status==='done'&&key){ row._key=key; return row; }
+      if(row.status==='error') throw new Error(row.error||'render'); }
+    if(!noted && Date.now()-t0 > IST_WAIT_NOTE_MS && onNote){ noted=true; try{ onNote(); }catch(_){} }
+  }
+  throw new Error('timeout');
+}
 /* The renderer is scale-to-zero, so the FIRST export used to pay the container's
    cold boot (it carries LibreOffice — measured warm renders are ~4-6s, cold is far
    worse). Poking it the moment the workspace opens lets it boot while the user is
@@ -4163,13 +4203,8 @@ async function istExport(fmt){
     if(ie||!ins) throw new Error((ie&&ie.message)||'insert');
     const id=ins.id;
     step('ist_pdf_step2');
-    let row=null;                                        // poll: tight at first (a WARM worker answers in ~3-6s)
-    for(let i=0;i<70;i++){
-      await new Promise(r=>setTimeout(r,i<16?400:1200));
-      const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,file_path,error').eq('id',id).single();
-      if(r2){ row=r2; const key=row.file_path||row.pdf_path; if(row.status==='done'&&key){ row._key=key; break; } if(row.status==='error') throw new Error(row.error||'render'); }
-    }
-    if(!(row&&row.status==='done'&&row._key)) throw new Error('timeout');
+    istWake(id).catch(()=>{});                            // v268: wake the worker directly; the trigger stays as fallback
+    const row=await istAwaitRender(id, ()=>step('ist_pdf_waiting'));
     step('ist_pdf_step4');
     const {data:sig,error:se}=await sb.storage.from('documents').createSignedUrl(row._key,120);
     if(se||!sig) throw new Error('sign');
@@ -4195,13 +4230,9 @@ async function istBundle(){
     const data={ paper:_IST.paper||'istimara', format:'bundle', passports };
     const {data:ins,error:ie}=await sb.from('istimara_renders').insert({data}).select('id').single();
     if(ie||!ins) throw new Error((ie&&ie.message)||'insert');
-    const id=ins.id; let row=null;
-    for(let i=0;i<70;i++){
-      await new Promise(r=>setTimeout(r,i<16?400:1200));
-      const {data:r2}=await sb.from('istimara_renders').select('status,pdf_path,file_path,error').eq('id',id).single();
-      if(r2){ row=r2; const key=row.file_path||row.pdf_path; if(row.status==='done'&&key){ row._key=key; break; } if(row.status==='error') throw new Error(row.error||'render'); }
-    }
-    if(!(row&&row.status==='done'&&row._key)) throw new Error('timeout');
+    const id=ins.id;
+    istWake(id).catch(()=>{});                            // v268: same direct wake-up as the paper
+    const row=await istAwaitRender(id, null);
     const {data:sig,error:se}=await sb.storage.from('documents').createSignedUrl(row._key,120);
     if(se||!sig) throw new Error('sign');
     const resp=await fetch(sig.signedUrl); const blob=await resp.blob();
