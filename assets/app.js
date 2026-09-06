@@ -3958,6 +3958,16 @@ function selOpen(){
        await exportBundle(passports, document.body, 'istimara'); return false; }},
   ]});
 }
+/* Two things the browser print engine does that the in-page rasteriser (html2canvas) cannot, fixed on
+   the stage before rendering (v295): (1) the cover logo is a white SVG turned dark by a CSS filter —
+   filters are not supported, so the SVG's fill is rewritten to ink; (2) the face uses object-fit,
+   also unsupported, so it becomes a background image sized «cover». Letter-spacing is zeroed in CSS
+   (#print.pdfing *) because spaced text is drawn one character at a time, which breaks Arabic joining. */
+function _pdfPrepStage(stage){
+  try{ stage.querySelectorAll('.cv-logo').forEach(lg=>{ const m=/^data:image\/svg\+xml;base64,(.+)$/.exec(lg.getAttribute('src')||'');
+       if(m){ const raw=atob(m[1]).replace(/#fff/gi,'#111').replace(/fill:\s*white/gi,'fill:#111'); lg.src='data:image/svg+xml;base64,'+btoa(raw); } }); }catch(_){}
+  try{ stage.querySelectorAll('.pv-face img').forEach(im=>{ const d=im.parentElement; d.style.background=`url("${im.src}") center/cover no-repeat`; im.remove(); }); }catch(_){}
+}
 /* The dossier ZIP: for each employee the SAME dossier the detail panel prints, rendered page by
    page to a PDF in the browser (html2canvas → jsPDF, A4, landscape for wide scans), then all the
    PDFs in one ZIP. Sequential on purpose — one employee at a time keeps memory flat and the
@@ -3975,7 +3985,7 @@ async function exportDossierZip(rows, host){
       if(note) note.textContent=t('sel_zip_working',i+1,rows.length);
       const d=await fetchEmployee(rows[i].person_id); if(!d) continue;
       const html=await buildDossier(d.p,d.vs,d.legal); if(!html) continue;
-      stage.innerHTML=html; stage.classList.add('pdfing'); await waitImages(stage); _flipWidePages();
+      stage.innerHTML=html; stage.classList.add('pdfing'); _pdfPrepStage(stage); await waitImages(stage); _flipWidePages();
       await new Promise(r=>setTimeout(r,80));     // a plain timer: requestAnimationFrame never fires in a background tab and would hang the build
       const pages=[...stage.querySelectorAll('.pg')]; let pdf=null;
       for(const pg of pages){

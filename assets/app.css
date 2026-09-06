@@ -775,6 +775,8 @@
   #print.pdfing{display:block;position:fixed;left:-30000px;top:0;width:210mm;background:#fff;color:#111;font-family:var(--sans);z-index:-1}
   #print.pdfing .pg{width:210mm;height:297mm;min-height:297mm;background:#fff}
   #print.pdfing .pg.land{width:297mm;height:210mm;min-height:210mm}
+  #print.pdfing *{letter-spacing:0!important}          /* spaced text is drawn per character by the rasteriser → Arabic loses its joins */
+  #print.pdfing .cv-logo{filter:none}                   /* the SVG fill is rewritten to ink instead (filters are not rasterised) */
     #print .pg{box-sizing:border-box;min-height:283mm;padding:15mm 16mm 12mm;
       display:flex;flex-direction:column;overflow:hidden}
     /* break BEFORE each page after the first — never AFTER the last → no trailing blank page */
