@@ -139,7 +139,7 @@ const I18N={
     ist_c_ser:'ت', ist_c_name:'الاسم', ist_c_nat:'الجنسية', ist_c_pass:'رقم الجواز', ist_c_exp:'مدة نفاذية الجواز',
     ist_c_addr:'العنوان الكامل للأقامة داخل العراق', ist_c_border:'اسم المنفذ الحدودي', ist_c_prof:'المهنة', ist_c_country:'بلد الاقامة الحالي', ist_c_visited:'هل سبق زيارة العراق',
     ist_filldown:'تعبئة للأسفل — نسخ هذه القيمة إلى كل الصفوف تحتها', ist_hand_hint:'تُكتب باليد (لا تأتي من قراءة الجواز)',
-    ist_pick:'اقتراحات — الأكثر استعمالاً',
+    ist_pick:'اقتراحات — الأكثر استعمالاً', ist_handle:'اقتراحات · تعبئة للأسفل', ist_fill_menu:'نسخ إلى الصفوف تحتها',
     taa_ph_name:'اسم الموظف', taa_ph_passport_no:'رقم الجواز',
     ist_agent_open:'افتح أداة الرفع', ist_agent_get:'حمِّل أداة الرفع',
     ist_agent_new:'حمِّل تحديث أداة الرفع',
@@ -292,7 +292,7 @@ const I18N={
     ist_c_ser:'No.', ist_c_name:'Name', ist_c_nat:'Nationality', ist_c_pass:'Passport No.', ist_c_exp:'Passport validity',
     ist_c_addr:'Full address of residence in Iraq', ist_c_border:'Border entry point', ist_c_prof:'Profession', ist_c_country:'Current country of residence', ist_c_visited:'Visited Iraq before?',
     ist_filldown:'Fill down — copy this value to all rows below', ist_hand_hint:'Typed by hand (not read from the passport)',
-    ist_pick:'Suggestions — most used',
+    ist_pick:'Suggestions — most used', ist_handle:'Suggestions · fill down', ist_fill_menu:'Copy to the rows below',
     taa_ph_name:'employee name', taa_ph_passport_no:'passport number',
     ist_agent_open:'Open the uploader', ist_agent_get:'Get the uploader',
     ist_agent_new:'Download the uploader update',
@@ -3578,21 +3578,33 @@ function istPrefillRow(row){
 }
 /* The ranked alternatives, on demand. Shows the counts because "used 106 times" and "used once"
    are different kinds of suggestion and the user deserves to see which is which. */
+/* ⤓ fill-down: carry this cell's value to every row below it (Excel's fill handle). Called from the
+   cell handle's menu since v267 (was its own button). */
+function istFillDown(i,k){
+  const r0=_IST.rows[i]; if(!r0) return;
+  const v=r0[k]||''; for(let j=i+1;j<_IST.rows.length;j++){ if(_IST.rows[j]) _IST.rows[j][k]=v; }
+  _IST._dirty=true; istRenderRows();
+}
 function istPickMenu(btn){
   document.querySelectorAll('.ist-menu').forEach(m=>m.remove());
-  document.querySelectorAll('.ist-pick.open').forEach(b=>b.classList.remove('open'));
+  document.querySelectorAll('.ist-pick.open,.ist-handle.open').forEach(b=>b.classList.remove('open'));
   btn.classList.add('open');            // chevron flips 180° while its menu is open (kiosk behaviour)
   const field=btn.dataset.pick, ri=btn.dataset.ri, list=istDefs(field);
-  if(!list.length) return;
+  const isRow=(ri!==undefined && ri!=='');            // a ROW cell's menu always has the fill-down line
+  if(!list.length && !isRow) return;
   const m=document.createElement('div'); m.className='ist-menu';
   m.innerHTML=list.map((d,i)=>`<button data-v="${esc(d.value)}"><span>${esc(d.value)}</span>`
-    +`<em>${d.seen?('×'+d.seen):''}</em></button>`).join('');
+    +`<em>${d.seen?('×'+d.seen):''}</em></button>`).join('')
+    +(isRow ? (list.length?`<div class="ist-mdiv"></div>`:'')
+             +`<button class="ist-mfill" data-fill="1"><span>⤓ ${esc(t('ist_fill_menu'))}</span><em></em></button>` : '');
   // v266: hang the menu off the CELL, not the ▾/⤓ group — since v263 that group fades out when the
   // pointer leaves the cell, and the pointer must leave the cell to reach the menu below it, so
   // the menu (its child) faded to a ghost and picks landed on nothing. Header fields keep .ist-fw.
   (btn.closest('.ist-hcell')||btn.parentNode).appendChild(m);
   m.querySelectorAll('button').forEach(b=>b.onclick=e=>{
-    e.stopPropagation(); const v=b.dataset.v;
+    e.stopPropagation();
+    if(b.dataset.fill){ m.remove(); btn.classList.remove('open'); istFillDown(+ri, field); return; }   // ⤓ from the menu
+    const v=b.dataset.v;
     if(ri!==undefined && ri!==''){ const r=_IST.rows[+ri];
       if(r){ r[field]=v; if(r._pre) delete r._pre[field]; } istRenderRows(); }
     else { _IST.header[field]=v; if(_IST._pre) delete _IST._pre[field];
@@ -3783,9 +3795,9 @@ function istRenderRows(){
          positioning them independently put them a few pixels apart and they read as a single
          smudge; a flex group gives them a real gap and equal size, so each is aimable. */
       if(c.hand) return `<td class="ist-hcell"><input class="ist-hin${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}" placeholder="${esc((r._sug&&r._sug[c.k])||istDef1(c.k))}">`
-        +`<span class="ist-cacts">`
-        +(istDefs(c.k).length>0?`<button class="ist-pick" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_pick'))}"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`:'')
-        +`<button class="ist-fill" data-fi="${i}" data-fk="${c.k}" tabindex="-1" title="${esc(t('ist_filldown'))}">⤓</button></span></td>`;
+        // v267: ONE corner handle (Excel's fill handle, in copper) opens a menu that carries both jobs —
+        // the ranked suggestions, then «⤓ نسخ إلى الصفوف تحتها». It sits on the cell's corner, never on the value.
+        +`<button class="ist-handle" data-pick="${c.k}" data-ri="${i}" tabindex="-1" title="${esc(t('ist_handle'))}"></button></td>`;
       /* EDITABLE but not "hand-typed": the value still arrives from the passport, it is simply
          correctable here. A wrong letter gets the paper refused at the counter, and the operator
          holding the passport is the one who can see it. It edits the DRAFT only — the registry is
@@ -3813,10 +3825,7 @@ function istRenderRows(){
     inp.classList.remove('ist-pre'); });
   tb.querySelectorAll('.ist-ein').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri];
     if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; } });
-  tb.querySelectorAll('.ist-pick').forEach(b=>b.onclick=e=>{ e.stopPropagation(); istPickMenu(b); });
-  tb.querySelectorAll('.ist-fill').forEach(b=>b.onclick=()=>{ const i=+b.dataset.fi, k=b.dataset.fk, r0=_IST.rows[i]; if(!r0)return;
-    const v=r0[k]||''; for(let j=i+1;j<_IST.rows.length;j++){ if(_IST.rows[j]) _IST.rows[j][k]=v; }   // carry this value to every row below
-    _IST._dirty=true; istRenderRows(); });
+  tb.querySelectorAll('.ist-pick,.ist-handle').forEach(b=>b.onclick=e=>{ e.stopPropagation(); istPickMenu(b); });
   // remove an UNCOMMITTED row (refused / pending-review): also clear its worker scan_jobs row so nothing
   // lingers in the review queue — no leaks. (The storage blob is swept by the janitor, sweep_orphan_files,
   // which is hash-protected so it never deletes a committed document's shared scan.) A committed/landed row

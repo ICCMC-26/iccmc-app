@@ -886,7 +886,7 @@
     body.ist-print .ist-addrow,body.ist-print .ist-review,
     body.ist-print .ist-row-busy,body.ist-print .ist-row-err,
     body.ist-print .ist-ph-hint,body.ist-print .ist-ph-x,
-    body.ist-print .ist-fill{display:none!important}   /* upload box · ⚑ badges · busy rows · photo hint/✕ · fill-down ⤓ */
+    body.ist-print .ist-fill,body.ist-print .ist-handle{display:none!important}   /* upload box · ⚑ badges · busy rows · photo hint/✕ · fill-down ⤓ */
     body.ist-print .ist-hcell{background:#fff!important}                 /* hand cells print clean (no copper tint) */
     body.ist-print .ist-hin{background:transparent!important;font-size:11pt}
     body.ist-print .ist-photo{background:#fff}
@@ -1340,14 +1340,17 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
    Now one flex group with a real gap, equal 18×16 targets, each with its own tint so the eye
    can tell "offer me choices" from "copy this downward" without reading the tooltip. */
 .ist-hcell{position:relative}
-.ist-cacts{position:absolute;inset-inline-end:2px;top:50%;transform:translateY(-50%);display:flex;gap:4px;
-  align-items:center;pointer-events:none;opacity:0;transition:opacity .1s;
-  background:inherit;padding-inline-start:4px;border-radius:4px}
-.ist-cacts>*{pointer-events:auto}
-/* v263: the two controls are HIDDEN at rest so the value owns the whole cell (the old 46px gutter
-   clipped the narrow columns in the mould); they surface on hover or while the cell is focused,
-   on a patch of the cell's own colour so they never sit on top of the text. */
-.ist-hcell:hover .ist-cacts,.ist-hcell:focus-within .ist-cacts,.ist-hcell:has(.ist-pick.open) .ist-cacts{opacity:1}   /* v266: stays while its menu is open */
+/* v267: ONE corner handle per hand cell — Excel's fill handle, in copper. It sits ON the cell's
+   bottom-end corner, so it never touches the value (the v263 pair surfaced over the last word);
+   hidden at rest, shown on hover/focus, and it stays while its menu is open. The menu carries both
+   jobs: the ranked suggestions, then «⤓ نسخ إلى الصفوف تحتها». */
+.ist-handle{position:absolute;inset-inline-end:-1px;bottom:-1px;width:12px;height:12px;padding:0;margin:0;
+  border:1.5px solid #fff;border-radius:3px;background:var(--copper);box-shadow:0 0 0 .5pt #000;
+  cursor:pointer;opacity:0;transition:opacity .1s,transform .1s;z-index:3}
+.ist-hcell:hover .ist-handle,.ist-hcell:focus-within .ist-handle,.ist-handle.open{opacity:1}
+.ist-handle:hover,.ist-handle.open{transform:scale(1.25)}
+.ist-menu .ist-mdiv{height:1px;background:rgba(20,20,20,.10);margin:5px 6px}
+.ist-menu button.ist-mfill{color:#3f6f6f;font-weight:600}
 .ist-hcell:hover{background:rgba(197,149,107,.10)}
 
 /* shared shape so the pair looks deliberate rather than accidental */
