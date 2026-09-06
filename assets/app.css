@@ -769,6 +769,12 @@
     body::before,body::after{display:none!important}  /* the ambient diamond wash never prints */
     #app,#gate,#toast,#lightbox,#intake,#detail,#ikreview,#legalform,#istimara{display:none!important}
     #print{display:block!important;color:#111;font-family:var(--sans)}
+  }
+  /* dossier layout — ONE set of rules for print AND the in-browser PDF renderer (v288). On screen #print
+     stays display:none, so these apply only when it is shown: by @media print, or by .pdfing below. */
+  #print.pdfing{display:block;position:fixed;left:-30000px;top:0;width:210mm;background:#fff;color:#111;font-family:var(--sans);z-index:-1}
+  #print.pdfing .pg{width:210mm;height:297mm;min-height:297mm;background:#fff}
+  #print.pdfing .pg.land{width:297mm;height:210mm;min-height:210mm}
     #print .pg{box-sizing:border-box;min-height:283mm;padding:15mm 16mm 12mm;
       display:flex;flex-direction:column;overflow:hidden}
     /* break BEFORE each page after the first — never AFTER the last → no trailing blank page */
@@ -873,7 +879,6 @@
     #print .lb-print th{background:#f2f2f2;font-weight:800;color:#111}
     #print .lb-print td{color:#111;font-family:var(--mono);font-variant-numeric:tabular-nums}
     #print .lb-print tr{break-inside:avoid}
-  }
   /* ── S4 · استمارة EXPORT — print the LIVE .ist-page (WYSIWYG) on a LANDSCAPE A4, cues stripped.
      Set by istExport() adding `body.ist-print`; wins over the dossier print rules by specificity. ── */
   @media print{
@@ -1003,7 +1008,9 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
    from the Word template in the PDF, so this copy is screen-only. */
 /* ── export progress — the renderer is scale-to-zero, so the FIRST export waits for it to wake.
    A spinner + a staged, honest line beats a silent button that looks broken. ── */
-.ist-wait{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:rgba(8,12,11,.72);
+.ist-wait{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:rgba(8,12,11,.72);}
+.ist-wait.fixed{position:fixed;z-index:90}
+.ist-wait{
   -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
 .ist-wait-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 30px;
   text-align:center;box-shadow:0 18px 46px rgba(0,0,0,.5);max-width:min(86vw,360px)}
@@ -1528,3 +1535,6 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .pk-count{font-size:13px;color:var(--muted);font-family:var(--mono)}
 .pk-add[disabled]{opacity:.45;cursor:default}
 @media (max-width:640px){ .ist-src-opts{grid-template-columns:1fr} }
+/* the main page's «what do you want?» step inside the picker (v288) */
+.sel-opts{padding:16px 16px 6px}
+.pk-box .sel-opts .ist-src-opt{padding:20px 14px 16px}

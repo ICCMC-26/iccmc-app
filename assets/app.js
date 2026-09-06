@@ -157,6 +157,9 @@ const I18N={
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_src_q:'من أين نضيف الموظفين؟', ist_src_pc:'من جهازك', ist_src_pc_s:'صورة أو PDF للجواز — تُقرأ عبر خط القراءة', ist_src_reg:'من السجل', ist_src_reg_s:'ابحث وحدّد موظفين مسجّلين — بلا قراءة جديدة',
+    sel_btn:'تحديد', sel_h:'حدّد موظفين', sel_next:n=>n?`متابعة ${n}`:'متابعة', sel_q:n=>`ماذا تريد لـ ${n} موظفًا؟`, sel_back:'رجوع',
+    sel_bundle_s:'جواز كل موظف ثم تأشيرته إن وُجدت — الكل في ملف PDF واحد', sel_dossier:'ملفات الموظفين', sel_dossier_s:'ملف PDF كامل لكل موظف — الكل في مجلد ZIP واحد',
+    sel_zip_working:(i,n)=>`جارٍ إنشاء الملفات… ${i} / ${n}`, sel_zip_done:n=>`تم تنزيل ${n} ملفًا في مجلد ZIP ✓`, sel_zip_fail:'تعذّر إنشاء الملفات — أعِد المحاولة', sel_zip_none:'لم يُبنَ أي ملف',
     ist_pk_h:'اختر من السجل', ist_pk_ph:'ابحث بالاسم أو الجواز أو الجنسية…', ist_pk_sel:n=>`${n} محدد`, ist_pk_add:n=>n?`أضِف ${n}`:'أضِف', ist_pk_in:'في الجدول', ist_pk_none:'لا نتائج', ist_pk_more:n=>`يُعرض أول ${n} — ضيّق البحث`, ist_pk_done:n=>`أُضيف ${n} من السجل`, ist_pk_cancel:'إلغاء', ist_pk_keys:'↑↓ تنقّل · مسافة تحديد · Enter إضافة · Esc إغلاق',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
     ist_export:'تصدير', ist_export_tip:'ينزّل الملف بالصيغة المختارة إلى جهازك', ist_export_doc:'تصدير المستند', ist_bundle:'تصدير الملفات الشخصية', ist_fmt_pdf:'مستند جاهز للطباعة', ist_fmt_docx:'مستند قابل للتعديل', ist_fmt_xlsx:'جدول قابل للتعديل', ist_bundle_working:'جارٍ تجميع الملفات…', ist_bundle_done:'تم تنزيل الملفات الشخصية ✓', ist_bundle_fail:'تعذّر التجميع — أعِد المحاولة', ist_bundle_empty:'أضِف موظفاً واحداً على الأقل', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل الملف ✓', ist_pdf_fail:'تعذّر إنشاء الملف — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء الملف…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_waiting:'في الطابور خلف قراءات الجوازات — لحظات', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
@@ -318,6 +321,9 @@ const I18N={
     ist_agent_other:'Other documents go to «الوارد» and are not added to this table', ist_add_more:'Add employees — drag here or click', ist_drop_sub:'or click to browse · image or PDF · many employees at once', ist_big_pick:'Big batch — uploading from here, keep this page open. For folder-sized batches: the uploader',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_src_q:'Where do the employees come from?', ist_src_pc:'From this device', ist_src_pc_s:'A passport image or PDF — read through the OCR line', ist_src_reg:'From the registry', ist_src_reg_s:'Search and tick registered employees — no new read',
+    sel_btn:'Select', sel_h:'Select employees', sel_next:n=>n?`Continue ${n}`:'Continue', sel_q:n=>`What do you want for ${n} employees?`, sel_back:'Back',
+    sel_bundle_s:"Each employee's passport, then the visa if any — all in one PDF", sel_dossier:'Employee dossiers', sel_dossier_s:'One complete PDF per employee — all in one ZIP folder',
+    sel_zip_working:(i,n)=>`Building the files… ${i} / ${n}`, sel_zip_done:n=>`${n} files downloaded in a ZIP folder ✓`, sel_zip_fail:'Could not build the files — try again', sel_zip_none:'No file could be built',
     ist_pk_h:'Pick from the registry', ist_pk_ph:'Search by name, passport or nationality…', ist_pk_sel:n=>`${n} selected`, ist_pk_add:n=>n?`Add ${n}`:'Add', ist_pk_in:'in the table', ist_pk_none:'No results', ist_pk_more:n=>`Showing the first ${n} — narrow the search`, ist_pk_done:n=>`${n} added from the registry`, ist_pk_cancel:'Cancel', ist_pk_keys:'↑↓ move · Space tick · Enter add · Esc close',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
@@ -354,6 +360,7 @@ function applyLang(){
   $('#glang').textContent=L.other; $('#tlang').textContent=LANG==='ar'?'EN':'ع';
   $('#addtxt').textContent=t('add'); $('#q').placeholder=LAWMODE?t('law_ph'):t('ph');
   { const bl=$('#blawtxt'); if(bl)bl.textContent=t('law_btn'); }
+  { const bs=$('#bseltxt'); if(bs)bs.textContent=t('sel_btn'); }
   { const bp=$('#bpendtxt'); if(bp)bp.textContent=t('pq_btn');
     const bh=$('#pq-bar-h'); if(bh)bh.textContent=t('pq_h');
     // the queue re-labels itself too, or it would keep the old language until reopened
@@ -1376,7 +1383,9 @@ function badge(dateStr,estimated){
 /* phaseChip was REMOVED (v260) with visaPhase — see below. */
 /* visaPhase was REMOVED (v260): it read the visa as three phases and stayed green until the floor day, while every
    other surface read visaBandStatus and warned on approach. One life reader now: visaBandStatus. */
-async function openEmployee(pid){
+/* ONE loader for an employee's file (v288): the detail panel and the dossier ZIP read the same four
+   questions, so a dossier built in bulk is the same dossier the panel prints — never a second shape. */
+async function fetchEmployee(pid){
   const [pr,vr,lr,dr]=await Promise.all([
     sb.from('persons').select('*').eq('person_id',pid).maybeSingle(),
     sb.from('visas').select('*').eq('person_id',pid),
@@ -1386,12 +1395,17 @@ async function openEmployee(pid){
     // visas at once, which the single-current ledger can't model) — shown by visaHistCard below.
     sb.from('person_documents').select('doc_type,doc_no,issue_date,expiry_date,valid_to,scan_path')
       .eq('person_id',pid).eq('doc_type','passport').not('valid_to','is',null).order('valid_to',{ascending:false})]);
-  const p=pr.data; if(!p){toast('—');return}
+  const p=pr.data; if(!p) return null;
   const vs=(vr.data||[]).slice().sort((a,b)=>String(a.visa_expiry||'~').localeCompare(String(b.visa_expiry||'~')));
   const legal=lr.data||[];
   await loadLegalLinks(legal.map(m=>(m.batch&&m.batch.batch_id)||m.batch_id));
+  return {p, vs, legal, hist:(dr&&dr.data)||[]};
+}
+async function openEmployee(pid){
+  const d=await fetchEmployee(pid); if(!d){toast('—');return}
+  const {p,vs,legal}=d;
   CURRENT_P=p; CURRENT_VS=vs; CURRENT_LEGAL=legal;   // subject of the print dossier
-  CURRENT_HIST=(dr&&dr.data)||[];                    // kept so applyLang can REDRAW this panel in the new language
+  CURRENT_HIST=d.hist;                               // kept so applyLang can REDRAW this panel in the new language
   renderDetail(p,vs,legal,CURRENT_HIST); $('#detail').classList.add('on'); document.body.style.overflow='hidden';
   const av=$('#detail .d-face');
   // the big avatar loads the 480px crop (sharp at 152px), thumb as a fallback, initials if both
@@ -1493,11 +1507,13 @@ const _libP={};
 function _loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('script load failed: '+src)); document.head.appendChild(s); }); }
 // load ONE lib on demand (cached). Per-format so a broken docx-preview can't stop Excel from rendering.
 function ensureLib(kind){
-  const G={jszip:'JSZip',xlsx:'XLSX',docx:'docx'}[kind];
+  const G={jszip:'JSZip',xlsx:'XLSX',docx:'docx',html2canvas:'html2canvas',jspdf:'jspdf'}[kind];
   if(typeof window[G]!=='undefined') return Promise.resolve();
   if(!_libP[kind]){ const S={
       jszip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
       xlsx :'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+      html2canvas:'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+      jspdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
       docx :'assets/docx-preview.min.js?v=1' }[kind];
     _libP[kind]=_loadScript(S).catch(e=>{ _libP[kind]=null; throw e; }); }
   return _libP[kind];
@@ -1667,8 +1683,8 @@ const PRINT_DOCS=[
     fields:['visa_no','visa_type','visa_country','visa_issue','visa_expiry','visa_entry_days','visa_stay_days'],
     expiry:r=>r.visa_expiry, estimated:r=>r.visa_expiry_basis==='estimated', scan:r=>r.visa_scan },
 ];
-async function buildDossier(){
-  const p=CURRENT_P, vs=CURRENT_VS||[]; if(!p)return '';
+async function buildDossier(P,VS,LG){
+  const p=P||CURRENT_P, vs=VS||CURRENT_VS||[]; if(!p)return '';
   const name=p.name_latin||p.name_native||'—';
   const curVs=splitVisas(vs).cur;   // the dossier's overall status reflects CURRENT visas, not superseded ones
   const st=worstOf([statusFromDays(daysTo(p.passport_expiry)),
@@ -1694,7 +1710,7 @@ async function buildDossier(){
   // LEGAL FILE — his batches (own list shape; appended after the passport/visa cards).
   // legalCard() only renders HIS batches with HIS serial, so in print each row is highlighted
   // yellow = "he is covered here". Any attached تعهد/استمارة/منح scans print as their own pages.
-  const legal=CURRENT_LEGAL||[];
+  const legal=LG||CURRENT_LEGAL||[];
   if(legal.length){
     cards+=legalCard(legal);
     const seenB={};
@@ -2977,6 +2993,7 @@ $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.aut
 $('#add').addEventListener('click',openIntake);
 $('#blaw').addEventListener('click',()=>setLaw(!LAWMODE));
 $('#bboard').addEventListener('click',openBoard);
+$('#bsel').addEventListener('click',selOpen);
 // Escape closes the board — it is a page you look at, so the way out must never need aiming.
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape' && $('#board') && $('#board').classList.contains('on')) closeBoard();
@@ -3924,6 +3941,82 @@ function istRenderRows(){
 }
 function istPickFiles(){ const inp=document.createElement('input'); inp.type='file'; inp.multiple=true; inp.accept='image/*,application/pdf';
   inp.onchange=()=>{ if(inp.files&&inp.files.length) istIntake(inp.files); }; inp.click(); }
+/* ═══ SELECT ON THE MAIN PAGE (v288) ═════════════════════════════════════════════════════════
+   «تحديد» opens the SAME picker as the form builder. «متابعة n» swaps the dialog's body for one
+   question — what do you want for these n employees? — with two answers:
+     · تصدير الملفات الشخصية → the worker's bundle (passport then visa, per employee, one PDF);
+     · ملفات الموظفين        → the print dossier of each employee, rendered to a PDF in the browser,
+                               all in one ZIP folder (one file per employee, named by name + passport).
+   Both reuse the engines that already exist (exportBundle · buildDossier); nothing is re-read. */
+function selOpen(){
+  if(typeof LAWMODE!=='undefined' && LAWMODE) return;
+  openPicker({host:document.body, title:t('sel_h'), isIn:()=>false, addLabel:n=>t('sel_next',n), onConfirm:selChoose});
+}
+async function selChoose(rows, dlg){
+  const box=dlg.querySelector('.pk-box'); if(!box) return false;
+  const n=rows.length;
+  const saved=box.innerHTML;                       // «رجوع» restores the list exactly as it was
+  box.innerHTML=`<div class="pk-hd"><b>${esc(t('sel_q',n))}</b><span class="spacer"></span><button class="icon pk-x" title="${esc(t('ist_pk_cancel'))}">✕</button></div>
+    <div class="ist-src-opts sel-opts">
+      <button class="ist-src-opt" data-sel="bundle"><span class="ist-src-ic">⇩</span><b>${esc(t('ist_bundle'))}</b><small>${esc(t('sel_bundle_s'))}</small></button>
+      <button class="ist-src-opt" data-sel="dossier"><span class="ist-src-ic">🗂</span><b>${esc(t('sel_dossier'))}</b><small>${esc(t('sel_dossier_s'))}</small></button>
+    </div>
+    <div class="pk-ft"><button class="add quiet sel-back">‹ ${esc(t('sel_back'))}</button><span class="spacer"></span><span class="pk-count">${esc(t('ist_pk_sel',n))}</span></div>`;
+  box.querySelector('.pk-x').onclick=istPkClose;
+  box.querySelector('.sel-back').onclick=()=>{ box.innerHTML=saved;                   // back to the list, selection intact
+    box.querySelector('.pk-x').onclick=istPkClose; box.querySelector('.pk-cancel').onclick=istPkClose;
+    $('#pk-add').onclick=()=>istPkConfirm(); const q=$('#pk-q'); if(q){ let tm=null; q.oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>istPkSearch(q.value),160); }; }
+    const list=$('#pk-list'); if(list) list.onclick=e=>{ const row=e.target.closest('[data-pk]'); if(!row||row.classList.contains('in')) return; const r=_ISTPK.rows.find(x=>x.person_id===row.dataset.pk); if(r) istPkToggle(r); };
+    istPkPaint(); };
+  box.querySelectorAll('[data-sel]').forEach(b=>b.onclick=async()=>{
+    const which=b.dataset.sel; istPkClose();
+    if(which==='bundle'){ const passports=[...new Set(rows.map(r=>(r.passport_no||'').trim()).filter(Boolean))]; await exportBundle(passports, document.body, 'istimara'); }
+    else await exportDossierZip(rows, document.body);
+  });
+  return true;                                     // keep the dialog: the question lives in it
+}
+/* The dossier ZIP: for each employee the SAME dossier the detail panel prints, rendered page by
+   page to a PDF in the browser (html2canvas → jsPDF, A4, landscape for wide scans), then all the
+   PDFs in one ZIP. Sequential on purpose — one employee at a time keeps memory flat and the
+   progress honest («3 / 8»). The on-screen #print stage is used and cleared afterwards. */
+async function exportDossierZip(rows, host){
+  if(!rows||!rows.length) return false;
+  const ov=_waitOverlay(host||document.body, t('sel_zip_working',0,rows.length), '');
+  const note=ov.querySelector('.ist-wait-t');
+  const stage=$('#print'); const keep={p:CURRENT_P,vs:CURRENT_VS,lg:CURRENT_LEGAL};
+  let built=0, names=[], bytes=0;
+  try{
+    await ensureLib('jszip'); await ensureLib('html2canvas'); await ensureLib('jspdf');
+    const zip=new JSZip(); const {jsPDF}=window.jspdf;
+    for(let i=0;i<rows.length;i++){
+      if(note) note.textContent=t('sel_zip_working',i+1,rows.length);
+      const d=await fetchEmployee(rows[i].person_id); if(!d) continue;
+      const html=await buildDossier(d.p,d.vs,d.legal); if(!html) continue;
+      stage.innerHTML=html; stage.classList.add('pdfing'); await waitImages(stage); _flipWidePages();
+      await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,60)));
+      const pages=[...stage.querySelectorAll('.pg')]; let pdf=null;
+      for(const pg of pages){
+        const land=pg.classList.contains('land');
+        const cv=await html2canvas(pg,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:pg.offsetWidth,height:pg.offsetHeight});
+        const img=cv.toDataURL('image/jpeg',0.9);
+        if(!pdf) pdf=new jsPDF({orientation:land?'landscape':'portrait',unit:'mm',format:'a4',compress:true});
+        else pdf.addPage('a4', land?'landscape':'portrait');
+        const W=land?297:210, H=land?210:297;
+        pdf.addImage(img,'JPEG',0,0,W,H,undefined,'FAST');
+      }
+      if(!pdf) continue;
+      const blob=pdf.output('blob'); bytes+=blob.size;
+      const nm=String(d.p.name_latin||d.p.name_native||d.p.person_id).replace(/[\\/:*?"<>|]+/g,' ').trim();
+      const fn=`${nm}${d.p.passport_no?' — '+d.p.passport_no:''}.pdf`; names.push(fn);
+      zip.file(fn, blob); built++;
+    }
+    if(!built){ toast(t('sel_zip_none')); return false; }
+    const out=await zip.generateAsync({type:'blob'});
+    window.__lastExport={files:built, names, bytes, zipBytes:out.size};   // a hook for the live check
+    _downloadBlob(out,'ملفات الموظفين.zip'); toast(t('sel_zip_done',built)); return true;
+  }catch(e){ console.warn('exportDossierZip',e); toast(t('sel_zip_fail')); return false; }
+  finally{ stage.classList.remove('pdfing'); stage.innerHTML=''; CURRENT_P=keep.p; CURRENT_VS=keep.vs; CURRENT_LEGAL=keep.lg; ov.remove(); }
+}
 /* ═══ WHERE DO THE EMPLOYEES COME FROM? (v284) ═══════════════════════════════════════════════
    Clicking the add-zone used to jump straight to the OS file picker. Now it asks, gently, once:
    «من جهازك» (the OCR line, exactly as before) or «من السجل» — a picker over the registry: one
@@ -3953,14 +4046,22 @@ let _ISTPK=null;   // {sel:Map(person_id→row), rows:[], seq, cur}
 function istPkInTable(r){ const no=String(r.passport_no||'').trim(); const pid=r.person_id;
   return ((_IST&&_IST.rows)||[]).some(x=>(pid&&x._pid===pid)||(no&&String(x.passport_no||'').trim()===no)); }
 function istPickRegistry(){
-  _ISTPK={sel:new Map(), rows:[], seq:0, cur:-1};
-  let m=$('#istpick'); if(!m){ m=document.createElement('div'); m.id='istpick'; $('#istimara').appendChild(m); }
+  return openPicker({host:$('#istimara'), title:t('ist_pk_h'), isIn:istPkInTable, addLabel:n=>t('ist_pk_add',n),
+                     onConfirm:async rows=>{ await istAddFromRegistry(rows); return false; }});
+}
+/* THE PICKER (v288) — one dialog, two homes: the form builder (adds rows) and the main page (exports).
+   opts: host · title · isIn(r) rows shown locked · addLabel(n) · onConfirm(rows, dialog) → true keeps
+   the dialog open (the main page swaps in its next question), false closes it. */
+function openPicker(opts){
+  _ISTPK={sel:new Map(), rows:[], seq:0, cur:-1, opts};
+  let m=$('#istpick'); if(!m){ m=document.createElement('div'); m.id='istpick'; }
+  (opts.host||document.body).appendChild(m);
   m.innerHTML=`<div class="pk-box" role="dialog" aria-label="${esc(t('ist_pk_h'))}">
-    <div class="pk-hd"><b>${esc(t('ist_pk_h'))}</b><span class="spacer"></span><button class="icon pk-x" title="${esc(t('ist_pk_cancel'))}">✕</button></div>
+    <div class="pk-hd"><b>${esc(opts.title||t('ist_pk_h'))}</b><span class="spacer"></span><button class="icon pk-x" title="${esc(t('ist_pk_cancel'))}">✕</button></div>
     <div class="pk-search"><span class="mag"><svg class="ic"><use href="#i-search"/></svg></span><input id="pk-q" placeholder="${esc(t('ist_pk_ph'))}" autocomplete="off" spellcheck="false"></div>
     <div class="pk-list" id="pk-list" role="listbox" aria-multiselectable="true"></div>
     <div class="pk-ft"><span class="pk-count" id="pk-count">${esc(t('ist_pk_sel',0))}</span><span class="spacer"></span>
-      <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button><button class="add pk-add" id="pk-add" disabled>${esc(t('ist_pk_add',0))}</button></div></div>`;
+      <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button><button class="add pk-add" id="pk-add" disabled>${esc(opts.addLabel(0))}</button></div></div>`;
   const q=$('#pk-q'), list=$('#pk-list');
   const close=()=>{ m.classList.remove('on'); document.removeEventListener('keydown',onKey); if(_ISTPK&&_ISTPK.io) _ISTPK.io.disconnect(); _ISTPK=null; };
   const onKey=e=>{
@@ -3970,14 +4071,14 @@ function istPickRegistry(){
       P.cur=e.key==='ArrowDown'?Math.min(n-1,P.cur+1):Math.max(0,P.cur-1); istPkPaintCursor(); return; }
     if(e.key===' '&&document.activeElement!==q){ e.preventDefault(); if(P.cur>=0) istPkToggle(P.rows[P.cur]); return; }
     if(e.key===' '&&document.activeElement===q&&!q.value&&P.cur>=0){ e.preventDefault(); istPkToggle(P.rows[P.cur]); return; }
-    if(e.key==='Enter'){ e.preventDefault(); if(P.sel.size) istPkAdd(); return; }
+    if(e.key==='Enter'){ e.preventDefault(); if(P.sel.size) istPkConfirm(); return; }
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'){ e.preventDefault();   // tick every visible row that is not already in the table
-      P.rows.forEach(r=>{ if(!istPkInTable(r)&&!P.sel.has(r.person_id)) P.sel.set(r.person_id,r); }); istPkPaint(); }
+      P.rows.forEach(r=>{ if(!_pkIsIn(r)&&!P.sel.has(r.person_id)) P.sel.set(r.person_id,r); }); istPkPaint(); }
   };
   document.addEventListener('keydown',onKey);
   m.querySelector('.pk-x').onclick=close; m.querySelector('.pk-cancel').onclick=close;
   m.onclick=e=>{ if(!e.target.closest('.pk-box')) close(); };
-  $('#pk-add').onclick=()=>istPkAdd();
+  $('#pk-add').onclick=()=>istPkConfirm();
   list.onclick=e=>{ const row=e.target.closest('[data-pk]'); if(!row||row.classList.contains('in')) return;
     const r=_ISTPK.rows.find(x=>x.person_id===row.dataset.pk); if(r) istPkToggle(r); };
   let tm=null; q.oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>istPkSearch(q.value),160); };
@@ -3997,7 +4098,7 @@ async function istPkSearch(qv){
 function istPkPaint(){
   const P=_ISTPK; if(!P) return; const list=$('#pk-list'); if(!list) return;
   if(!P.rows.length){ list.innerHTML=`<div class="pk-empty">${esc(t('ist_pk_none'))}</div>`; istPkFoot(); return; }
-  list.innerHTML=P.rows.map((r,i)=>{ const inT=istPkInTable(r), on=P.sel.has(r.person_id);
+  list.innerHTML=P.rows.map((r,i)=>{ const inT=_pkIsIn(r), on=P.sel.has(r.person_id);
     return `<div class="pk-row${on?' on':''}${inT?' in':''}${i===P.cur?' cur':''}" data-pk="${esc(r.person_id)}" role="option" aria-selected="${on||inT}">
       <span class="pk-cb">${(on||inT)?'✓':''}</span>
       <span class="ava pk-ava" data-face="${esc(r.photo||'')}">${esc(initials(r.name))}</span>
@@ -4014,24 +4115,31 @@ function istPkPaint(){
 }
 function istPkPaintCursor(scroll=true){ const P=_ISTPK; if(!P) return; const list=$('#pk-list'); if(!list) return;
   list.querySelectorAll('.pk-row').forEach((el,i)=>{ el.classList.toggle('cur',i===P.cur); if(i===P.cur&&scroll) el.scrollIntoView({block:'nearest'}); }); }
-function istPkToggle(r){ const P=_ISTPK; if(!P||!r||istPkInTable(r)) return;
+function _pkIsIn(r){ const P=_ISTPK; return !!(P&&P.opts&&P.opts.isIn&&P.opts.isIn(r)); }
+function istPkToggle(r){ const P=_ISTPK; if(!P||!r||_pkIsIn(r)) return;
   if(P.sel.has(r.person_id)) P.sel.delete(r.person_id); else P.sel.set(r.person_id,r);
   const el=$('#pk-list')&&$('#pk-list').querySelector(`[data-pk="${CSS.escape(r.person_id)}"]`);
   if(el){ el.classList.toggle('on',P.sel.has(r.person_id)); el.setAttribute('aria-selected',String(P.sel.has(r.person_id))); el.querySelector('.pk-cb').textContent=P.sel.has(r.person_id)?'✓':''; }
   istPkFoot(); }
 function istPkFoot(){ const P=_ISTPK; if(!P) return; const n=P.sel.size;
   const c=$('#pk-count'); if(c) c.textContent=t('ist_pk_sel',n);
-  const b=$('#pk-add'); if(b){ b.textContent=t('ist_pk_add',n); b.disabled=!n; }
+  const b=$('#pk-add'); if(b){ b.textContent=P.opts.addLabel(n); b.disabled=!n; }
 }
-async function istPkAdd(){
-  const P=_ISTPK; if(!P||!P.sel.size||!_IST) return; const ids=[...P.sel.keys()];
+function istPkClose(){ const m=$('#istpick'); if(m&&m._close) m._close(); }
+async function istPkConfirm(){
+  const P=_ISTPK; if(!P||!P.sel.size) return; const rows=[...P.sel.values()];
   const b=$('#pk-add'); if(b) b.disabled=true;
+  let keep=false; try{ keep=await P.opts.onConfirm(rows, $('#istpick')); }catch(e){ console.warn('picker',e); }
+  if(!keep) istPkClose(); else if(b) b.disabled=false;
+}
+async function istAddFromRegistry(sel){
+  if(!_IST||!sel||!sel.length) return; const ids=sel.map(r=>r.person_id); const selById=new Map(sel.map(r=>[r.person_id,r]));
   let people=[];
   try{ const {data,error}=await sb.from('persons').select('person_id,name_latin,nationality,passport_no,passport_expiry,issuing_country').in('person_id',ids);
        if(error) throw error; people=data||[]; }
-  catch(e){ toast((e&&e.message)||String(e)); if(b) b.disabled=false; return; }
+  catch(e){ toast((e&&e.message)||String(e)); return; }
   const byId=new Map(people.map(p=>[p.person_id,p])); let n=0;
-  for(const id of ids){ const p=byId.get(id)||P.sel.get(id); if(!p) continue;
+  for(const id of ids){ const p=byId.get(id)||selById.get(id); if(!p) continue;
     if(istPkInTable({person_id:id,passport_no:p.passport_no})) continue;             // never twice
     const row={name:p.name_latin||p.name||'', nationality:p.nationality||'', passport_no:p.passport_no||'', passport_expiry:p.passport_expiry||'', _status:'landed', _pid:id};
     _istFactSet(row,'res_country',istResCountry(p));                                // fact: residence ← the passport's country
@@ -4039,7 +4147,6 @@ async function istPkAdd(){
     istFactVisited(row,id).catch(()=>{});                                             // fact: visited ← any visa on file
   }
   if(n){ _IST._dirty=true; istRenderRows(); toast(t('ist_pk_done',n)); }
-  const m=$('#istpick'); if(m&&m._close) m._close();
 }
 // ⚑ مراجعة → open the SAME OCR review pane on this scan (see the passport, fix the number, confirm). On commit,
 // ikDoAdd writes the corrected data back into this استمارة row (via _rvJob._istRow) and flips it to done.
@@ -4408,16 +4515,26 @@ async function istExport(fmt){
 }
 async function istBundle(){
   if(!_IST || !(_IST.rows||[]).some(r=>r.passport_no)){ toast(t('ist_bundle_empty')); return; }
-  if(!sb){ toast(t('ist_pdf_fail')); return; }
   const bn=document.getElementById('ist-bundle'); if(bn) bn.disabled=true;
-  const ov=document.createElement('div'); ov.className='ist-wait';
-  ov.innerHTML=`<div class="ist-wait-box"><div class="ist-spin"></div>
-    <div class="ist-wait-t">${esc(t('ist_bundle_working'))}</div>
-    <div class="ist-wait-s">${esc(t('ist_pdf_step4'))}</div></div>`;
-  $('#istimara').appendChild(ov);
+  const passports=[...new Set((_IST.rows||[]).map(r=>(r.passport_no||'').trim()).filter(Boolean))];
+  try{ await exportBundle(passports, $('#istimara'), _IST.paper||'istimara'); }
+  finally{ if(bn) bn.disabled=false; }
+}
+/* «تصدير الملفات الشخصية» — ONE engine for the workspace AND the main page (v288): the worker
+   stitches each passport's file then its visa (if any) into one PDF, in the order given. Same
+   istimara_renders row, same wake-up, same wait, same download. `host` only decides where the
+   waiting overlay sits. */
+function _waitOverlay(host, title, sub){
+  const ov=document.createElement('div'); ov.className='ist-wait'+(host===document.body?' fixed':'');
+  ov.innerHTML=`<div class="ist-wait-box"><div class="ist-spin"></div><div class="ist-wait-t">${esc(title)}</div><div class="ist-wait-s">${esc(sub||'')}</div></div>`;
+  host.appendChild(ov); return ov;
+}
+async function exportBundle(passports, host, paper){
+  if(!passports||!passports.length){ toast(t('ist_bundle_empty')); return false; }
+  if(!sb){ toast(t('ist_pdf_fail')); return false; }
+  const ov=_waitOverlay(host||document.body, t('ist_bundle_working'), t('ist_pdf_step4'));
   try{
-    const passports=[...new Set((_IST.rows||[]).map(r=>(r.passport_no||'').trim()).filter(Boolean))];
-    const data={ paper:_IST.paper||'istimara', format:'bundle', passports };
+    const data={ paper:paper||'istimara', format:'bundle', passports };
     const {data:ins,error:ie}=await sb.from('istimara_renders').insert({data}).select('id').single();
     if(ie||!ins) throw new Error((ie&&ie.message)||'insert');
     const id=ins.id;
@@ -4426,12 +4543,15 @@ async function istBundle(){
     const {data:sig,error:se}=await sb.storage.from('documents').createSignedUrl(row._key,120);
     if(se||!sig) throw new Error('sign');
     const resp=await fetch(sig.signedUrl); const blob=await resp.blob();
-    const url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download='الملفات الشخصية.pdf'; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),4000);
-    toast(t('ist_bundle_done'));
-  }catch(e){ console.warn('istBundle',e); toast(t('ist_bundle_fail')); }
-  finally{ ov.remove(); if(bn) bn.disabled=false; }
+    _downloadBlob(blob,'الملفات الشخصية.pdf');
+    toast(t('ist_bundle_done')); return true;
+  }catch(e){ console.warn('exportBundle',e); toast(t('ist_bundle_fail')); return false; }
+  finally{ ov.remove(); }
+}
+function _downloadBlob(blob, name){
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
 function istWirePhoto(){
   const box=$('#ist-photo'); if(!box)return;
