@@ -951,7 +951,7 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* ═══ استمارة BUILDER (v103+) — a WYSIWYG government-form workspace. The A4 page IS the editor:
    header fields are inline inputs that land on the page as you type; the table is fed by the OCR line.
    S1 = the mould · S2 = workspace (header fields + photo). S3 (OCR table) + S4 (export) follow. ═══ */
-#istimara{position:fixed;inset:0;display:none;z-index:70;background:rgba(8,12,11,.78);overflow:auto;-webkit-overflow-scrolling:touch}
+#istimara{position:fixed;inset:0;display:none;z-index:70;background:#101716;overflow:auto;-webkit-overflow-scrolling:touch}   /* v264: OPAQUE — the app header used to bleed through and collide with the sheet's toolbar */
 #istimara.on{display:block}
 .ist-wrap{max-width:1180px;margin:0 auto;padding:14px 14px 60px}   /* fits the 297mm landscape sheet */
 .ist-bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px;padding:12px 14px;
