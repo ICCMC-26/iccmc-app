@@ -2759,7 +2759,11 @@ function ikBigDropAsk(n){
 }
 async function ikAdd(files){
   const list=Array.from(files);
-  if(list.length>=IK_BIG && !await ikBigDropAsk(list.length)) return;
+  /* v270: a big drop is no longer a GATE. The page takes any count and pumps it itself (IK_PIPELINE
+     in flight, the rest queued in this window — a refresh drops the tail, hence the honest toast),
+     and the uploader stays an OFFER on the line under the box, never a wall. Same rule as the
+     استمارة/تعهد sheets, one wording for every drop box (owner's ask). ikBigDropAsk() is kept, unused. */
+  if(list.length>=IK_BIG) toast(t('ist_big_pick'));
   // Validate FIRST, declare second. A file this page refuses (wrong type, too large) never reaches
   // the ledger, so counting it in declared_total was reporting a loss the moment it was chosen.
   const vetted=[];
