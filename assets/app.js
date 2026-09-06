@@ -157,7 +157,7 @@ const I18N={
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_src_q:'من أين نضيف الموظفين؟', ist_src_pc:'من جهازك', ist_src_pc_s:'صورة أو PDF للجواز — تُقرأ عبر خط القراءة', ist_src_reg:'من السجل', ist_src_reg_s:'ابحث وحدّد موظفين مسجّلين — بلا قراءة جديدة',
-    sel_btn:'تحديد', sel_bundle_n:n=>n?`تصدير الملفات الشخصية (${n})`:'تصدير الملفات الشخصية', sel_dossier_n:n=>n?`ملفات الموظفين ZIP (${n})`:'ملفات الموظفين ZIP', sel_h:'حدّد موظفين', sel_next:n=>n?`متابعة ${n}`:'متابعة', sel_q:n=>`ماذا تريد لـ ${n} موظفًا؟`, sel_back:'رجوع',
+    sel_btn:'تحديد', sel_bundle_n:n=>n?`تصدير الملفات الشخصية (${n})`:'تصدير الملفات الشخصية', sel_dossier_n:n=>n?`الملفات الكاملة في ZIP واحد (${n})`:'الملفات الكاملة في ZIP واحد', sel_dossier_tip:'ملف PDF كامل لكل موظف (الغلاف والتقرير والمسوحات) — الكل داخل مجلد ZIP واحد', sel_bundle_tip:'جواز كل موظف ثم تأشيرته إن وُجدت — الكل في ملف PDF واحد', sel_h:'حدّد موظفين', sel_next:n=>n?`متابعة ${n}`:'متابعة', sel_q:n=>`ماذا تريد لـ ${n} موظفًا؟`, sel_back:'رجوع',
     sel_bundle_s:'جواز كل موظف ثم تأشيرته إن وُجدت — الكل في ملف PDF واحد', sel_dossier:'ملفات الموظفين', sel_dossier_s:'ملف PDF كامل لكل موظف — الكل في مجلد ZIP واحد',
     sel_zip_working:(i,n)=>`جارٍ إنشاء الملفات… ${i} / ${n}`, sel_zip_done:n=>`تم تنزيل ${n} ملفًا في مجلد ZIP ✓`, sel_zip_fail:'تعذّر إنشاء الملفات — أعِد المحاولة', sel_zip_none:'لم يُبنَ أي ملف',
     ist_pk_h:'اختر من السجل', ist_pk_ph:'ابحث بالاسم أو الجواز أو الجنسية…', ist_pk_sel:n=>`${n} محدد`, ist_pk_add:n=>n?`أضِف ${n}`:'أضِف', ist_pk_in:'في الجدول', ist_pk_none:'لا نتائج', ist_pk_more:n=>`يُعرض أول ${n} — ضيّق البحث`, ist_pk_done:n=>`أُضيف ${n} من السجل`, ist_pk_cancel:'إلغاء', ist_pk_keys:'↑↓ تنقّل · مسافة تحديد · Enter إضافة · Esc إغلاق',
@@ -321,7 +321,7 @@ const I18N={
     ist_agent_other:'Other documents go to «الوارد» and are not added to this table', ist_add_more:'Add employees — drag here or click', ist_drop_sub:'or click to browse · image or PDF · many employees at once', ist_big_pick:'Big batch — uploading from here, keep this page open. For folder-sized batches: the uploader',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_src_q:'Where do the employees come from?', ist_src_pc:'From this device', ist_src_pc_s:'A passport image or PDF — read through the OCR line', ist_src_reg:'From the registry', ist_src_reg_s:'Search and tick registered employees — no new read',
-    sel_btn:'Select', sel_bundle_n:n=>n?`Export personal files (${n})`:'Export personal files', sel_dossier_n:n=>n?`Employee dossiers ZIP (${n})`:'Employee dossiers ZIP', sel_h:'Select employees', sel_next:n=>n?`Continue ${n}`:'Continue', sel_q:n=>`What do you want for ${n} employees?`, sel_back:'Back',
+    sel_btn:'Select', sel_bundle_n:n=>n?`Export personal files (${n})`:'Export personal files', sel_dossier_n:n=>n?`Complete dossiers in one ZIP (${n})`:'Complete dossiers in one ZIP', sel_dossier_tip:'One complete PDF per employee (cover, report, scans) — all inside a single ZIP folder', sel_bundle_tip:"Each employee's passport, then the visa if any — all in one PDF", sel_h:'Select employees', sel_next:n=>n?`Continue ${n}`:'Continue', sel_q:n=>`What do you want for ${n} employees?`, sel_back:'Back',
     sel_bundle_s:"Each employee's passport, then the visa if any — all in one PDF", sel_dossier:'Employee dossiers', sel_dossier_s:'One complete PDF per employee — all in one ZIP folder',
     sel_zip_working:(i,n)=>`Building the files… ${i} / ${n}`, sel_zip_done:n=>`${n} files downloaded in a ZIP folder ✓`, sel_zip_fail:'Could not build the files — try again', sel_zip_none:'No file could be built',
     ist_pk_h:'Pick from the registry', ist_pk_ph:'Search by name, passport or nationality…', ist_pk_sel:n=>`${n} selected`, ist_pk_add:n=>n?`Add ${n}`:'Add', ist_pk_in:'in the table', ist_pk_none:'No results', ist_pk_more:n=>`Showing the first ${n} — narrow the search`, ist_pk_done:n=>`${n} added from the registry`, ist_pk_cancel:'Cancel', ist_pk_keys:'↑↓ move · Space tick · Enter add · Esc close',
@@ -3952,8 +3952,8 @@ function istPickFiles(){ const inp=document.createElement('input'); inp.type='fi
 function selOpen(){
   if(typeof LAWMODE!=='undefined' && LAWMODE) return;
   openPicker({host:document.body, title:t('sel_h'), isIn:()=>false, actions:[
-    {label:n=>t('sel_dossier_n',n), cls:' quiet', run:async rows=>{ istPkClose(); await exportDossierZip(rows, document.body); return false; }},
-    {label:n=>t('sel_bundle_n',n), cls:'', run:async rows=>{ istPkClose();
+    {label:n=>t('sel_dossier_n',n), tip:t('sel_dossier_tip'), cls:' quiet', run:async rows=>{ istPkClose(); await exportDossierZip(rows, document.body); return false; }},
+    {label:n=>t('sel_bundle_n',n), tip:t('sel_bundle_tip'), cls:'', run:async rows=>{ istPkClose();
        const passports=[...new Set(rows.map(r=>(r.passport_no||'').trim()).filter(Boolean))];
        await exportBundle(passports, document.body, 'istimara'); return false; }},
   ]});
@@ -4044,7 +4044,7 @@ function openPicker(opts){
     <div class="pk-search"><span class="mag"><svg class="ic"><use href="#i-search"/></svg></span><input id="pk-q" placeholder="${esc(t('ist_pk_ph'))}" autocomplete="off" spellcheck="false"></div>
     <div class="pk-list" id="pk-list" role="listbox" aria-multiselectable="true"></div>
     <div class="pk-ft"><span class="pk-count" id="pk-count">${esc(t('ist_pk_sel',0))}</span><span class="spacer"></span>
-      <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button>${(opts.actions||[{label:opts.addLabel,cls:''}]).map((a,i)=>`<button class="add pk-add${a.cls||''}" data-act="${i}" disabled>${esc(a.label(0))}</button>`).join('')}</div></div>`;
+      <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button>${(opts.actions||[{label:opts.addLabel,cls:''}]).map((a,i)=>`<button class="add pk-add${a.cls||''}" data-act="${i}" title="${esc(a.tip||'')}" disabled>${esc(a.label(0))}</button>`).join('')}</div></div>`;
   const q=$('#pk-q'), list=$('#pk-list');
   const close=()=>{ m.classList.remove('on'); document.removeEventListener('keydown',onKey); if(_ISTPK&&_ISTPK.io) _ISTPK.io.disconnect(); _ISTPK=null; };
   const onKey=e=>{
