@@ -64,7 +64,7 @@ const I18N={
     ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
-    ik_processing:'قيد المعالجة…', ik_landed:'أودعت', ik_pre:'موجودة مسبقًا', ik_sent:'قيد المعالجة', ik_committed:'أودعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_allclear:'أودِع الكل ✓', ik_lg_rev:'مراجعة',
+    ik_processing:'قيد المعالجة…', ik_landed:'أودعت', ik_pre:'موجودة مسبقًا', ik_sent:'قيد المعالجة', ik_committed:'أودعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_tidy:'مسح القائمة', ik_tidy_tip:'يُخفي البطاقات المنتهية لترتيب المكان — لا يحذف أي موظف', ik_allclear:'أودِع الكل ✓', ik_lg_rev:'مراجعة',
     ik_cls_passport:'جواز', ik_cls_visa:'تأشيرة', ik_cls_legal:'قانوني',
     ik_next2:'المستندات قيد المسح — تظهر في صفحة البحث فور اعتمادها.',
     ik_review:'مراجعة ›', ik_legal:'مراجعة قانونية', rv_ask:'بانتظار مراجعتك — تأكيد سريع', rv_asklink:'يحتاج ربطًا — راجِع للمتابعة',
@@ -216,7 +216,7 @@ const I18N={
     ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
-    ik_processing:'Processing…', ik_landed:'Committed', ik_pre:'already in the system', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again', ik_v_compact:'Compact', ik_v_detailed:'Detailed', ik_allclear:'All committed ✓', ik_lg_rev:'review',
+    ik_processing:'Processing…', ik_landed:'Committed', ik_pre:'already in the system', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again', ik_v_compact:'Compact', ik_v_detailed:'Detailed', ik_tidy:'Clear list', ik_tidy_tip:'Hides the finished cards to tidy up — no employee is deleted', ik_allclear:'All committed ✓', ik_lg_rev:'review',
     ik_cls_passport:'passport', ik_cls_visa:'visa', ik_cls_legal:'legal',
     ik_next2:'Being scanned — they appear on the search page once committed.',
     ik_review:'Review ›', ik_legal:'legal review', rv_ask:'Waiting for your check — quick confirm', rv_asklink:'Needs linking — open to continue',
@@ -2888,6 +2888,12 @@ function ikRowHtml(j){ return `<div class="ik-row ${j.state}" data-id="${j.id}">
     ${j.state==='failed'?`<button class="ik-retry" data-retry="${j.id}">${t('ik_retry')}</button>`:''}
     <button class="ik-x" data-rm="${j.id}" title="${t('t_close')}">✕</button>
   </div>${ikKidsHtml(j)}`; }
+const ikIsSettled=j=>j.state==='landed'||j.state==='split'||j.state==='refused'||j.state==='failed';
+async function ikTidy(){
+  const ids=IK.filter(ikIsSettled).map(j=>j.id);
+  for(const id of ids){ try{ await ikRemove(id); }catch(_){} }          // each card leaves the way its own ✕ would
+  ikRender();
+}
 function ikRender(){
   // review/legal cards pin to the TOP (never buried); stable sort keeps upload order otherwise.
   const rank=j=>(j.state==='review'||j.state==='legal')?0:1;
@@ -2900,6 +2906,12 @@ function ikRender(){
   const proc=IK.filter(j=>j.state==='processing').length;
   const total=IK.length, committed=landed+split, working=busy+proc;
   const toggle=total?`<button class="ik-viewtoggle" data-ikview="${compact?'detailed':'compact'}">${t(compact?'ik_v_detailed':'ik_v_compact')} ›</button>`:'';
+  /* v271: «مسح القائمة» — dismiss every SETTLED card in one press to tidy the panel. Shows only once
+     nothing is moving (no upload / read in flight) and there is something settled to clear; cards
+     awaiting a human (review / legal) are never swept. Dismissing hides a landed card and clears a
+     refused one's scan row — exactly what its own ✕ does; no employee is ever deleted (owner's ask). */
+  const settled=IK.filter(ikIsSettled).length;
+  const tidy=(total&&!working&&settled)?`<button class="ik-tidy" data-iktidy title="${esc(t('ik_tidy_tip'))}">${t('ik_tidy')}</button>`:'';
   // COMPACT = only the cards a human must act on; committed ones collapse into the bar + legend.
   const isExc=j=>j.state==='review'||j.state==='legal'||j.state==='refused'||j.state==='failed';
   const cards=(compact?sorted.filter(isExc):sorted).map(ikRowHtml).join('');
@@ -2910,9 +2922,9 @@ function ikRender(){
     const lg =(c,n,w)=>`<span class="lg"><i class="d ${c}"></i><b class="lg-n">${n}</b><span class="lg-w">${w}</span></span>`;
     header=`<div class="ik-compact${working?' work':''}">
       <div class="ik-pbar">${seg('ok',committed)}${seg('rev',review)}${seg('ref',fail)}${seg('track',working)}</div>
-      <div class="ik-legend">${lg('ok',committed,t('ik_committed'))}${review?lg('rev',review,t('ik_lg_rev')):''}${fail?lg('ref',fail,t('ik_refused')):''}${working?lg('track',working,t('ik_busy')):''}<span class="ik-lg-spacer"></span>${toggle}</div>
+      <div class="ik-legend">${lg('ok',committed,t('ik_committed'))}${review?lg('rev',review,t('ik_lg_rev')):''}${fail?lg('ref',fail,t('ik_refused')):''}${working?lg('track',working,t('ik_busy')):''}<span class="ik-lg-spacer"></span>${tidy}${toggle}</div>
     </div>${(!cards&&!working&&total)?`<div class="ik-allclear">${t('ik_allclear')}</div>`:''}`;
-  } else if(toggle){ header=`<div class="ik-viewbar">${toggle}</div>`; }
+  } else if(toggle){ header=`<div class="ik-viewbar">${tidy}${toggle}</div>`; }
   $('#ik-list').innerHTML=header+cards;
   // DETAILED keeps the honest text footer; in COMPACT the ring IS the summary, so the footer clears.
   let f='';
@@ -5476,6 +5488,7 @@ async function lrCommit(){
 
 $('#ik-list').addEventListener('click',e=>{
   const vt=e.target.closest('[data-ikview]'); if(vt){ ikSetView(vt.dataset.ikview); ikRender(); return }   // compact ⇄ detailed, remembered
+  const td=e.target.closest('[data-iktidy]'); if(td){ ikTidy(); return }                                  // v271: sweep the settled cards
   const lr=e.target.closest('[data-legalreview]'); if(lr){openLegalReview(lr.getAttribute('data-legalreview'));return}
   const kr=e.target.closest('[data-kidreview]'); if(kr){openKidReview(kr.getAttribute('data-kidreview'));return}   // a packet child's review
   const pt=e.target.closest('[data-pktoggle]'); if(pt){ const jj=IK.find(x=>x.id===+pt.dataset.pktoggle);          // collapse/expand a family
