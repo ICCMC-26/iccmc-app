@@ -3993,7 +3993,7 @@ async function exportDossierZip(rows, host){
       const d=await fetchEmployee(rows[i].person_id); if(!d) continue;
       const html=await buildDossier(d.p,d.vs,d.legal); if(!html) continue;
       stage.innerHTML=html; stage.classList.add('pdfing'); await waitImages(stage); _flipWidePages();
-      await new Promise(r=>requestAnimationFrame(()=>setTimeout(r,60)));
+      await new Promise(r=>setTimeout(r,80));     // a plain timer: requestAnimationFrame never fires in a background tab and would hang the build
       const pages=[...stage.querySelectorAll('.pg')]; let pdf=null;
       for(const pg of pages){
         const land=pg.classList.contains('land');
