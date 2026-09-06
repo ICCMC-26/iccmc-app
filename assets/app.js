@@ -2367,7 +2367,7 @@ function pqRender(){
       return `<button class="fchip${PQ.kind===k?' on':''}" data-pqk="${k}">${t(key)}
         <span class="fc">${pqN(n)}</span></button>`; }).join('');
   const cnt=$('#pq-count');
-  if(cnt) cnt.textContent = PQ.total ? t('n_res',PQ.total) : '';
+  if(cnt) cnt.innerHTML = PQ.total ? t('n_res',PQ.total) : '';     // v273: the count carries markup (was drawn as raw text)
   // Emptying the whole bucket belongs BESIDE the count, because the count is what it acts on —
   // and it only exists while there is something to act on, so it can never be a live control
   // over an empty list.
@@ -4529,7 +4529,8 @@ function mapPaperRow(r){
     roster:r.roster||null, manh_number:r.manh_number||'', manh_date:r.manh_date||null,
     interval_from:r.interval_from, interval_to:r.interval_to,
     first_name:r.first_name, last_name:r.last_name,
-    stamp_company:r.stamp_company, stamp_ministry:r.stamp_ministry}; }
+    stamp_company:r.stamp_company, stamp_ministry:r.stamp_ministry,
+    created_at:r.created_at||null}; }                    // v273: kept so the walk can follow the inbox order
 /* Papers waiting to be reviewed — and ONLY those whose file is still sitting in «الوارد».
 
    "not yet batched" alone was too generous. It also returned papers whose scan job had been
@@ -4542,7 +4543,8 @@ function mapPaperRow(r){
 async function loadLegalPending(){
   try{
     const {data,error}=await sb.from('legal_papers').select('*')
-      .is('batch_id',null).neq('match_status','committed');
+      .is('batch_id',null).neq('match_status','committed')
+      .order('created_at',{ascending:true});             // v273: oldest first — the inbox's own order
     if(error) return [];
     let rows=data||[];
     if(!rows.length) return [];
@@ -4550,13 +4552,13 @@ async function loadLegalPending(){
     // 1 · only files still sitting in «الوارد» — the inbox is the authority on what is outstanding
     const hashes=[...new Set(rows.map(r=>r.scan_hash).filter(Boolean))];
     if(!hashes.length) return [];
-    const live=new Set();
+    const live=new Set(), jobTime=new Map();          // v273: the inbox's clock (scan_jobs.created_at) per file
     let verified=true;
     for(let i=0;i<hashes.length;i+=200){          // chunked: an in() list has a URL length limit
-      const {data:js,error:e2}=await sb.from('scan_jobs').select('image_hash')
+      const {data:js,error:e2}=await sb.from('scan_jobs').select('image_hash,created_at')
         .in('image_hash',hashes.slice(i,i+200)).eq('status','legal-review');
       if(e2){ verified=false; break; }            // cannot verify → do not hide work that may be real
-      (js||[]).forEach(x=>live.add(x.image_hash));
+      (js||[]).forEach(x=>{ live.add(x.image_hash); if(x.created_at && !(jobTime.get(x.image_hash)<x.created_at)) jobTime.set(x.image_hash,x.created_at); });
     }
     if(verified) rows=rows.filter(r=>r.scan_hash && live.has(r.scan_hash));
 
@@ -4570,7 +4572,10 @@ async function loadLegalPending(){
       const prev=byFile.get(r.scan_hash);
       if(!prev || String(r.created_at||'') > String(prev.created_at||'')) byFile.set(r.scan_hash,r);
     }
-    return [...byFile.values()].map(mapPaperRow);
+    /* v273: the walk must step in the INBOX's order. The inbox is ordered by the scan job's clock, and a
+       paper's own created_at (when the worker parked it) does NOT follow it (measured: 4 of 126 agree),
+       so each paper carries the job's time instead. */
+    return [...byFile.values()].map(r=>{ const p=mapPaperRow(r); const jt=jobTime.get(r.scan_hash); if(jt) p.created_at=jt; return p; });
   }catch(_){ return []; } }
 /* merge a proposal's papers into one roster: تعهد gives names+passports (trusted), استمارة enriches
    the same person (matched by passport) with expiry+profession. */
@@ -5042,6 +5047,11 @@ function _lrBuildFlat(batches){
     b.papers.sort((x,y)=>ptOrd(x.type)-ptOrd(y.type));
     for(const p of b.papers) flat.push({paper:p, batch:b});
   }
+  /* v273: the walk steps in the INBOX's order — oldest paper first — not in the assembler's (منح-led
+     batches first, then loose ones, in whatever order the DB returned). «ابدأ المراجعة من الأول» thus
+     opens on inbox item 1 as «1 / N», and «التالي» is inbox item 2. Each stop still shows its whole batch. */
+  const key=f=>String((f.paper&&f.paper.created_at)||'￿');
+  flat.sort((a,b)=>key(a)<key(b)?-1:key(a)>key(b)?1:0);
   return flat;
 }
 function _lrGoFlat(i){
