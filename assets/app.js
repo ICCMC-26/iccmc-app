@@ -3460,6 +3460,35 @@ function istDefs(field, paper){
   return (IST_DEF && IST_DEF[p] && IST_DEF[p][field]) || [];
 }
 function istDef1(field, paper){ const d=istDefs(field,paper); return d.length?d[0].value:''; }
+/* ── FACT FILLS (v262) ─────────────────────────────────────────────────────────────
+   Two of the five hand columns are not guesses but facts the registry already holds, so they are
+   written into the cell as REAL values (black, editable) the moment the passport lands:
+     «هل سبق زيارة العراق»  = does this person have ANY visa on file → «نعم», none → «كلا»
+                              (a visa in the system means he has entered Iraq before — the owner's rule);
+     «بلد الإقامة الحالي»   = the passport's issuing country, else the nationality mapped to its country.
+   The other three hand columns (address, border, profession) are held nowhere in the system and stay
+   suggestions. A value a human typed is never overwritten; an unknown answer leaves the cell alone. */
+const IST_NAT_COUNTRY={'صينية':'الصين','باكستانية':'باكستان','هندية':'الهند','مصرية':'مصر','سورية':'سوريا',
+                       'عراقية':'العراق','فلبينية':'الفلبين','تركية':'تركيا','إيرانية':'إيران'};
+function istResCountry(f){
+  const ic=String((f&&f.issuing_country)||'').trim(); if(ic && VMAP[ic]) return ic;      // a canonical country we know
+  return IST_NAT_COUNTRY[String((f&&f.nationality)||'').trim()]||''; }                  // «أخرى» / a raw code → no guess
+function _istFactSet(row,k,v){
+  if(!v) return false;
+  if(row[k] && !(row._pre&&row._pre[k])) return false;        // a human typed it → keep
+  if(row[k]===v) return false;
+  row[k]=v; row._pre=row._pre||{}; row._pre[k]=1; if(row._sug) delete row._sug[k]; return true; }
+async function istPidByPassport(no){ no=String(no||'').trim(); if(!no) return null;
+  try{ const {data}=await sb.from('persons').select('person_id').eq('passport_no',no).limit(2);
+       return (data&&data.length===1)?data[0].person_id:null; }catch(_){ return null; } }
+async function istHasVisa(pid){ if(!pid) return null;
+  try{ const {count,error}=await sb.from('visas').select('visa_id',{count:'exact',head:true}).eq('person_id',pid);
+       return error?null:(count>0); }catch(_){ return null; } }
+async function istFactVisited(row,pid){
+  if(row._factV) return; row._factV=1;                        // one answer per row
+  const has=await istHasVisa(pid||await istPidByPassport(row.passport_no));
+  if(has===null){ row._factV=0; return; }                     // unknown (no person yet / offline) → leave it, retry on the next pass
+  if(_istFactSet(row,'visited',has?'نعم':'كلا')){ if(_IST) _IST._dirty=true; istRenderRows(); } }
 
 let _IST=null;   // the draft: {header:{...}, photo:dataURL|null, rows:[{name,nationality,passport_no,passport_expiry}]}
 function istFresh(paper){
@@ -3991,13 +4020,16 @@ async function istApply(row,j){
   const f=j.fields||{};
   if(f.passport_no||f.name_latin){
     Object.assign(row,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''});
+    if(_istFactSet(row,'res_country',istResCountry(f))){ if(_IST) _IST._dirty=true; }   // fact: residence ← the passport's country
     if(j.status==='pending-review'||j.status==='needs-linking'){ row._status='review'; row._job=j; return true; }   // worker parked it → pend for review
     if(row._committing) return true;                           // a commit is already in flight for this row
     row._committing=true; row._status='committing'; istRenderRows();
-    try{ const res=await ikCommitSerial(j,{...f});              // register in the registry — the same commit the drop box uses
+    let res=null;
+    try{ res=await ikCommitSerial(j,{...f});                    // register in the registry — the same commit the drop box uses
          if(res&&res.defer){ row._status='review'; row._job=j; } else row._status='landed'; }   // defer = needs a human → pend, keep the job so ⚑ opens the review
     catch(_){ row._status='landed'; }                          // the data still shows; a later intake sweep retries the commit
     row._committing=false;
+    istFactVisited(row, res&&res.pid).catch(()=>{});           // fact: visited ← any visa on file (needs the person → after the commit)
     return true;
   }
   return true;      // still reading — the stage text moved, so repaint
