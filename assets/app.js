@@ -28,6 +28,13 @@ const I18N={
     ov_visas:'التأشيرات', ov_docs_for:'تأشيرة لـ', ov_emp:'موظف',
     ov_valid:'سارٍ', ov_soon:'ينتهي خلال 90 يومًا', ov_expired:'منتهٍ',
     ov_nodate:'بلا تاريخ — غير معروف',
+    bf_morning:'صباح الخير', bf_evening:'مساء الخير', bf_hide:'إخفاء ▴', bf_reopen:'الموجز ▾',
+    bf_s1:'إحصائيات مهمة', bf_s2:'منذ آخر زيارة', bf_s3:'الجديد',
+    bf_t_exp:'تأشيرة منتهية', bf_t_soon:'تنتهي خلال 90 يومًا', bf_t_rev:'بانتظار المراجعة', bf_t_ref:'مرفوضة — بسبب', bf_t_done:'ملف مكتمل',
+    bf_go_list:'افتح القائمة مصفّاة ›', bf_go_inbox:'افتح الوارد ›', bf_go_board:'افتح اللوحة ›',
+    bf_prev:'آخر زيارة من هذا الجهاز', bf_first:'أول زيارة من هذا الجهاز', bf_reg:n=>`<b>${n}</b> موظفًا في السجل الآن`,
+    bf_inbox:(r,f)=>`<b>${r}</b> قيد المراجعة · <b>${f}</b> مرفوضة`, bf_health_ok:'الفحص الليلي أخضر · لا مخالفات', bf_health_bad:'الفحص الليلي أحمر — راجع تقرير السلامة',
+    bf_no_new:'لا جديد منذ زيارتك.', bf_ann_ok:'فهمت — لا تعرض مجددًا',
     ov_gaps:'النواقص', ov_gaps_s:'ما لم يُقرأ بعد — ليس خطأً',
     ov_no_visa:'بلا تأشيرة', ov_no_pdate:'بلا تاريخ جواز',
     ov_no_nat:'بلا جنسية', ov_no_photo:'بلا صورة',
@@ -180,6 +187,13 @@ const I18N={
     ov_visas:'Visas', ov_docs_for:'documents for', ov_emp:'employees',
     ov_valid:'valid', ov_soon:'expiring within 90 days', ov_expired:'expired',
     ov_nodate:'no date on file — unknown',
+    bf_morning:'Good morning', bf_evening:'Good evening', bf_hide:'Hide ▴', bf_reopen:'Brief ▾',
+    bf_s1:'Key figures', bf_s2:'Since your last visit', bf_s3:"What's new",
+    bf_t_exp:'visas expired', bf_t_soon:'expiring within 90 days', bf_t_rev:'awaiting review', bf_t_ref:'refused — with a reason', bf_t_done:'complete files',
+    bf_go_list:'open the list filtered ›', bf_go_inbox:'open the inbox ›', bf_go_board:'open the board ›',
+    bf_prev:'last visit from this device', bf_first:'first visit from this device', bf_reg:n=>`<b>${n}</b> employees on the registry now`,
+    bf_inbox:(r,f)=>`<b>${r}</b> awaiting review · <b>${f}</b> refused`, bf_health_ok:'nightly check green · no findings', bf_health_bad:'nightly check RED — read the integrity report',
+    bf_no_new:'Nothing new since your visit.', bf_ann_ok:"Got it — don't show again",
     ov_gaps:'Gaps', ov_gaps_s:'not read yet — not errors',
     ov_no_visa:'no visa', ov_no_pdate:'no passport date',
     ov_no_nat:'no nationality', ov_no_photo:'no photo',
@@ -357,7 +371,7 @@ function applyLang(){
   try{ if($('#ikreview') && $('#ikreview').classList.contains('on') && typeof _lrBatch!=='undefined' && _lrBatch)
          renderLegalReview(); }catch(_){}
 }
-function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang',LANG)}catch(_){}applyLang()}
+function setLang(l){LANG=l==='en'?'en':'ar';try{localStorage.setItem('iccmc_lang',LANG)}catch(_){}applyLang();try{briefRelabel()}catch(_){}}
 
 /* ── PAPER-TYPE REGISTRY (G6) — ONE source of truth for the legal paper types ────────────────────────
    The DB table `paper_types` is authoritative; the client caches it. A built-in default (today's 3 types,
@@ -431,7 +445,7 @@ function enterApp(){$('#gate').style.display='none';$('#app').style.display='blo
   setTimeout(markFirstPaint, 8000);                 // a failed/slow first search must not hold the rest hostage
   // After the first paint, never before it: the roster is what the user came for,
   // and the overview must not delay a single row of it.
-  afterFirstPaint(loadOverview);
+  afterFirstPaint(()=>loadOverview().then(briefBoot, briefBoot));   // the brief greets once the numbers are in (v280)
   // WhatsApp kiosk door: ?legal=<scan_hash> lands straight on that paper's own
   // review screen instead of making a signed-in reviewer hunt it out of the
   // whole pending pool by eye. One-shot — the param is stripped right away so
@@ -2950,6 +2964,11 @@ $('#tlang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 paintSort();   // render the sort control once; delegated click (survives repaints)
 { const _sb=$('#sortbar'); if(_sb)_sb.addEventListener('click',e=>{const b=e.target.closest('[data-sort]');if(b)setSort(b.dataset.sort);}); }
 $('#ttheme').addEventListener('click',toggleTheme);
+$('#tbrief').addEventListener('click',()=>briefOpen(false));
+$('#brief-strip').addEventListener('click',e=>{ if(e.target.closest('[data-bf-open]')) briefOpen(false); });
+$('#q').addEventListener('input',()=>{ if(BRIEF.on && $('#q').value.length===1) briefFold(); });      // the first letter folds the brief
+$('#fbtn').addEventListener('click',()=>{ if(BRIEF.on) briefFold(); });                                  // so does opening the filter drawer
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && BRIEF.on) briefFold(); });
 $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.auth.signOut();location.reload()}});
 $('#add').addEventListener('click',openIntake);
 $('#blaw').addEventListener('click',()=>setLaw(!LAWMODE));
@@ -5597,6 +5616,121 @@ document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
 applyLang();
 /* resume a remembered session */
 (async()=>{try{const {data:{session}}=await sb.auth.getSession();if(session&&session.user)enterApp()}catch(_){}})();
+/* ═══ THE BRIEF (v280) ═══════════════════════════════════════════════════════════════════════
+   After sign-in the roster paints as usual and stands still; then, once per tab session, a sheet
+   slides down from under the search box and greets the user: who they are, the numbers that need
+   them today (each opens the matching view), what changed since their last visit from this device,
+   and one announcement. It folds on the first keystroke, Esc, «إخفاء», the filter button, or 10 s
+   of silence — into a one-line strip under the box; ▾ in the top bar brings it back (no timer).
+   Data, all read-only and already permitted by RLS: registry_overview (cached by loadOverview),
+   v_intake_counts, the user's own `users` row, the latest health_audit (admins), and app_settings
+   key «announcement» ({id, ar, en}) — an admin edits that row and every user sees it once. Nothing
+   here writes to the database. The OS reduced-motion flag is deliberately NOT honoured: the slide
+   is the feature, and on Ibrahim's machine that flag is on by default. */
+const BRIEF={d:null, i:0, on:false, idle:null, booted:false, prev:null};
+const briefNum=n=>Number(n||0).toLocaleString('en-US');
+function briefWhen(iso){ try{ return new Intl.DateTimeFormat(LANG==='ar'?'ar-IQ-u-nu-latn':'en-GB',{dateStyle:'medium',timeStyle:'short'}).format(new Date(iso)); }catch(_){ return ''; } }
+function briefSeen(){ try{ return JSON.parse(localStorage.getItem('iccmc_ann_seen')||'[]'); }catch(_){ return []; } }
+async function briefData(){
+  const d={email:'',name:'',role:'',rev:0,ref:0,health:null,ann:null};
+  try{ const {data:{user}}=await sb.auth.getUser(); d.email=(user&&user.email)||''; }catch(_){}
+  try{ const {data}=await sb.from('users').select('name,role').limit(1).maybeSingle(); if(data){ d.name=data.name||''; d.role=data.role||''; } }catch(_){}
+  try{ const {data}=await sb.from('v_intake_counts').select('bucket,n');
+       (data||[]).forEach(r=>{ if(r.bucket==='review') d.rev+=(+r.n||0); if(r.bucket==='refused') d.ref+=(+r.n||0); }); }catch(_){}
+  try{ const {data}=await sb.from('health_audit').select('ran_at,ok').order('ran_at',{ascending:false}).limit(1).maybeSingle(); d.health=data||null; }catch(_){}
+  try{ const {data}=await sb.from('app_settings').select('value').eq('key','announcement').maybeSingle(); d.ann=(data&&data.value)||null; }catch(_){}
+  return d;
+}
+function briefTilesHtml(){
+  const o=OVERVIEW||{}, V=o.visas||{}, C=o.complete||null, d=BRIEF.d||{};
+  const T=[
+    {n:V.expired, l:t('bf_t_exp'),  c:'--st-bad',  go:'visa:expired', a:t('bf_go_list')},
+    {n:V.soon,    l:t('bf_t_soon'), c:'--st-soon', go:'visa:soon',    a:t('bf_go_list')},
+    {n:d.rev,     l:t('bf_t_rev'),  c:'--copper',  go:'pq:review',    a:t('bf_go_inbox')},
+    ...(d.role==='admin'?[{n:d.ref, l:t('bf_t_ref'), c:'--st-unk', go:'pq:refused', a:t('bf_go_inbox')}]:[]),
+    {n:C?C.complete:null, of:o.employees, l:t('bf_t_done'), c:'--st-ok', go:'board', a:t('bf_go_board')},
+  ];
+  return `<div class="bf-tiles">`+T.map(x=>`<button class="bf-tile" data-go="${x.go}"><b>${x.n==null?'—':briefNum(x.n)}${x.of?`<small>/ ${briefNum(x.of)}</small>`:''}</b><span><i style="background:var(${x.c})"></i>${esc(x.l)}</span><em>${esc(x.a)}</em></button>`).join('')+`</div>`;
+}
+function briefSinceHtml(){
+  const d=BRIEF.d||{}, o=OVERVIEW||{};
+  const rows=[['⟲', BRIEF.prev?esc(t('bf_prev')):esc(t('bf_first')), BRIEF.prev?briefWhen(BRIEF.prev):'', '']];
+  if(o.employees!=null) rows.push(['⌕', t('bf_reg',briefNum(o.employees)), '', '']);
+  rows.push(['⇅', t('bf_inbox',briefNum(d.rev),briefNum(d.ref)), '', '']);
+  if(d.role==='admin' && d.health) rows.push(['●', esc(d.health.ok?t('bf_health_ok'):t('bf_health_bad')), briefWhen(d.health.ran_at), d.health.ok?'ok':'bad']);
+  return `<div class="bf-list">`+rows.map(r=>`<div class="bf-li"><span class="k ${r[3]}">${r[0]}</span><span>${r[1]}</span><span class="t">${esc(r[2])}</span></div>`).join('')+`</div>`;
+}
+function briefNewHtml(){
+  const a=BRIEF.d&&BRIEF.d.ann; if(!a||!a.id) return `<div class="bf-empty">${esc(t('bf_no_new'))}</div>`;
+  const seen=briefSeen().includes(String(a.id)), txt=(LANG==='ar'?a.ar:a.en)||a.ar||a.en||'';
+  return `<div class="bf-ann${seen?' seen':''}"><span class="tg">${esc(a.id)}</span><p>${esc(txt)}</p>${seen?'':`<button class="bf-ok" data-ann="${esc(a.id)}">${esc(t('bf_ann_ok'))}</button>`}</div>`;
+}
+function briefGreeting(){
+  const d=BRIEF.d||{}; const h=new Date().getHours(); const who=d.name||(d.email?d.email.split('@')[0]:'');
+  return (h<12?t('bf_morning'):t('bf_evening'))+(who?'، '+who:'');
+}
+function renderBrief(){
+  const box=$('#brief'); if(!box) return; const d=BRIEF.d||{};
+  box.innerHTML=`<div class="bf-hd"><b>${esc(briefGreeting())}</b>${d.role?`<span class="bf-role">${esc(d.role)}</span>`:''}<button class="bf-x" data-bf-close>${esc(t('bf_hide'))}</button></div>
+  <div class="bf-body"><div class="bf-idx"><span class="bf-mk"></span>
+    <button class="bf-ix${BRIEF.i===0?' on':''}" data-bf-i="0">${esc(t('bf_s1'))}</button>
+    <button class="bf-ix${BRIEF.i===1?' on':''}" data-bf-i="1">${esc(t('bf_s2'))}</button>
+    <button class="bf-ix${BRIEF.i===2?' on':''}" data-bf-i="2">${esc(t('bf_s3'))}</button></div>
+  <div class="bf-stage"><div class="bf-sec${BRIEF.i===0?' on':''}">${briefTilesHtml()}</div><div class="bf-sec${BRIEF.i===1?' on':''}${BRIEF.i>1?' up':''}">${briefSinceHtml()}</div><div class="bf-sec${BRIEF.i===2?' on':''}">${briefNewHtml()}</div></div></div>`;
+  briefPlace();
+}
+function briefPlace(){ const box=$('#brief'); if(!box) return; const ix=box.querySelectorAll('.bf-ix'), mk=box.querySelector('.bf-mk'), secs=box.querySelectorAll('.bf-sec'), st=box.querySelector('.bf-stage');
+  const b=ix[BRIEF.i]; if(mk&&b){ mk.style.top=b.offsetTop+'px'; mk.style.height=b.offsetHeight+'px'; }
+  if(st&&secs[BRIEF.i]) st.style.height=secs[BRIEF.i].offsetHeight+'px'; }
+function briefGoSec(k){ k=Math.max(0,Math.min(2,k)); const box=$('#brief'); if(!box) return; BRIEF.i=k;
+  box.querySelectorAll('.bf-sec').forEach((s,j)=>{ s.classList.toggle('on',j===k); s.classList.toggle('up',j<k); });
+  box.querySelectorAll('.bf-ix').forEach((b,j)=>b.classList.toggle('on',j===k)); briefPlace(); }
+function briefStrip(show){
+  const el=$('#brief-strip'); if(!el) return; const o=OVERVIEW||{}, V=o.visas||{}, d=BRIEF.d||{};
+  el.innerHTML=`<span><i style="background:var(--st-bad)"></i><b>${V.expired==null?'—':briefNum(V.expired)}</b> ${esc(t('bf_t_exp'))}</span>`
+    +`<span><i style="background:var(--st-soon)"></i><b>${V.soon==null?'—':briefNum(V.soon)}</b> ${esc(t('bf_t_soon'))}</span>`
+    +`<span><i style="background:var(--copper)"></i><b>${briefNum(d.rev)}</b> ${esc(t('bf_t_rev'))}</span>`
+    +`<button data-bf-open>${esc(t('bf_reopen'))}</button>`;
+  el.hidden=!show;
+  const tb=$('#tbrief'); if(tb){ tb.hidden=!show; const a=d.ann; tb.classList.toggle('dot', !!(a&&a.id&&!briefSeen().includes(String(a.id)))); }
+}
+function briefIdle(){ clearTimeout(BRIEF.idle); BRIEF.idle=setTimeout(()=>{ const s=$('#brief');
+  if(s&&(s.matches(':hover')||s.contains(document.activeElement))){ briefIdle(); return; } briefFold(); },10000); }
+function briefOpen(auto){
+  if(typeof LAWMODE!=='undefined' && LAWMODE) return;            // the legal section shares the box; the brief belongs to the roster
+  const s=$('#brief'), slot=$('#brief-slot'); if(!s||!slot) return;
+  renderBrief(); slot.hidden=false; briefStrip(false);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ s.classList.remove('off'); s.classList.add('on'); BRIEF.on=true; briefPlace(); }));
+  if(auto) briefIdle(); else clearTimeout(BRIEF.idle);
+}
+function briefFold(){
+  clearTimeout(BRIEF.idle); const s=$('#brief'); if(!s||!BRIEF.on) return; BRIEF.on=false;
+  s.classList.remove('on'); s.classList.add('off'); briefStrip(true);
+  setTimeout(()=>{ if(!BRIEF.on){ const slot=$('#brief-slot'); if(slot) slot.hidden=true; } },600);
+}
+function briefGo(go){
+  briefFold();
+  if(go==='board'){ openBoard(); return; }
+  if(go.indexOf('pq:')===0){ PQ.bucket=go.slice(3); PQ.kind='all'; PQ.page=0; PQ.rows=[]; pqOpen(); return; }
+  if(go==='visa:expired'){ fSet('visa','expired'); return; }
+  if(go==='visa:soon'){ fSet('visa','soon'); return; }
+}
+function briefRelabel(){ if(!BRIEF.booted) return; renderBrief(); briefStrip(!BRIEF.on); }
+async function briefBoot(){
+  if(BRIEF.booted) return; BRIEF.booted=true;
+  try{ BRIEF.prev=localStorage.getItem('iccmc_last_visit'); localStorage.setItem('iccmc_last_visit',new Date().toISOString()); }catch(_){}
+  BRIEF.d=await briefData();
+  let first=true; try{ first=!sessionStorage.getItem('iccmc_brief_seen'); sessionStorage.setItem('iccmc_brief_seen','1'); }catch(_){}
+  if(first) setTimeout(()=>briefOpen(true),900); else briefStrip(true);
+}
+{ const box=$('#brief'); if(box) box.addEventListener('click',e=>{
+    const ix=e.target.closest('[data-bf-i]'); if(ix){ briefGoSec(+ix.dataset.bfI); return; }
+    if(e.target.closest('[data-bf-close]')){ briefFold(); return; }
+    const ok=e.target.closest('[data-ann]'); if(ok){ try{ const seen=briefSeen(); seen.push(String(ok.dataset.ann)); localStorage.setItem('iccmc_ann_seen',JSON.stringify(seen.slice(-20))); }catch(_){} renderBrief(); briefStrip(false); return; }
+    const tile=e.target.closest('[data-go]'); if(tile){ briefGo(tile.dataset.go); return; } });
+  if(box) box.addEventListener('pointerdown',()=>clearTimeout(BRIEF.idle));
+  if(box) box.addEventListener('keydown',e=>{ if(e.key==='ArrowDown'){e.preventDefault();briefGoSec(BRIEF.i+1);} if(e.key==='ArrowUp'){e.preventDefault();briefGoSec(BRIEF.i-1);} }); }
+
 /* BOOT-BEACON — the LAST line. It is true ONLY if the whole script executed with no mid-file halt
    (e.g. a ReferenceError before the button wiring). After ANY load-time change, verify window.__APP_BOOTED
    === true: it can't be fooled by hoisting the way "typeof fn === 'function'" can. Do not move it. */

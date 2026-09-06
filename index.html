@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=131">
+<link rel="stylesheet" href="assets/app.css?v=132">
 </head>
 <body>
 
@@ -56,6 +56,7 @@
     <button class="add quiet pendbtn" id="bpend" title="الوارد — ما لم يُودَع بعد / Inbox — not committed yet"><svg class="ic"><use href="#i-inbox"/></svg><span id="bpendtxt">الوارد</span><span class="pq-badge" id="pq-badge" hidden>0</span></button>
     <button class="icon" id="tlang" title="EN / ع">ع</button>
     <button class="icon" id="ttheme" title="فاتح / داكن"><svg class="ic"><use href="#i-theme"/></svg></button>
+    <button class="icon brief-rc" id="tbrief" hidden title="الموجز / Brief">▾</button>
     <button class="icon" id="tout" title="خروج"><svg class="ic"><use href="#i-power"/></svg></button>
   </div>
 
@@ -68,7 +69,10 @@
       <button class="fbtn" id="fbtn" type="button"><svg class="ic"><use href="#i-filter"/></svg><span id="fbtntxt">تصفية</span><span class="n" id="fbtn-n" hidden>0</span></button>
     </div>
     <div class="fpanel" id="fpanel" hidden></div>
+    <!-- the brief (v280): slides down from under the search box after sign-in; see app.js «THE BRIEF» -->
+    <div class="brief-slot" id="brief-slot" hidden><div class="brief" id="brief"></div></div>
   </div>
+  <div class="brief-strip" id="brief-strip" hidden></div>
 
   <div class="filters" id="filters"></div>
   <div class="listbar"><div class="count" id="count"></div><span class="legend" id="legend" hidden></span><div class="sortbar" id="sortbar"></div></div>
@@ -145,6 +149,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=279"></script>
+<script src="assets/app.js?v=280"></script>
 </body>
 </html>
