@@ -49,7 +49,7 @@ const I18N={
     f_all:'الكل', f_expiring:'قارب الانتهاء', f_none:'لا نتائج ضمن هذا التصنيف.', f_legal:'الملف القانوني ناقص',
     inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
     f_filter:'تصفية', f_done:'تم', f_clear:'مسح الكل', f_pick:'اختر حالة لكل وثيقة', f_pass:'الجواز', f_visa:'التأشيرة', f_legalfile:'الملف القانوني',
-    f_paper:'الورقة الناقصة', f_complete_file:'ملف مكتمل', f_complete:'مكتمل', f_missing:'ناقص', f_nodoc:'لا يوجد', why_visa:'تأشيرته لم تُجدَّد',
+    f_active:'فعّال', f_paper:'الورقة الناقصة', f_complete_file:'ملف مكتمل', f_complete:'مكتمل', f_missing:'ناقص', f_nodoc:'لا يوجد', why_visa:'تأشيرته لم تُجدَّد',
     law_window:'تجاوزت المهلة', law_window_t:'مرّت 90 يومًا على المنح ولم تُربط أي فيزا — امسح التأشيرات أو أرشِف الدفعة', law_spread:'تباعد في تواريخ الإصدار — راجعها', law_grant_days:n=>`مدة المنح ${n} يومًا`, law_grant_read:(n,k)=>`مدة المنح كما قُرئت: ${n} يومًا${k==='single'?' (مفردة)':k==='multiple'?' (متعددة)':''}`, law_grant_unread:'مدة المنح: غير مقروءة — راجع الورقة', law_duration:n=>`مدة المنح (${n} يومًا) لا تطابق مدة الإقامة في الفيزا — راجع`,
     f_life:'الحالة', f_papers:'الأوراق', f_stamps:'الأختام', f_pcomplete:'مكتملة', f_pmissing:'ناقصة', f_review:'مراجعة', f_pick_law:'اختر حالة أو أوراقًا أو أختامًا',
     f_lacks_p:'ينقصه:', f_lacks_b:'ينقصها:', law_awaiting:'بانتظار الفيزا', law_archive:'الأرشيف', st_company:'ختم الشركة', st_ministry:'ختم الوزارة', n_batches:n=>`<span class="num">${n}</span> دفعة`,
@@ -201,7 +201,7 @@ const I18N={
     f_all:'All', f_expiring:'Expiring', f_none:'None in this filter.', f_legal:'Legal file incomplete',
     inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
     f_filter:'Filter', f_done:'Done', f_clear:'Clear all', f_pick:'Pick a state per document', f_pass:'Passport', f_visa:'Visa', f_legalfile:'Legal file',
-    f_paper:'Missing paper', f_complete_file:'Complete file', f_complete:'Complete', f_missing:'Incomplete', f_nodoc:'None', why_visa:'his visa is not renewed',
+    f_active:'Active', f_paper:'Missing paper', f_complete_file:'Complete file', f_complete:'Complete', f_missing:'Incomplete', f_nodoc:'None', why_visa:'his visa is not renewed',
     law_window:'window passed', law_window_t:'90 days since the grant and no visa connected — scan the visas or archive the batch', law_spread:'issue dates spread — review', law_grant_days:n=>`grant ${n} days`, law_grant_read:(n,k)=>`Grant duration as read: ${n} days${k==='single'?' (single)':k==='multiple'?' (multiple)':''}`, law_grant_unread:'Grant duration: not read — check the paper', law_duration:n=>`The grant's duration (${n} days) does not match the visa's stay — review`,
     f_life:'Status', f_papers:'Papers', f_stamps:'Stamps', f_pcomplete:'Complete', f_pmissing:'Incomplete', f_review:'Review', f_pick_law:'Pick a status, papers, or stamps',
     f_lacks_p:'missing:', f_lacks_b:'missing:', law_awaiting:'Awaiting visa', law_archive:'Archive', st_company:'Company stamp', st_ministry:'Ministry stamp', n_batches:n=>`<span class="num">${n}</span> batch${n===1?'':'es'}`,
@@ -1129,13 +1129,17 @@ function docStates(r){ return {
   visa:  _fDoc(visaBandStatus(r.soonest_visa_expiry, r.soonest_visa_ceiling, r.soonest_visa_expiry).k),
   legal: r.legal_complete ? 'complete' : 'missing',
   papers:{taahud:!!r.legal_t, istimara:!!r.legal_i, manh:!!r.legal_m} }; }
+/* 'active' = the document is on file and not expired (valid OR expiring-soon). It is what «ملف مكتمل»
+   asks of the passport and the visa — an employee whose visa ends within 90 days is still a complete case. */
+const F_ACTIVE=['active','f_active','#24A148'];
+const _fOk=(want,have)=> want==='all' || have===want || (want==='active' && (have==='valid'||have==='soon'));
 function fHit(x,f){ f=f||FS; const d=x.d;
-  if(f.pass!=='all' && d.pass!==f.pass) return false;
-  if(f.visa!=='all' && d.visa!==f.visa) return false;
+  if(!_fOk(f.pass,d.pass)) return false;
+  if(!_fOk(f.visa,d.visa)) return false;
   if(f.hold.size){ for(const k of ptKeys().filter(ptReq)) if(f.hold.has(k)?!d.papers[k]:!!d.papers[k]) return false; }   // exact combination
   return true; }
 const fAny  =()=>FS.pass!=='all'||FS.visa!=='all'||FS.hold.size>0;
-const fShort=()=>FS.pass==='valid'&&FS.visa==='valid'&&ptKeys().filter(ptReq).every(k=>FS.hold.has(k));
+const fShort=()=>FS.pass==='active'&&FS.visa==='active'&&ptKeys().filter(ptReq).every(k=>FS.hold.has(k));
 let LEGAL_INCOMPLETE=new Set();   // kept for compatibility (refreshLegalFlags); the roster no longer filters on it
 /* who has a GAP in their legal file — a member of ≥1 batch where a paper isn't present-AND-stamped.
    Computed off the visible result set (one .in() query per search), so the chip counts live and a
@@ -1257,7 +1261,7 @@ function paintFilters(items){   // the filter's three surfaces: tokens in the bo
   const PK=ptKeys().filter(ptReq);
   const DIMS=[['pass','f_pass'],['visa','f_visa']];
   const SH={ar:{pass:'جواز',visa:'تأشيرة',legal:'قانوني'},en:{pass:'passport',visa:'visa',legal:'legal'}};
-  let tk=''; DIMS.forEach(([d])=>{ if(FS[d]==='all') return; const L=F_DOC.find(x=>x[0]===FS[d]);
+  let tk=''; DIMS.forEach(([d])=>{ if(FS[d]==='all') return; const L=F_DOC.find(x=>x[0]===FS[d])||F_ACTIVE;
     tk+=`<span class="token"><span class="k">${SH[LANG][d]}:</span>${L[2]?`<span class="dot" style="--c:${L[2]}"></span>`:''}${t(L[1])}<button class="x" type="button" data-fdim="${d}" title="✕">✕</button></span>`; });
   if(FS.hold.size) tk+=`<span class="token"><span class="k">${SH[LANG].legal}:</span>${PK.map(k=>`${esc(ptLabel(k))} <span class="${FS.hold.has(k)?'ok':'no'}">${FS.hold.has(k)?'✓':'–'}</span>`).join(' · ')}<button class="x" type="button" data-fhold-all="1" title="✕">✕</button></span>`;
   toks.innerHTML=tk;
@@ -1269,7 +1273,7 @@ function paintFilters(items){   // the filter's three surfaces: tokens in the bo
   body+=`<div class="lab">${t('f_legalfile')}</div><div class="opts${FS.hold.size?' live':''}"><button class="chip${FS.hold.size?'':' on'}" type="button" data-fhold-all="1">${t('f_all')}</button><span class="div"></span>`
     +PK.map(k=>`<button class="box${FS.hold.has(k)?' on':''}" type="button" data-fhold="${k}">${esc(ptLabel(k))}</button>`).join('')
     +(FS.hold.size?`<span class="cnt"><span class="num">${shown}</span> ${LANG==='ar'?'من':'of'} <span class="num">${items.length}</span></span>`:'')+`</div>`;
-  pan.innerHTML=`<div class="p-head"><span class="t">${t('f_filter')}</span><button class="short${fShort()?' on':''}" type="button" data-fshort="1"><span class="dot" style="--c:#24A148"></span>${t('f_complete_file')}<span class="fc">${cnt({pass:'valid',visa:'valid',hold:new Set(PK)})}</span></button></div>
+  pan.innerHTML=`<div class="p-head"><span class="t">${t('f_filter')}</span><button class="short${fShort()?' on':''}" type="button" data-fshort="1"><span class="dot" style="--c:#24A148"></span>${t('f_complete_file')}<span class="fc">${cnt({pass:'active',visa:'active',hold:new Set(PK)})}</span></button></div>
     <div class="p-body">${body}</div>
     <div class="p-foot"><span class="cnt"></span><span class="acts">${n?`<button class="clear" type="button" data-fclear="1">${t('f_clear')}</button>`:''}<button class="done" type="button" data-fclose="1">${t('f_done')}</button></span></div>`;
   pan.hidden=!_fOpen;
@@ -5562,7 +5566,7 @@ $('#fpanel').addEventListener('click',e=>{
     const lc=e.target.closest('[data-ldim]');  if(lc){ const k=lc.dataset.lk; LS.life=(LS.life===k&&k!=='all')?'all':k; renderLaw(); }
     return; }
   if(e.target.closest('[data-fclear]')){ FS.pass=FS.visa='all'; FS.hold.clear(); fSave(); render(LAST||[]); return; }
-  if(e.target.closest('[data-fshort]')){ const PK=ptKeys().filter(ptReq); if(fShort()){FS.pass=FS.visa='all';FS.hold.clear();} else {FS.pass='valid';FS.visa='valid';FS.hold=new Set(PK);} fSave(); render(LAST||[]); return; }
+  if(e.target.closest('[data-fshort]')){ const PK=ptKeys().filter(ptReq); if(fShort()){FS.pass=FS.visa='all';FS.hold.clear();} else {FS.pass='active';FS.visa='active';FS.hold=new Set(PK);} fSave(); render(LAST||[]); return; }
   if(e.target.closest('[data-fhold-all]')){ FS.hold.clear(); fSave(); render(LAST||[]); return; }
   const h=e.target.closest('[data-fhold]'); if(h){ const k=h.dataset.fhold; FS.hold.has(k)?FS.hold.delete(k):FS.hold.add(k); fSave(); render(LAST||[]); return; }
   const c=e.target.closest('[data-fdim]'); if(c) fSet(c.dataset.fdim,c.dataset.fk); });
