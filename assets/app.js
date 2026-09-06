@@ -3017,7 +3017,8 @@ $('#dz-input').addEventListener('change',e=>{ikAdd(e.target.files);e.target.valu
    nothing to anchor on — are NOT guessed here; they defer to the scan board. Keep in
    step with ocr.js if that commit path ever changes. */
 const REQ_BY_TYPE={passport:['passport_no','passport_expiry','name_latin','dob','place_of_birth','nationality','sex'],
-  visa:['visa_no','visa_expiry'], national_id:['national_id_no','name_latin'], unknown:[]};
+  // v274: a visa's four FACTS are required (owner's model 2026-09-06) — the expiry is arithmetic on them, not an input
+  visa:['visa_no','visa_issue','visa_entry_days','visa_stay_days'], national_id:['national_id_no','name_latin'], unknown:[]};
 const RV_ORDER=['passport_no','name_latin','name_native','dob','sex','nationality','place_of_birth',
   'passport_type','passport_issue','passport_expiry','issuing_country','issuing_authority','national_id_no',
   'visa_no','visa_type','visa_country','visa_issue','visa_expiry','visa_entry_days','visa_stay_days'];
@@ -3413,6 +3414,9 @@ async function ikDoAdd(forcePid){
   const _need=(jk._req||REQ_BY_TYPE[j.doc_type]||[]).filter(k=>!String(f[k]||'').trim());
   if(_need.length){ toast(t('rv_need')+' '+_need.map(fieldLabel).join(LANG==='ar'?'، ':', ')); return; }
   // logical date check — refuse an impossible ordering with a clear reason, before any write
+  // v274: a visa's expiry is never typed — it is issue + stay (the earliest end of the band), marked estimated
+  if(j.doc_type==='visa' && !String(f.visa_expiry||'').trim() && f.visa_issue && f.visa_stay_days){
+    const d=new Date(f.visa_issue+'T00:00:00Z'); if(!isNaN(d)){ d.setUTCDate(d.getUTCDate()+parseInt(f.visa_stay_days,10)); f.visa_expiry=d.toISOString().slice(0,10); f.visa_expiry_basis='estimated'; } }
   const derr=validateDates(f); if(derr){ toast(derr); return; }
   // The reviewer's eye is the gate — never hard-block on an empty flagged field (a visa grant
   // letter has no visa number; its expiry is estimated). ikCommitJob is the real floor: it
