@@ -3959,7 +3959,6 @@ function istPickRegistry(){
     <div class="pk-hd"><b>${esc(t('ist_pk_h'))}</b><span class="spacer"></span><button class="icon pk-x" title="${esc(t('ist_pk_cancel'))}">✕</button></div>
     <div class="pk-search"><span class="mag"><svg class="ic"><use href="#i-search"/></svg></span><input id="pk-q" placeholder="${esc(t('ist_pk_ph'))}" autocomplete="off" spellcheck="false"></div>
     <div class="pk-list" id="pk-list" role="listbox" aria-multiselectable="true"></div>
-    <div class="pk-chips" id="pk-chips" hidden></div>
     <div class="pk-ft"><span class="pk-count" id="pk-count">${esc(t('ist_pk_sel',0))}</span><span class="spacer"></span>
       <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button><button class="add pk-add" id="pk-add" disabled>${esc(t('ist_pk_add',0))}</button></div></div>`;
   const q=$('#pk-q'), list=$('#pk-list');
@@ -4018,10 +4017,7 @@ function istPkToggle(r){ const P=_ISTPK; if(!P||!r||istPkInTable(r)) return;
 function istPkFoot(){ const P=_ISTPK; if(!P) return; const n=P.sel.size;
   const c=$('#pk-count'); if(c) c.textContent=t('ist_pk_sel',n);
   const b=$('#pk-add'); if(b){ b.textContent=t('ist_pk_add',n); b.disabled=!n; }
-  // the selected set, as removable chips — it survives every new search, so the user always sees what «أضِف n» will add
-  const ch=$('#pk-chips'); if(ch){ ch.hidden=!n;
-    ch.innerHTML=[...P.sel.values()].map(r=>`<span class="pk-chip">${esc(r.name||r.person_id)}<button data-unpick="${esc(r.person_id)}" title="${esc(t('ist_pk_cancel'))}">✕</button></span>`).join('');
-    ch.querySelectorAll('[data-unpick]').forEach(x=>x.onclick=e=>{ e.stopPropagation(); const r=P.sel.get(x.dataset.unpick); if(r) istPkToggle(r); else { P.sel.delete(x.dataset.unpick); istPkPaint(); } }); } }
+}
 async function istPkAdd(){
   const P=_ISTPK; if(!P||!P.sel.size||!_IST) return; const ids=[...P.sel.keys()];
   const b=$('#pk-add'); if(b) b.disabled=true;
