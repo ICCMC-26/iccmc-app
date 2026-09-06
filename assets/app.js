@@ -3587,7 +3587,10 @@ function istPickMenu(btn){
   const m=document.createElement('div'); m.className='ist-menu';
   m.innerHTML=list.map((d,i)=>`<button data-v="${esc(d.value)}"><span>${esc(d.value)}</span>`
     +`<em>${d.seen?('×'+d.seen):''}</em></button>`).join('');
-  btn.parentNode.appendChild(m);
+  // v266: hang the menu off the CELL, not the ▾/⤓ group — since v263 that group fades out when the
+  // pointer leaves the cell, and the pointer must leave the cell to reach the menu below it, so
+  // the menu (its child) faded to a ghost and picks landed on nothing. Header fields keep .ist-fw.
+  (btn.closest('.ist-hcell')||btn.parentNode).appendChild(m);
   m.querySelectorAll('button').forEach(b=>b.onclick=e=>{
     e.stopPropagation(); const v=b.dataset.v;
     if(ri!==undefined && ri!==''){ const r=_IST.rows[+ri];

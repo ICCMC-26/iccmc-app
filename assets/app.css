@@ -1347,7 +1347,7 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* v263: the two controls are HIDDEN at rest so the value owns the whole cell (the old 46px gutter
    clipped the narrow columns in the mould); they surface on hover or while the cell is focused,
    on a patch of the cell's own colour so they never sit on top of the text. */
-.ist-hcell:hover .ist-cacts,.ist-hcell:focus-within .ist-cacts{opacity:1}
+.ist-hcell:hover .ist-cacts,.ist-hcell:focus-within .ist-cacts,.ist-hcell:has(.ist-pick.open) .ist-cacts{opacity:1}   /* v266: stays while its menu is open */
 .ist-hcell:hover{background:rgba(197,149,107,.10)}
 
 /* shared shape so the pair looks deliberate rather than accidental */
