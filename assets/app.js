@@ -50,7 +50,7 @@ const I18N={
     inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
     f_filter:'تصفية', f_done:'تم', f_clear:'مسح الكل', f_pick:'اختر حالة لكل وثيقة', f_pass:'الجواز', f_visa:'التأشيرة', f_legalfile:'الملف القانوني',
     f_paper:'الورقة الناقصة', f_complete_file:'ملف مكتمل', f_complete:'مكتمل', f_missing:'ناقص', f_nodoc:'لا يوجد', why_visa:'تأشيرته لم تُجدَّد',
-    law_window:'تجاوزت المهلة', law_window_t:'مرّت 90 يومًا على المنح ولم تُربط أي فيزا — امسح التأشيرات أو أرشِف الدفعة', law_spread:'تباعد في تواريخ الإصدار — راجعها', law_duration:n=>`مدة المنح (${n} يومًا) لا تطابق مدة الإقامة في الفيزا — راجع`,
+    law_window:'تجاوزت المهلة', law_window_t:'مرّت 90 يومًا على المنح ولم تُربط أي فيزا — امسح التأشيرات أو أرشِف الدفعة', law_spread:'تباعد في تواريخ الإصدار — راجعها', law_grant_days:n=>`مدة المنح ${n} يومًا`, law_grant_read:(n,k)=>`مدة المنح كما قُرئت: ${n} يومًا${k==='single'?' (مفردة)':k==='multiple'?' (متعددة)':''}`, law_grant_unread:'مدة المنح: غير مقروءة — راجع الورقة', law_duration:n=>`مدة المنح (${n} يومًا) لا تطابق مدة الإقامة في الفيزا — راجع`,
     f_life:'الحالة', f_papers:'الأوراق', f_stamps:'الأختام', f_pcomplete:'مكتملة', f_pmissing:'ناقصة', f_review:'مراجعة', f_pick_law:'اختر حالة أو أوراقًا أو أختامًا',
     f_lacks_p:'ينقصه:', f_lacks_b:'ينقصها:', law_awaiting:'بانتظار الفيزا', law_archive:'الأرشيف', st_company:'ختم الشركة', st_ministry:'ختم الوزارة', n_batches:n=>`<span class="num">${n}</span> دفعة`,
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
@@ -202,7 +202,7 @@ const I18N={
     inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
     f_filter:'Filter', f_done:'Done', f_clear:'Clear all', f_pick:'Pick a state per document', f_pass:'Passport', f_visa:'Visa', f_legalfile:'Legal file',
     f_paper:'Missing paper', f_complete_file:'Complete file', f_complete:'Complete', f_missing:'Incomplete', f_nodoc:'None', why_visa:'his visa is not renewed',
-    law_window:'window passed', law_window_t:'90 days since the grant and no visa connected — scan the visas or archive the batch', law_spread:'issue dates spread — review', law_duration:n=>`The grant's duration (${n} days) does not match the visa's stay — review`,
+    law_window:'window passed', law_window_t:'90 days since the grant and no visa connected — scan the visas or archive the batch', law_spread:'issue dates spread — review', law_grant_days:n=>`grant ${n} days`, law_grant_read:(n,k)=>`Grant duration as read: ${n} days${k==='single'?' (single)':k==='multiple'?' (multiple)':''}`, law_grant_unread:'Grant duration: not read — check the paper', law_duration:n=>`The grant's duration (${n} days) does not match the visa's stay — review`,
     f_life:'Status', f_papers:'Papers', f_stamps:'Stamps', f_pcomplete:'Complete', f_pmissing:'Incomplete', f_review:'Review', f_pick_law:'Pick a status, papers, or stamps',
     f_lacks_p:'missing:', f_lacks_b:'missing:', law_awaiting:'Awaiting visa', law_archive:'Archive', st_company:'Company stamp', st_ministry:'Ministry stamp', n_batches:n=>`<span class="num">${n}</span> batch${n===1?'':'es'}`,
     out:'Sign out?', soon_v2:'Add employee — coming next.',
@@ -921,7 +921,7 @@ function renderLaw(rows){
     return `<div class="row law-row" data-batch="${esc(b.batch_id)}">
       <div class="ava law-ava">⚖</div>
       <div class="who"><div class="nm">${esc(batchName(b))} ${_mark}${_epGap?` <span class="law-flag" title="${esc(t('law_gaps',1))}">⚑</span>`:''}</div>
-        <div class="sub">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}</div></div>
+        <div class="sub">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${(()=>{ const l=_LBL[b.batch_id]; return (l&&l.manh_stay_days)?` · ${t('law_grant_days',l.manh_stay_days)}`:''; })()}</div></div>
       <div class="val law-pp">${ptKeys().map(k=>`<span class="lp-ok">${ptLabel(k)} ${s[k]}</span>`).join('')}</div>
       <button class="law-cardprint" data-lawprint="${esc(b.batch_id)}" title="${t('t_print')}"><span style="font-size:15px">⎙</span></button>
     </div>`; }).join('');
@@ -4535,7 +4535,8 @@ function mapPaperRow(r){
     interval_from:r.interval_from, interval_to:r.interval_to,
     first_name:r.first_name, last_name:r.last_name,
     stamp_company:r.stamp_company, stamp_ministry:r.stamp_ministry,
-    created_at:r.created_at||null}; }                    // v273: kept so the walk can follow the inbox order
+    created_at:r.created_at||null,                       // v273: kept so the walk can follow the inbox order
+    manh_kind:r.manh_kind||null, manh_stay_days:r.manh_stay_days||null}; }   // v276: what the grant asks for
 /* Papers waiting to be reviewed — and ONLY those whose file is still sitting in «الوارد».
 
    "not yet batched" alone was too generous. It also returned papers whose scan job had been
@@ -5234,7 +5235,8 @@ function renderLegalReview(){
         ${seg}
         ${isManh?`<div class="rfield"><label>${t('lg_id')}</label>
           <input id="lr-num" inputmode="numeric" value="${esc(num)}" placeholder="${esc(t('lg_manh_need'))}"></div>
-          <div class="rfield"><label>${LANG==='ar'?'تاريخ المنح':'Grant date'}</label><input id="lr-mdate" type="date" value="${esc(isoDate(mdate))}"></div>`
+          <div class="rfield"><label>${LANG==='ar'?'تاريخ المنح':'Grant date'}</label><input id="lr-mdate" type="date" value="${esc(isoDate(mdate))}"></div>
+          <div class="lr-hint">${esc(cur.manh_stay_days?t('law_grant_read',cur.manh_stay_days,cur.manh_kind):t('law_grant_unread'))}</div>`
           :`<div class="lr-hint">${num?`${esc(t('lg_id'))}: <b>${esc(num)}</b>`:esc(hasManh?t('lg_manh_need'):t('lg_manh_opt'))}</div>`}
         ${gapFields}
         <div class="rvw-check-h">${t('lg_stamps')} — ${tl[cur.type]||cur.type}</div>
