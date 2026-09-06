@@ -3956,7 +3956,7 @@ function istPickRegistry(){
   _ISTPK={sel:new Map(), rows:[], seq:0, cur:-1};
   let m=$('#istpick'); if(!m){ m=document.createElement('div'); m.id='istpick'; $('#istimara').appendChild(m); }
   m.innerHTML=`<div class="pk-box" role="dialog" aria-label="${esc(t('ist_pk_h'))}">
-    <div class="pk-hd"><b>${esc(t('ist_pk_h'))}</b><span class="pk-keys">${esc(t('ist_pk_keys'))}</span><button class="icon pk-x" title="${esc(t('ist_pk_cancel'))}">✕</button></div>
+    <div class="pk-hd"><b>${esc(t('ist_pk_h'))}</b><span class="spacer"></span><button class="icon pk-x" title="${esc(t('ist_pk_cancel'))}">✕</button></div>
     <div class="pk-search"><span class="mag"><svg class="ic"><use href="#i-search"/></svg></span><input id="pk-q" placeholder="${esc(t('ist_pk_ph'))}" autocomplete="off" spellcheck="false"></div>
     <div class="pk-list" id="pk-list" role="listbox" aria-multiselectable="true"></div>
     <div class="pk-chips" id="pk-chips" hidden></div>
@@ -4001,9 +4001,11 @@ function istPkPaint(){
   list.innerHTML=P.rows.map((r,i)=>{ const inT=istPkInTable(r), on=P.sel.has(r.person_id);
     return `<div class="pk-row${on?' on':''}${inT?' in':''}${i===P.cur?' cur':''}" data-pk="${esc(r.person_id)}" role="option" aria-selected="${on||inT}">
       <span class="pk-cb">${(on||inT)?'✓':''}</span>
+      <span class="ava pk-ava" data-face="${esc(r.photo||'')}">${esc(initials(r.name))}</span>
       <span class="pk-who"><b>${esc(r.name||'')}</b>${r.name_native?` <i>${esc(r.name_native)}</i>`:''}<small>${esc(r.person_id||'')} · ${esc(r.passport_no||'—')} · ${esc(r.nationality||'')}</small></span>
       ${inT?`<span class="pk-tag">${esc(t('ist_pk_in'))}</span>`:''}</div>`; }).join('')
     +(P.over?`<div class="pk-empty">${esc(t('ist_pk_more',IST_PK_CAP))}</div>`:'');
+  list.querySelectorAll('.pk-ava').forEach(el=>{ if(el.dataset.face) loadFace(el, el.dataset.face, false); });   // the same face loader as the roster: initials until the crop truly loads
   istPkFoot(); istPkPaintCursor(false);
 }
 function istPkPaintCursor(scroll=true){ const P=_ISTPK; if(!P) return; const list=$('#pk-list'); if(!list) return;
