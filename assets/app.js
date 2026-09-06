@@ -426,7 +426,7 @@ function enterApp(){$('#gate').style.display='none';$('#app').style.display='blo
   // whole pending pool by eye. One-shot — the param is stripped right away so
   // a later refresh of this same tab doesn't reopen it (2026-09-06).
   const _legalHash=new URLSearchParams(location.search).get('legal');
-  if(_legalHash){ history.replaceState(null,'',location.pathname); openLegalReview(_legalHash); }
+  if(_legalHash){ history.replaceState(null,'',location.pathname); openLegalReview(_legalHash, true); }
 }
 
 /* live-sync: when an OCR'd employee is committed to persons/visas, re-run the
@@ -3341,6 +3341,7 @@ async function rvAfterCommit(){
    in the queue lost. */
 let _rvFromPend=false;
 function closeIkReview(){ $('#ikreview').classList.remove('on'); document.body.style.overflow='';
+  _lrScopeHashes=null;   // a scoped WhatsApp walk never leaks into the next, unrelated open
   if(_rvJob)_rvJob._scanUrl=null; _rvJob=null;
   // «الوارد» was never closed, so there is nothing to reopen — only the scroll lock to restore,
   // since the drawer's own close would otherwise unlock the page behind it.
@@ -4879,6 +4880,13 @@ const PAPER_STAMPS={taahud:[['taahud','lg_st_taahud']],
   istimara:[['istco','lg_st_ist_co'],['istmo','lg_st_ist_mo']], manh:[['manh','lg_st_manh']]};
 let _lrQueue={pos:1,total:1};
 let _lrAll=[];
+// WhatsApp deep-link entry only: when set, the walk is scoped to just this sender's own
+// papers (by hash) instead of the whole company queue — see openLegalReview's `scoped` arg.
+let _lrScopeHashes=null;
+function _lrApplyScope(batches){
+  if(!_lrScopeHashes) return batches;
+  return (batches||[]).filter(b=>b.papers.some(p=>_lrScopeHashes.includes(p.scan_hash)));
+}
 /* The reviewer walks FILES, not batches.
 
    Grouping papers into batches is the assembler's job — it happens on the way in and again on
@@ -4938,7 +4946,7 @@ async function _lrRefreshQueue(){
   const {batches}= papers.length ? legalAssemble(papers) : {batches:[]};
   _lrAll=batches;
   const cur=_lrFlat[_lrPos] && _lrFlat[_lrPos].paper;
-  _lrFlat=_lrBuildFlat(batches);
+  _lrFlat=_lrBuildFlat(_lrApplyScope(batches));
   // hold the reviewer's PLACE, not their index: the list can grow or shrink underneath them
   if(cur){
     const at=_lrFlat.findIndex(f=>f.paper.scan_hash===cur.scan_hash);
@@ -4958,14 +4966,15 @@ function lrPaintQueue(){
   if(next) next.disabled = at>=tot;
 }
 
-async function openLegalReview(hash){
+async function openLegalReview(hash, scoped){
   const papers=_legalMock||await loadLegalPending();
   if(!papers.length){ toast(t('lg_no_pending')); return; }
   const {batches}=legalAssemble(papers);
   let bi=batches.findIndex(b=>b.papers.some(p=>p.scan_hash&&p.scan_hash===hash));
   if(bi<0)bi=0;
+  _lrScopeHashes = scoped ? (batches[bi] ? batches[bi].papers.map(p=>p.scan_hash) : [hash]) : null;
   _lrAll=batches;
-  _lrFlat=_lrBuildFlat(batches);
+  _lrFlat=_lrBuildFlat(_lrApplyScope(batches));
   _lrQueue={pos:bi+1, total:batches.length};   // kept for the commit path; not shown to the user
   _lrBatch=batches[bi]; _lrBatch._num=undefined; _lrBatch._stamps={}; _lrRot={}; _lrZoom=1;
   // fixed logical order تعهد · استمارة · منح; the DOM order + `dir` make it read right-to-left in AR,
@@ -5228,7 +5237,7 @@ async function lrAfterCommit(){
   const done=_lrBatch;
   const rest=(_lrAll||[]).filter(b=>b!==done);
   _lrAll=rest;
-  _lrFlat=_lrBuildFlat(rest);
+  _lrFlat=_lrBuildFlat(_lrApplyScope(rest));
   ikRender(); search($('#q')?$('#q').value:'');
   pqLoad();                             // the الوارد chips are counts, not decoration — a commit moves them
   if(_lrFlat.length){ _lrPos=0; _lrGoFlat(0); toast(t('lg_next_batch',_lrFlat.length)); }
@@ -5243,7 +5252,7 @@ async function _lrReconcile(){
   const {batches}= papers.length ? legalAssemble(papers) : {batches:[]};
   _lrAll=batches;
   const cur=_lrFlat[_lrPos] && _lrFlat[_lrPos].paper;
-  _lrFlat=_lrBuildFlat(batches);
+  _lrFlat=_lrBuildFlat(_lrApplyScope(batches));
   if(!open) return;
   if(!_lrFlat.length){ toast(t('lg_all_done')); closeIkReview(); return; }
   const at=cur ? _lrFlat.findIndex(f=>f.paper.scan_hash===cur.scan_hash) : -1;
