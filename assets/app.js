@@ -417,10 +417,21 @@ async function signIn(){
   }catch(e){gerr((e&&e.message)||e)}
   finally{b.disabled=false;b.textContent=t('signin')}
 }
+/* ── QUIET BOOT (v265) ─────────────────────────────────────────────────────────────────────
+   Measured in the live API logs: at sign-in the client fired ~10 requests at once (roster ×2 pages,
+   overview, funnel, legal badge ×4, paper types, agent version, intake resync) and they QUEUED on
+   the database — a 3-row table averaged 316 ms, the 120 ms overview averaged 3.4 s, and the roster
+   1.2 s per page. So until the first rows are painted, only the roster (and the tiny paper-type
+   registry it renders with) may run; the rest starts after that paint, one after another. */
+let _bootPaintDone=null;
+const bootPaint=new Promise(r=>{ _bootPaintDone=r; });
+function markFirstPaint(){ if(_bootPaintDone){ _bootPaintDone(); _bootPaintDone=null; } }
+function afterFirstPaint(fn){ bootPaint.then(fn); }
 function enterApp(){$('#gate').style.display='none';$('#app').style.display='block';applyLang();$('#q').focus();search('');subscribeLive();
-  // Fetched alongside the first search, never before it: the roster is what the user came for,
+  setTimeout(markFirstPaint, 8000);                 // a failed/slow first search must not hold the rest hostage
+  // After the first paint, never before it: the roster is what the user came for,
   // and the overview must not delay a single row of it.
-  loadOverview();
+  afterFirstPaint(loadOverview);
   // WhatsApp kiosk door: ?legal=<scan_hash> lands straight on that paper's own
   // review screen instead of making a signed-in reviewer hunt it out of the
   // whole pending pool by eye. One-shot — the param is stripped right away so
@@ -621,6 +632,16 @@ async function rpcAll(fn, args, alive){
   }
   return {data:out,error:null};
 }
+/* The same search_employees, its rows aggregated to ONE json value on the database side
+   (search_employees_json) — so a 1600-row roster is one execution and one response instead of two
+   1000-row pages, the second of which re-ran the whole function. Reuse, not a copy: the wrapper is
+   `select jsonb_agg(...) from search_employees(q)`. An older database (no wrapper) falls back to the
+   paged walk. */
+async function rpcJson(fn, args){
+  const {data,error}=await sb.rpc(fn,args);
+  if(error) return {data:null,error};
+  return {data:Array.isArray(data)?data:[], error:null, complete:true};
+}
 async function search(q){
   const seq=++_seq;
   if(LAWMODE){ const rows=await searchLegalBatches(q); if(seq!==_seq)return; LAWLAST=sortLawRows(rows); renderLaw(LAWLAST); return; }
@@ -636,7 +657,8 @@ async function search(q){
      That call was half the work of a search. It now fires only when the walk was truncated
      (hit MAX_PAGES, or a newer keystroke cut it short), which is the one case we genuinely
      cannot answer ourselves. */
-  const got=await rpcAll('search_employees',{q},()=>seq===_seq);
+  let got=await rpcJson('search_employees_json',{q});
+  if(got.error) got=await rpcAll('search_employees',{q},()=>seq===_seq);   // older DB → the paged walk
   const {data,error}=got;
   if(seq!==_seq)return;                            // a newer keystroke won
   if(error){toast(error.message);return}
@@ -650,6 +672,7 @@ async function search(q){
   // BROWSE (empty box) = the chosen sort chip (number / name / newest).
   LAST = String(q||'').trim() ? (data||[]) : sortRows(data||[]);
   render(LAST);                                        // PAINT after one round-trip — don't wait on the 2nd query
+  markFirstPaint();                                    // v265: the quiet-boot gate opens here
   // the per-row legal-gap counts (a filter-chip only) load in the BACKGROUND, then re-render — they never
   // block the results from appearing. A newer keystroke (seq bumped) discards a stale background result.
   // (the legal facet reads legal_t/i/m/complete straight from the roster RPC — the old per-search legal_batch_members round-trip is gone)
@@ -2076,7 +2099,12 @@ function ikWatchBacklog(){
   }, IK_DRAIN_MS);
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') ikResync(); });
-if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){ ikResync(); ikWatchBacklog(); loadPaperTypes(); loadAgentVersion(); lawBadge(); } });
+if(sb) sb.auth.onAuthStateChange(ev=>{ if(ev==='TOKEN_REFRESHED'||ev==='SIGNED_IN'){
+  loadPaperTypes();                                 // 3 rows, and the roster's legal line renders from it
+  afterFirstPaint(async()=>{ try{ await loadAgentVersion(); }catch(_){}    // the rest in a LINE, after the paint (v265)
+                             try{ await lawBadge(); }catch(_){}
+                             ikResync(); ikWatchBacklog(); });
+} });
 async function lawBadge(){   // header count of legal batches awaiting a human judgment (= the section's review chip)
   try{ const rows=await searchLegalBatches(''); const n=rows.filter(b=>_batchSectionCase(b)==='flag'||!!_lblFlag(b)).length;
     const el=$('#law-badge'); if(el){ el.textContent=n; el.hidden=!n; } }catch(_){} }   // (app.js has no LIVE flag — sb is always created)
