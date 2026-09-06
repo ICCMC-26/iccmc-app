@@ -3166,7 +3166,17 @@ async function ikCommitJob(j,f,forcePid){
     const row=pickDb(f,VISA_DB); row.person_id=pid; if(j.image_path)row.visa_scan=j.image_path;
     if(row.visa_no){ const {data:dup}=await sb.from('visas').select('visa_id').eq('person_id',pid).eq('visa_no',row.visa_no).limit(1);
       if(dup&&dup.length){ await _ikMarkDone(j,pid,f); return {ok:1,pid,created,dup:1}; } }
-    const {error}=await sb.from('visas').insert(row); if(error)throw error;
+    const {error}=await sb.from('visas').insert(row);
+    if(error){
+      // The DB refused the SAME document as a renewal (trigger visas_maintain_current: same issue date, stay and
+      // entry as the person's current visa, only the number differs — a misread number, 2026-09-06). That is a
+      // fact for a human, not a transient: park the scan in the inbox with the reason, never retry it silently.
+      if(/visa_duplicate/.test(error.message||'')){
+        await sb.from('scan_jobs').update({status:'pending-review',error_msg:error.message,flagged:['visa_no']}).eq('job_id',j.job_id);
+        return {defer:1};
+      }
+      throw error;
+    }
   }else{
     if(!pid){ pid=await _nextPersonId(); created=true; }
     const row=withNorm(pickDb(f,PERSON_DB)); row.person_id=pid;
