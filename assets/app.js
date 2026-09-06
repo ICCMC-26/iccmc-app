@@ -3131,10 +3131,25 @@ async function _identityConflict(pid,f){
    burst that competes with the uploads for the same connection. */
 const COMMIT_PAR=4;
 let _commitActive=0; const _commitQ=[];
+/* CONSERVATION: a pumped file is committed, refused, or pending in the inbox — never a fourth thing.
+   A commit that DEFERS (needs a human: ambiguous passport, probable match, identity conflict, no name)
+   used to be remembered only in this browser's memory, so the job stayed 'staged' in the DB and the
+   20-s backlog sweep re-tried it forever (8 jobs since 2026-08-13, ~6 DB calls each, in every open tab —
+   the load that slowed the roster on 2026-09-06). Now the defer is WRITTEN to the job: needs-linking +
+   the reason, so it shows in the inbox for the human and the sweep never sees it again. */
+const _PARK_WHY={ambiguous:'يحتاج إنسانًا: رقم الجواز مسجّل لأكثر من موظف — اختر الصحيح',
+                 confirm:'يحتاج إنسانًا: تطابق محتمل بالاسم — أكّد الربط',
+                 conflict:'يحتاج إنسانًا: تعارض في الهوية مع الموظف المرشّح — راجع',
+                 noname:'يحتاج إنسانًا: لا اسم مقروء — أكمل البيانات'};
+async function _ikPark(j,why){
+  if(!j||!j.job_id) return;
+  try{ await sb.from('scan_jobs').update({status:'needs-linking',error_msg:_PARK_WHY[why]||_PARK_WHY.confirm}).eq('job_id',j.job_id); }catch(_){}
+}
 function _commitDrain(){
   while(_commitActive<COMMIT_PAR && _commitQ.length){
     const it=_commitQ.shift(); _commitActive++;
     Promise.resolve().then(()=>ikCommitJob(it.j,it.f,it.forcePid))
+      .then(async r=>{ if(r&&r.defer&&!r.parked) await _ikPark(it.j,r.why); return r; })   // a defer lands in the inbox, on the record
       .then(it.resolve, it.reject)
       .finally(()=>{ _commitActive--; _commitDrain(); });
   }
@@ -3148,18 +3163,18 @@ async function ikCommitJob(j,f,forcePid){
   const type=j.doc_type||'unknown';
   // forcePid = a human confirmed "this is EMP-xxxx" on the board → link straight to that person.
   const anchor=forcePid?{person_id:forcePid,how:'confirmed'}:await _resolveAnchor(f);
-  if(anchor&&anchor.ambiguous)return {defer:1};             // duplicate passport # → board
-  if(anchor&&anchor.confirm)return {defer:1};               // probable name+dob → let the board confirm
+  if(anchor&&anchor.ambiguous)return {defer:1,why:'ambiguous'};   // duplicate passport # → board
+  if(anchor&&anchor.confirm)return {defer:1,why:'confirm'};       // probable name+dob → let the board confirm
   // IDENTITY GUARD — never write a document onto an EXISTING person whose identity CONTRADICTS this scan.
   // The hard stop against a wrong link (a mis-confirmed renewal, a bad anchor, a race resolving to the
   // wrong person): a passport joins EMP-x only if EMP-x's national ID and birthday do not conflict with
   // it. On a conflict we DEFER to a human — we NEVER merge two different people. (A brand-new person has
   // nothing to conflict with, so this only gates links to an existing one.)
-  if(anchor&&anchor.person_id&&await _identityConflict(anchor.person_id,f))return {defer:1};
+  if(anchor&&anchor.person_id&&await _identityConflict(anchor.person_id,f))return {defer:1,why:'conflict'};
   let pid=anchor?anchor.person_id:null, created=false;
   if(type==='visa'){
     if(!pid){                                               // human confirmed → create the person from this visa
-      if(!f.name_latin&&!f.name_native)return {defer:1};
+      if(!f.name_latin&&!f.name_native)return {defer:1,why:'noname'};
       const prow=withNorm(pickDb(f,PERSON_DB)); pid=await _nextPersonId(); prow.person_id=pid;
       const {error:pe}=await sb.from('persons').upsert(prow,{onConflict:'person_id'}); if(pe)throw pe; created=true;
     }
@@ -3173,7 +3188,7 @@ async function ikCommitJob(j,f,forcePid){
       // fact for a human, not a transient: park the scan in the inbox with the reason, never retry it silently.
       if(/visa_duplicate/.test(error.message||'')){
         await sb.from('scan_jobs').update({status:'pending-review',error_msg:error.message,flagged:['visa_no']}).eq('job_id',j.job_id);
-        return {defer:1};
+        return {defer:1,parked:1};                              // already written to the job — the drain must not re-park it
       }
       throw error;
     }
@@ -3181,7 +3196,7 @@ async function ikCommitJob(j,f,forcePid){
     if(!pid){ pid=await _nextPersonId(); created=true; }
     const row=withNorm(pickDb(f,PERSON_DB)); row.person_id=pid;
     if(j.image_path){ if(type==='national_id')row.id_scan=j.image_path; else row.passport_scan=j.image_path; }
-    if(!row.name_latin&&!row.name_native)return {defer:1};
+    if(!row.name_latin&&!row.name_native)return {defer:1,why:'noname'};
     const {error}=await sb.from('persons').upsert(row,{onConflict:'person_id'}); if(error)throw error;
     // file this passport into the person's document history (SCD-2): a NEW number supersedes the old.
     if(type!=='national_id'&&row.passport_no){ try{ await sb.rpc('record_person_document',{p_person_id:pid,
