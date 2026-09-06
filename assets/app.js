@@ -3962,7 +3962,7 @@ function istPickRegistry(){
     <div class="pk-ft"><span class="pk-count" id="pk-count">${esc(t('ist_pk_sel',0))}</span><span class="spacer"></span>
       <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button><button class="add pk-add" id="pk-add" disabled>${esc(t('ist_pk_add',0))}</button></div></div>`;
   const q=$('#pk-q'), list=$('#pk-list');
-  const close=()=>{ m.classList.remove('on'); document.removeEventListener('keydown',onKey); _ISTPK=null; };
+  const close=()=>{ m.classList.remove('on'); document.removeEventListener('keydown',onKey); if(_ISTPK&&_ISTPK.io) _ISTPK.io.disconnect(); _ISTPK=null; };
   const onKey=e=>{
     if(e.key==='Escape'){ e.stopPropagation(); close(); return; }
     const P=_ISTPK; if(!P) return; const n=P.rows.length;
@@ -4004,7 +4004,12 @@ function istPkPaint(){
       <span class="pk-who"><b>${esc(r.name||'')}</b>${r.name_native?` <i>${esc(r.name_native)}</i>`:''}<small>${esc(r.person_id||'')} · ${esc(r.passport_no||'—')} · ${esc(r.nationality||'')}</small></span>
       ${inT?`<span class="pk-tag">${esc(t('ist_pk_in'))}</span>`:''}</div>`; }).join('')
     +(P.over?`<div class="pk-empty">${esc(t('ist_pk_more',IST_PK_CAP))}</div>`:'');
-  list.querySelectorAll('.pk-ava').forEach(el=>{ if(el.dataset.face) loadFace(el, el.dataset.face, false); });   // the same face loader as the roster: initials until the crop truly loads
+  // faces load LAZILY, as rows scroll into view (the roster's own rule). Loading all 300 at once fired 300
+  // signed-URL requests in a burst and the next search waited behind them; now ~10 load, the rest on scroll.
+  if(!P.io){ P.io=new IntersectionObserver(es=>{ es.forEach(e=>{ if(!e.isIntersecting) return; const el=e.target; P.io.unobserve(el);
+      if(el.dataset.face) loadFace(el, el.dataset.face, false); }); },{root:list, rootMargin:'240px'}); }
+  else P.io.disconnect();
+  list.querySelectorAll('.pk-ava').forEach(el=>P.io.observe(el));
   istPkFoot(); istPkPaintCursor(false);
 }
 function istPkPaintCursor(scroll=true){ const P=_ISTPK; if(!P) return; const list=$('#pk-list'); if(!list) return;
