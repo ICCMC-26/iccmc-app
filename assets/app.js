@@ -50,7 +50,7 @@ const I18N={
     inc_all:'الكل', inc_pass:'الجواز', inc_visa:'الفيزا',
     f_filter:'تصفية', f_done:'تم', f_clear:'مسح الكل', f_pick:'اختر حالة لكل وثيقة', f_pass:'الجواز', f_visa:'التأشيرة', f_legalfile:'الملف القانوني',
     f_paper:'الورقة الناقصة', f_complete_file:'ملف مكتمل', f_complete:'مكتمل', f_missing:'ناقص', f_nodoc:'لا يوجد', why_visa:'تأشيرته لم تُجدَّد',
-    law_window:'تجاوزت المهلة', law_window_t:'مرّت 90 يومًا على المنح ولم تُربط أي فيزا — امسح التأشيرات أو أرشِف الدفعة', law_spread:'تباعد في تواريخ الإصدار — راجعها',
+    law_window:'تجاوزت المهلة', law_window_t:'مرّت 90 يومًا على المنح ولم تُربط أي فيزا — امسح التأشيرات أو أرشِف الدفعة', law_spread:'تباعد في تواريخ الإصدار — راجعها', law_duration:n=>`مدة المنح (${n} يومًا) لا تطابق مدة الإقامة في الفيزا — راجع`,
     f_life:'الحالة', f_papers:'الأوراق', f_stamps:'الأختام', f_pcomplete:'مكتملة', f_pmissing:'ناقصة', f_review:'مراجعة', f_pick_law:'اختر حالة أو أوراقًا أو أختامًا',
     f_lacks_p:'ينقصه:', f_lacks_b:'ينقصها:', law_awaiting:'بانتظار الفيزا', law_archive:'الأرشيف', st_company:'ختم الشركة', st_ministry:'ختم الوزارة', n_batches:n=>`<span class="num">${n}</span> دفعة`,
     out:'تسجيل الخروج؟', soon_v2:'إضافة موظف — قادمة قريبًا.',
@@ -202,7 +202,7 @@ const I18N={
     inc_all:'All', inc_pass:'Passport', inc_visa:'Visa',
     f_filter:'Filter', f_done:'Done', f_clear:'Clear all', f_pick:'Pick a state per document', f_pass:'Passport', f_visa:'Visa', f_legalfile:'Legal file',
     f_paper:'Missing paper', f_complete_file:'Complete file', f_complete:'Complete', f_missing:'Incomplete', f_nodoc:'None', why_visa:'his visa is not renewed',
-    law_window:'window passed', law_window_t:'90 days since the grant and no visa connected — scan the visas or archive the batch', law_spread:'issue dates spread — review',
+    law_window:'window passed', law_window_t:'90 days since the grant and no visa connected — scan the visas or archive the batch', law_spread:'issue dates spread — review', law_duration:n=>`The grant's duration (${n} days) does not match the visa's stay — review`,
     f_life:'Status', f_papers:'Papers', f_stamps:'Stamps', f_pcomplete:'Complete', f_pmissing:'Incomplete', f_review:'Review', f_pick_law:'Pick a status, papers, or stamps',
     f_lacks_p:'missing:', f_lacks_b:'missing:', law_awaiting:'Awaiting visa', law_archive:'Archive', st_company:'Company stamp', st_ministry:'Ministry stamp', n_batches:n=>`<span class="num">${n}</span> batch${n===1?'':'es'}`,
     out:'Sign out?', soon_v2:'Add employee — coming next.',
@@ -721,12 +721,13 @@ let _LBL={};   // #Phase2: batch_id -> v_legal_batch_link row (connection + stat
 let _LVISA={};   // #Review: person_id -> their current visa row (to flag static batches near an active visa)
 async function loadLegalLinks(ids){
   ids=[...new Set((ids||[]).filter(Boolean))]; if(!ids.length) return;
-  try{ const {data}=await sb.from('v_legal_batch_link').select('batch_id,connected,batch_expiry,status,expiry_variants,connected_visa_id,batch_floor,batch_ceiling,spread_days,flag').in('batch_id',ids);
+  try{ const {data}=await sb.from('v_legal_batch_link').select('batch_id,connected,batch_expiry,status,expiry_variants,connected_visa_id,batch_floor,batch_ceiling,spread_days,flag,manh_stay_days,manh_kind,duration_mismatch').in('batch_id',ids);
     (data||[]).forEach(r=>{ _LBL[r.batch_id]=r; }); }catch(_){}
 }
 function legalStatusChip(id){   // batch presence = its connected visa's status; static -> NO chip (honest)
   const l=_LBL[id]; if(!l||!l.connected||!l.status||l.status==='static') return '';
-  const _w=l.flag==='spread'?` <span class="law-flag" title="${esc(t('law_spread'))}">⚑</span>`:'';   // R4: issue dates >60 days apart inside one batch
+  const _w=l.flag==='spread'?` <span class="law-flag" title="${esc(t('law_spread'))}">⚑</span>`
+         :l.flag==='duration'?` <span class="law-flag" title="${esc(t('law_duration',l.manh_stay_days))}">⚑</span>`:'';   // R4 spread · v275: the grant's duration ≠ the visa's stay
   return statusChip(visaBandStatus(l.batch_floor,l.batch_ceiling,l.batch_expiry))+_w;   // the batch's range through the ONE life reader (warns on approach, like the visa)
 }
 /* RETIRED FROM THE DOSSIER (2026-08-12) — kept because it is the only code that answers "which
