@@ -955,7 +955,12 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 #istimara.on{display:block}
 .ist-wrap{max-width:1180px;margin:0 auto;padding:14px 14px 60px}   /* fits the 297mm landscape sheet */
 .ist-bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px;padding:12px 14px;
-  background:rgba(29,37,34,.90);border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.25);
+  background:transparent;border-bottom:1px solid transparent;
+  transition:background .15s,border-color .15s,box-shadow .15s}
+/* v263: at rest the bar paints NOTHING of its own — it sat as a lighter rectangle on the dark overlay.
+   Only once the paper scrolls under it (.stuck, set from the sheet's scroll) does it take a tint,
+   a hairline and a blur so the title and buttons stay legible over white. */
+.ist-bar.stuck{background:rgba(29,37,34,.92);border-bottom-color:var(--line);box-shadow:0 1px 0 rgba(0,0,0,.25);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .ist-bar .ist-t{font-weight:700;color:var(--ink);font-size:15px;display:flex;align-items:center;gap:8px}
 .ist-bar .spacer{flex:1}
@@ -1105,8 +1110,8 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* a HAND-TYPED cell: an editable input + a fill-down button; a faint copper tint marks the "fill these in" columns */
 .ist-table td.ist-hcell{position:relative;padding:0;background:rgba(197,149,107,.05)}
 .ist-hin{width:100%;box-sizing:border-box;border:none;background:transparent;font:inherit;font-size:11pt;text-align:center;
-  padding:5px 15px 5px 3px;color:#000}
-.ist-hin:hover{background:rgba(197,149,107,.09)} .ist-hin:focus{outline:none;background:rgba(197,149,107,.14)}
+  padding:5px 4px;color:#000}                                   /* v263: no reserved gutter — «Engineer»/«مطار بغداد» were clipped */
+.ist-hin:focus{outline:none;background:rgba(197,149,107,.14)}
 .ist-fill{position:absolute;top:50%;transform:translateY(-50%);inset-inline-end:2px;width:16px;height:16px;line-height:1;
   border:none;border-radius:3px;background:var(--copper);color:#fff;font-size:11px;cursor:pointer;opacity:0;transition:opacity .1s;padding:0}
 .ist-hcell:hover .ist-fill,.ist-hin:focus + .ist-fill{opacity:1}                /* the ⤓ shows on hover / when the cell is focused */
@@ -1335,13 +1340,15 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
    Now one flex group with a real gap, equal 18×16 targets, each with its own tint so the eye
    can tell "offer me choices" from "copy this downward" without reading the tooltip. */
 .ist-hcell{position:relative}
-.ist-cacts{position:absolute;inset-inline-end:3px;bottom:3px;display:flex;gap:5px;
-  align-items:center;pointer-events:none}
+.ist-cacts{position:absolute;inset-inline-end:2px;top:50%;transform:translateY(-50%);display:flex;gap:4px;
+  align-items:center;pointer-events:none;opacity:0;transition:opacity .1s;
+  background:inherit;padding-inline-start:4px;border-radius:4px}
 .ist-cacts>*{pointer-events:auto}
-/* Only cells that actually gained a second control get more room. The base cell already reserves
-   space for ⤓, so adding a blanket gutter stacks a second one and clips the narrow columns —
-   «Engineer» in an 83px cell has no 41px of padding to spare. */
-.ist-hcell:has(.ist-pick) .ist-hin{padding-inline-end:46px}   /* ▾ + ⤓ */
+/* v263: the two controls are HIDDEN at rest so the value owns the whole cell (the old 46px gutter
+   clipped the narrow columns in the mould); they surface on hover or while the cell is focused,
+   on a patch of the cell's own colour so they never sit on top of the text. */
+.ist-hcell:hover .ist-cacts,.ist-hcell:focus-within .ist-cacts{opacity:1}
+.ist-hcell:hover{background:rgba(197,149,107,.10)}
 
 /* shared shape so the pair looks deliberate rather than accidental */
 .ist-pick,.ist-fill{display:inline-flex;align-items:center;justify-content:center;

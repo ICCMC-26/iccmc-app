@@ -146,7 +146,7 @@ const I18N={
     ist_agent_hint:'تُرفع الجوازات بالأداة — تدخل السجل كالمعتاد وتظهر هنا تلقائياً',
     ist_agent_updated:'⬇ نُزِّلت نسخة أحدث من الأداة — افتح الملف الجديد من التنزيلات، لا النسخة القديمة',
     ist_agent_wait:'بانتظار الجوازات من الأداة…', ist_agent_got:n=>`أُضيف ${n} من الأداة`,
-    ist_agent_other:'المستندات الأخرى تذهب إلى «الوارد» ولا تُدرج في هذا الجدول', ist_add_more:'أضِف موظفين — اسحب هنا أو انقر', ist_drop_sub:'أو انقر للاختيار · صورة أو PDF · عدة موظفين معًا', ist_too_many:'أكثر من 12 ملفًا — تُفتح أداة الرفع للدفعات الكبيرة',
+    ist_agent_other:'المستندات الأخرى تذهب إلى «الوارد» ولا تُدرج في هذا الجدول', ist_add_more:'أضِف موظفين — اسحب هنا أو انقر', ist_drop_sub:'أو انقر للاختيار · صورة أو PDF · عدة موظفين معًا', ist_big_pick:'دفعة كبيرة — تُرفع من هنا، أبقِ الصفحة مفتوحة. للمجلدات الكبيرة: أداة الرفع',
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
@@ -299,7 +299,7 @@ const I18N={
     ist_agent_hint:'Passports go through the uploader — they enter the registry as usual and appear here automatically',
     ist_agent_updated:'⬇ A newer uploader was downloaded — open the NEW file from Downloads, not the old copy',
     ist_agent_wait:'waiting for passports from the uploader…', ist_agent_got:n=>`${n} added from the uploader`,
-    ist_agent_other:'Other documents go to «الوارد» and are not added to this table', ist_add_more:'Add employees — drag here or click', ist_drop_sub:'or click to browse · image or PDF · many employees at once', ist_too_many:'More than 12 files — opening the uploader for large batches',
+    ist_agent_other:'Other documents go to «الوارد» and are not added to this table', ist_add_more:'Add employees — drag here or click', ist_drop_sub:'or click to browse · image or PDF · many employees at once', ist_big_pick:'Big batch — uploading from here, keep this page open. For folder-sized batches: the uploader',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
@@ -2618,23 +2618,35 @@ function agentState(){
   return agentVer()===TOOL_V ? 'current' : 'stale';
 }
 
+/* ONE mapping from the agent's state to what its link says and shows — used by the main drop box
+   (paintAgentLink) AND the استمارة sheet's link (istPaintAgentLink), so the two can never disagree:
+   the sheet used to say «حمِّل» even when the tool was already installed (v263). */
+function agentOffer(){
+  const st=agentState();
+  return st==='none'  ? {st, ic:'⤓', key:'dz_agent'}
+       : st==='stale' ? {st, ic:'⟳', key:'dz_agent_new'}
+       :                {st, ic:'⇱', key:'dz_agent_open'};
+}
+function istPaintAgentLink(){
+  const al=document.getElementById('ist-agent-link'); if(!al) return;
+  const o=agentOffer(); al.textContent=o.ic+' '+t(o.key);
+}
 function paintAgentLink(){
+  istPaintAgentLink();                                        // the sheet's link follows the same state
   const a=document.querySelector('.dz-agent'); if(!a) return;
   const ic=a.querySelector('.dz-agent-i'), lb=a.querySelector('#dz-agent-t');
-  const st=agentState();
+  const o=agentOffer(), st=o.st;
+  if(ic)ic.textContent=o.ic; if(lb)lb.textContent=t(o.key);
   const download=()=>{ a.setAttribute('download','افتح أداة الرفع.pyw');
                        a.setAttribute('href','ICCMC-uploader.pyw'); };
   // THREE states, THREE actions. One line that both offered to open and mentioned an update was
   // asking the reader to work out which of two things it meant. Each state now says exactly one
   // thing and does exactly that thing.
   if(st==='none'){                                    // 1 · does not have it → get it
-    if(ic)ic.textContent='⤓'; if(lb)lb.textContent=t('dz_agent');
     download();
   }else if(st==='stale'){                             // 2 · has an old one → update it
-    if(ic)ic.textContent='⟳'; if(lb)lb.textContent=t('dz_agent_new');
     download();
   }else{                                              // 3 · has this one → open it
-    if(ic)ic.textContent='⇱'; if(lb)lb.textContent=t('dz_agent_open');
     a.removeAttribute('download'); a.removeAttribute('href');   // JS opens it, see openAgent
   }
   if(!a._wired){ a._wired=1; a.addEventListener('click',e=>{
@@ -3688,6 +3700,8 @@ async function istimaraOpen(paper){
   if(istPending().length){ istEnsureWatch(); istReconcile().catch(()=>{}); }
   istWirePhoto();
   $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
+  { const sc=$('#istimara'); sc.scrollTop=0;                       // the bar tints only once the paper scrolls under it (v263)
+    sc.onscroll=()=>{ const b=sc.querySelector('.ist-bar'); if(b) b.classList.toggle('stuck', sc.scrollTop>8); }; }
 }
 function istimaraClose(){ $('#istimara').classList.remove('on'); document.body.style.overflow=''; }
 /* ── unsaved-work guard: closing with edits asks Save / Discard / Cancel. Save → localStorage draft,
@@ -3756,7 +3770,8 @@ function istRenderRows(){
     return `<tr>${COLS.map(cell).join('')}</tr>`;
   }).join('');
   // the add-zone IS the table body — a clickable + droppable box, like the OCR upload box. No separate button.
-  const _agentLink = `<a class="ist-agent-link" id="ist-agent-link">⤓ ${esc(t('dz_agent'))}</a>`;
+  const _o=agentOffer();                                     // same state → same sentence as the main drop box
+  const _agentLink = `<a class="ist-agent-link" id="ist-agent-link">${_o.ic} ${esc(t(_o.key))}</a>`;
   const drop = _IST.rows.length
     ? `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_more'))}　·　${_agentLink}<span class="ist-agent-note" id="ist-agent-note"></span></td></tr>`
     : `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('dz_t'))}<br><em>${esc(t('ist_drop_sub'))}</em></span><br>${_agentLink}<span class="ist-agent-note" id="ist-agent-note"></span></td></tr>`;
@@ -3850,7 +3865,11 @@ let _istAgentTimer=null, _istAgentSince=null, _istAgentSeen=new Set(), _istAgent
 
 const IST_DROP_MAX=12;   // ≤12 → straight through the OCR line; more → the Agent (mirrors #dz's IK_PIPELINE)
 function istIntake(files){
-  if(files && files.length > IST_DROP_MAX){ toast(t('ist_too_many')); istOpenAgent(); return; }
+  /* v263: a big pick is no longer a wall. A browser cannot hand picked files to a desktop program,
+     so sending the user to the uploader here meant selecting everything twice. The page already
+     holds the bytes → it uploads them itself (4 at a time, the same OCR line) and only NOTES the
+     uploader as the better tool for folder-sized batches. */
+  if(files && files.length > IST_DROP_MAX) toast(t('ist_big_pick'));
   istAddFromPC(files);
 }
 function istOpenAgent(){
