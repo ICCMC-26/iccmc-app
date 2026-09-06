@@ -445,7 +445,8 @@ function enterApp(){$('#gate').style.display='none';$('#app').style.display='blo
   setTimeout(markFirstPaint, 8000);                 // a failed/slow first search must not hold the rest hostage
   // After the first paint, never before it: the roster is what the user came for,
   // and the overview must not delay a single row of it.
-  afterFirstPaint(()=>loadOverview().then(briefBoot, briefBoot));   // the brief greets once the numbers are in (v280)
+  briefBoot();                                                       // the brief starts sliding NOW (v282); its numbers fill in as they arrive
+  afterFirstPaint(()=>loadOverview().then(briefFill, briefFill));
   // WhatsApp kiosk door: ?legal=<scan_hash> lands straight on that paper's own
   // review screen instead of making a signed-in reviewer hunt it out of the
   // whole pending pool by eye. One-shot — the param is stripped right away so
@@ -5626,7 +5627,7 @@ applyLang();
    key «announcement» ({id, ar, en}) — an admin edits that row and every user sees it once. Nothing
    here writes to the database. The OS reduced-motion flag is deliberately NOT honoured: the slide
    is the feature, and on Ibrahim's machine that flag is on by default. */
-const BRIEF={d:null, i:0, on:false, idle:null, booted:false, prev:null};
+const BRIEF={d:null, i:0, on:false, idle:null, booted:false, loaded:false, prev:null};
 const briefNum=n=>Number(n||0).toLocaleString('en-US');
 function briefWhen(iso){ try{ return new Intl.DateTimeFormat(LANG==='ar'?'ar-IQ-u-nu-latn':'en-GB',{dateStyle:'medium',timeStyle:'short'}).format(new Date(iso)); }catch(_){ return ''; } }
 function briefSeen(){ try{ return JSON.parse(localStorage.getItem('iccmc_ann_seen')||'[]'); }catch(_){ return []; } }
@@ -5649,13 +5650,13 @@ function briefTilesHtml(){
     ...(d.role==='admin'?[{n:d.ref, l:t('bf_t_ref'), c:'--st-unk', go:'pq:refused', a:t('bf_go_inbox')}]:[]),
     {n:C?C.complete:null, of:o.employees, l:t('bf_t_done'), c:'--st-ok', go:'board', a:t('bf_go_board')},
   ];
-  return `<div class="bf-tiles">`+T.map(x=>`<button class="bf-tile" data-go="${x.go}"><b>${x.n==null?'—':briefNum(x.n)}${x.of?`<small>/ ${briefNum(x.of)}</small>`:''}</b><span><i style="background:var(${x.c})"></i>${esc(x.l)}</span><em>${esc(x.a)}</em></button>`).join('')+`</div>`;
+  return `<div class="bf-tiles">`+T.map(x=>`<button class="bf-tile" data-go="${x.go}"><b>${x.n==null?(BRIEF.loaded?'—':'…'):briefNum(x.n)}${x.of?`<small>/ ${briefNum(x.of)}</small>`:''}</b><span><i style="background:var(${x.c})"></i>${esc(x.l)}</span><em>${esc(x.a)}</em></button>`).join('')+`</div>`;
 }
 function briefSinceHtml(){
   const d=BRIEF.d||{}, o=OVERVIEW||{};
   const rows=[['⟲', BRIEF.prev?esc(t('bf_prev')):esc(t('bf_first')), BRIEF.prev?briefWhen(BRIEF.prev):'', '']];
   if(o.employees!=null) rows.push(['⌕', t('bf_reg',briefNum(o.employees)), '', '']);
-  rows.push(['⇅', t('bf_inbox',briefNum(d.rev),briefNum(d.ref)), '', '']);
+  if(BRIEF.loaded) rows.push(['⇅', t('bf_inbox',briefNum(d.rev),briefNum(d.ref)), '', '']);
   if(d.role==='admin' && d.health) rows.push(['●', esc(d.health.ok?t('bf_health_ok'):t('bf_health_bad')), briefWhen(d.health.ran_at), d.health.ok?'ok':'bad']);
   return `<div class="bf-list">`+rows.map(r=>`<div class="bf-li"><span class="k ${r[3]}">${r[0]}</span><span>${r[1]}</span><span class="t">${esc(r[2])}</span></div>`).join('')+`</div>`;
 }
@@ -5688,7 +5689,7 @@ function briefStrip(show){
   const el=$('#brief-strip'); if(!el) return; const o=OVERVIEW||{}, V=o.visas||{}, d=BRIEF.d||{};
   el.innerHTML=`<span><i style="background:var(--st-bad)"></i><b>${V.expired==null?'—':briefNum(V.expired)}</b> ${esc(t('bf_t_exp'))}</span>`
     +`<span><i style="background:var(--st-soon)"></i><b>${V.soon==null?'—':briefNum(V.soon)}</b> ${esc(t('bf_t_soon'))}</span>`
-    +`<span><i style="background:var(--copper)"></i><b>${briefNum(d.rev)}</b> ${esc(t('bf_t_rev'))}</span>`
+    +`<span><i style="background:var(--copper)"></i><b>${d.rev==null?(BRIEF.loaded?'—':'…'):briefNum(d.rev)}</b> ${esc(t('bf_t_rev'))}</span>`
     +`<button data-bf-open>${esc(t('bf_reopen'))}</button>`;
   el.hidden=!show;
   { const a=d.ann, b=el.querySelector('[data-bf-open]'); if(b) b.classList.toggle('dot', !!(a&&a.id&&!briefSeen().includes(String(a.id)))); }   // copper dot = an announcement not yet read
@@ -5715,12 +5716,32 @@ function briefGo(go){
   if(go==='visa:soon'){ fSet('visa','soon'); return; }
 }
 function briefRelabel(){ if(!BRIEF.booted) return; renderBrief(); briefStrip(!BRIEF.on); }
-async function briefBoot(){
+function briefBoot(){
+  /* Called the moment the app enters. No database call happens here — the quiet-boot rule (v265)
+     stands: only the roster may run before the first paint. The greeting uses the e-mail already
+     in the local session; the tiles show «…» until briefFill() brings the numbers. */
   if(BRIEF.booted) return; BRIEF.booted=true;
   try{ BRIEF.prev=localStorage.getItem('iccmc_last_visit'); localStorage.setItem('iccmc_last_visit',new Date().toISOString()); }catch(_){}
-  BRIEF.d=await briefData();
+  BRIEF.d={email:'',name:'',role:'',rev:null,ref:null,health:null,ann:null};
+  try{ sb.auth.getSession().then(r=>{ const u=r&&r.data&&r.data.session&&r.data.session.user; if(u&&u.email&&BRIEF.d&&!BRIEF.d.email){ BRIEF.d.email=u.email; briefRefresh(); } }); }catch(_){}
   let first=true; try{ first=!sessionStorage.getItem('iccmc_brief_seen'); sessionStorage.setItem('iccmc_brief_seen','1'); }catch(_){}
-  if(first) setTimeout(()=>briefOpen(true),900); else briefStrip(true);
+  if(first) briefOpen(true); else briefStrip(true);
+}
+async function briefFill(){
+  /* After the first paint and the overview: the four small reads, then the open sheet is updated
+     IN PLACE (no re-slide, no blink) and the strip gets its numbers. */
+  const d=await briefData(); BRIEF.d=d; BRIEF.loaded=true;
+  briefRefresh(); if(!BRIEF.on) briefStrip(true);
+}
+function briefRefresh(){
+  const box=$('#brief'); if(!box||!box.firstChild){ return; }
+  const d=BRIEF.d||{};
+  const hb=box.querySelector('.bf-hd b'); if(hb) hb.textContent=briefGreeting();
+  let role=box.querySelector('.bf-role');
+  if(d.role){ if(!role){ role=document.createElement('span'); role.className='bf-role'; hb&&hb.insertAdjacentElement('afterend',role); } role.textContent=d.role; }
+  const secs=box.querySelectorAll('.bf-sec');
+  if(secs[0]) secs[0].innerHTML=briefTilesHtml(); if(secs[1]) secs[1].innerHTML=briefSinceHtml(); if(secs[2]) secs[2].innerHTML=briefNewHtml();
+  briefPlace();
 }
 { const box=$('#brief'); if(box) box.addEventListener('click',e=>{
     const ix=e.target.closest('[data-bf-i]'); if(ix){ briefGoSec(+ix.dataset.bfI); return; }
