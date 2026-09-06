@@ -2964,7 +2964,6 @@ $('#tlang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 paintSort();   // render the sort control once; delegated click (survives repaints)
 { const _sb=$('#sortbar'); if(_sb)_sb.addEventListener('click',e=>{const b=e.target.closest('[data-sort]');if(b)setSort(b.dataset.sort);}); }
 $('#ttheme').addEventListener('click',toggleTheme);
-$('#tbrief').addEventListener('click',()=>briefOpen(false));
 $('#brief-strip').addEventListener('click',e=>{ if(e.target.closest('[data-bf-open]')) briefOpen(false); });
 $('#q').addEventListener('input',()=>{ if(BRIEF.on && $('#q').value.length===1) briefFold(); });      // the first letter folds the brief
 $('#fbtn').addEventListener('click',()=>{ if(BRIEF.on) briefFold(); });                                  // so does opening the filter drawer
@@ -5621,7 +5620,7 @@ applyLang();
    slides down from under the search box and greets the user: who they are, the numbers that need
    them today (each opens the matching view), what changed since their last visit from this device,
    and one announcement. It folds on the first keystroke, Esc, «إخفاء», the filter button, or 10 s
-   of silence — into a one-line strip under the box; ▾ in the top bar brings it back (no timer).
+   of silence — into a one-line strip under the box whose «الموجز ▾» brings it back (no timer).
    Data, all read-only and already permitted by RLS: registry_overview (cached by loadOverview),
    v_intake_counts, the user's own `users` row, the latest health_audit (admins), and app_settings
    key «announcement» ({id, ar, en}) — an admin edits that row and every user sees it once. Nothing
@@ -5692,7 +5691,7 @@ function briefStrip(show){
     +`<span><i style="background:var(--copper)"></i><b>${briefNum(d.rev)}</b> ${esc(t('bf_t_rev'))}</span>`
     +`<button data-bf-open>${esc(t('bf_reopen'))}</button>`;
   el.hidden=!show;
-  const tb=$('#tbrief'); if(tb){ tb.hidden=!show; const a=d.ann; tb.classList.toggle('dot', !!(a&&a.id&&!briefSeen().includes(String(a.id)))); }
+  { const a=d.ann, b=el.querySelector('[data-bf-open]'); if(b) b.classList.toggle('dot', !!(a&&a.id&&!briefSeen().includes(String(a.id)))); }   // copper dot = an announcement not yet read
 }
 function briefIdle(){ clearTimeout(BRIEF.idle); BRIEF.idle=setTimeout(()=>{ const s=$('#brief');
   if(s&&(s.matches(':hover')||s.contains(document.activeElement))){ briefIdle(); return; } briefFold(); },10000); }
