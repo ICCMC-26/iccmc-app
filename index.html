@@ -11,7 +11,7 @@
   filter wall. Backend = the reused Supabase stack + the search_employees() RPC.
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
-<link rel="stylesheet" href="assets/app.css?v=138">
+<link rel="stylesheet" href="assets/app.css?v=139">
 </head>
 <body>
 
@@ -53,7 +53,6 @@
     <span class="spacer"></span>
     <button class="add" id="add"><svg class="ic"><use href="#i-plus"/></svg><span id="addtxt">إضافة</span></button>
     <button class="add quiet" id="bboard" title="اللوحة / Board"><svg class="ic"><use href="#i-board"/></svg><span id="bboardtxt">اللوحة</span></button>
-    <button class="add quiet" id="bsel" title="تحديد موظفين / Select employees"><svg class="ic"><use href="#i-check"/></svg><span id="bseltxt">تحديد</span></button>
     <button class="add quiet lawbtn" id="blaw" title="المعاملات القانونية / Legal procedures"><svg class="ic"><use href="#i-scale"/></svg><span id="blawtxt">المعاملات</span></button>
     <button class="add quiet pendbtn" id="bpend" title="الوارد — ما لم يُودَع بعد / Inbox — not committed yet"><svg class="ic"><use href="#i-inbox"/></svg><span id="bpendtxt">الوارد</span><span class="pq-badge" id="pq-badge" hidden>0</span></button>
     <button class="icon" id="tlang" title="EN / ع">ع</button>
@@ -76,7 +75,7 @@
   <div class="brief-strip" id="brief-strip" hidden></div>
 
   <div class="filters" id="filters"></div>
-  <div class="listbar"><div class="count" id="count"></div><span class="legend" id="legend" hidden></span><div class="sortbar" id="sortbar"></div></div>
+  <div class="listbar"><div class="count" id="count"></div><span class="legend" id="legend" hidden></span><button class="sel-chip" id="bsel" title="تحديد موظفين / Select employees"><svg class="ic"><use href="#i-check"/></svg><span id="bseltxt">تحديد</span></button><div class="sortbar" id="sortbar"></div></div>
   <div id="results"></div>
 </div>
 
@@ -150,6 +149,6 @@
 <script src="assets/vendor.js?v=1"></script>
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
-<script src="assets/app.js?v=289"></script>
+<script src="assets/app.js?v=290"></script>
 </body>
 </html>
