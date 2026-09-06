@@ -157,7 +157,7 @@ const I18N={
     ist_photo:'الصورة', ist_add_pc:'إضافة من الحاسبة', ist_add_reg:'من السجل', ist_empty:'لا موظفين بعد — أضِفهم من الحاسبة', ist_soon:'قريباً', ist_company_ph:'مثال: مجموعة شنغهاي للكهرباء',
     ist_reading:'… جارٍ القراءة', ist_read_fail:'تعذّرت القراءة — أعِد المحاولة', ist_drop_sub:'انقر أو اسحب جوازات الموظفين',
     ist_src_q:'من أين نضيف الموظفين؟', ist_src_pc:'من جهازك', ist_src_pc_s:'صورة أو PDF للجواز — تُقرأ عبر خط القراءة', ist_src_reg:'من السجل', ist_src_reg_s:'ابحث وحدّد موظفين مسجّلين — بلا قراءة جديدة',
-    sel_btn:'تحديد', sel_h:'حدّد موظفين', sel_next:n=>n?`متابعة ${n}`:'متابعة', sel_q:n=>`ماذا تريد لـ ${n} موظفًا؟`, sel_back:'رجوع',
+    sel_btn:'تحديد', sel_bundle_n:n=>n?`تصدير الملفات الشخصية (${n})`:'تصدير الملفات الشخصية', sel_dossier_n:n=>n?`ملفات الموظفين ZIP (${n})`:'ملفات الموظفين ZIP', sel_h:'حدّد موظفين', sel_next:n=>n?`متابعة ${n}`:'متابعة', sel_q:n=>`ماذا تريد لـ ${n} موظفًا؟`, sel_back:'رجوع',
     sel_bundle_s:'جواز كل موظف ثم تأشيرته إن وُجدت — الكل في ملف PDF واحد', sel_dossier:'ملفات الموظفين', sel_dossier_s:'ملف PDF كامل لكل موظف — الكل في مجلد ZIP واحد',
     sel_zip_working:(i,n)=>`جارٍ إنشاء الملفات… ${i} / ${n}`, sel_zip_done:n=>`تم تنزيل ${n} ملفًا في مجلد ZIP ✓`, sel_zip_fail:'تعذّر إنشاء الملفات — أعِد المحاولة', sel_zip_none:'لم يُبنَ أي ملف',
     ist_pk_h:'اختر من السجل', ist_pk_ph:'ابحث بالاسم أو الجواز أو الجنسية…', ist_pk_sel:n=>`${n} محدد`, ist_pk_add:n=>n?`أضِف ${n}`:'أضِف', ist_pk_in:'في الجدول', ist_pk_none:'لا نتائج', ist_pk_more:n=>`يُعرض أول ${n} — ضيّق البحث`, ist_pk_done:n=>`أُضيف ${n} من السجل`, ist_pk_cancel:'إلغاء', ist_pk_keys:'↑↓ تنقّل · مسافة تحديد · Enter إضافة · Esc إغلاق',
@@ -321,7 +321,7 @@ const I18N={
     ist_agent_other:'Other documents go to «الوارد» and are not added to this table', ist_add_more:'Add employees — drag here or click', ist_drop_sub:'or click to browse · image or PDF · many employees at once', ist_big_pick:'Big batch — uploading from here, keep this page open. For folder-sized batches: the uploader',
     ist_photo:'Photo', ist_add_pc:'Add from PC', ist_add_reg:'From registry', ist_empty:'No employees yet — add them from your PC', ist_soon:'soon', ist_company_ph:'e.g. Shanghai Electric Group',
     ist_src_q:'Where do the employees come from?', ist_src_pc:'From this device', ist_src_pc_s:'A passport image or PDF — read through the OCR line', ist_src_reg:'From the registry', ist_src_reg_s:'Search and tick registered employees — no new read',
-    sel_btn:'Select', sel_h:'Select employees', sel_next:n=>n?`Continue ${n}`:'Continue', sel_q:n=>`What do you want for ${n} employees?`, sel_back:'Back',
+    sel_btn:'Select', sel_bundle_n:n=>n?`Export personal files (${n})`:'Export personal files', sel_dossier_n:n=>n?`Employee dossiers ZIP (${n})`:'Employee dossiers ZIP', sel_h:'Select employees', sel_next:n=>n?`Continue ${n}`:'Continue', sel_q:n=>`What do you want for ${n} employees?`, sel_back:'Back',
     sel_bundle_s:"Each employee's passport, then the visa if any — all in one PDF", sel_dossier:'Employee dossiers', sel_dossier_s:'One complete PDF per employee — all in one ZIP folder',
     sel_zip_working:(i,n)=>`Building the files… ${i} / ${n}`, sel_zip_done:n=>`${n} files downloaded in a ZIP folder ✓`, sel_zip_fail:'Could not build the files — try again', sel_zip_none:'No file could be built',
     ist_pk_h:'Pick from the registry', ist_pk_ph:'Search by name, passport or nationality…', ist_pk_sel:n=>`${n} selected`, ist_pk_add:n=>n?`Add ${n}`:'Add', ist_pk_in:'in the table', ist_pk_none:'No results', ist_pk_more:n=>`Showing the first ${n} — narrow the search`, ist_pk_done:n=>`${n} added from the registry`, ist_pk_cancel:'Cancel', ist_pk_keys:'↑↓ move · Space tick · Enter add · Esc close',
@@ -712,6 +712,7 @@ let LAWMODE=false, LAWLAST=[], _lawBatch=null, LAW_FILTER='all';   // legal-sect
 function setLaw(on){
   LAWMODE=!!on; _lawBatch=null; LAW_FILTER='all'; lsReset();   // enter the legal section on "All"
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
+  { const bs=$('#bsel'); if(bs) bs.hidden=LAWMODE; }
   const q=$('#q'); if(q){ q.placeholder=LAWMODE?t('law_ph'):t('ph'); q.value=''; }
   $('#filters').innerHTML=''; $('#count').innerHTML='';
   _fOpen=false; paintFilters(_rItems||[]);   // the drawer belongs to the employee page; the legal section has its own chips
@@ -3950,30 +3951,12 @@ function istPickFiles(){ const inp=document.createElement('input'); inp.type='fi
    Both reuse the engines that already exist (exportBundle · buildDossier); nothing is re-read. */
 function selOpen(){
   if(typeof LAWMODE!=='undefined' && LAWMODE) return;
-  openPicker({host:document.body, title:t('sel_h'), isIn:()=>false, addLabel:n=>t('sel_next',n), onConfirm:selChoose});
-}
-async function selChoose(rows, dlg){
-  const box=dlg.querySelector('.pk-box'); if(!box) return false;
-  const n=rows.length;
-  const saved=box.innerHTML;                       // «رجوع» restores the list exactly as it was
-  box.innerHTML=`<div class="pk-hd"><b>${esc(t('sel_q',n))}</b><span class="spacer"></span><button class="icon pk-x" title="${esc(t('ist_pk_cancel'))}">✕</button></div>
-    <div class="ist-src-opts sel-opts">
-      <button class="ist-src-opt" data-sel="bundle"><span class="ist-src-ic">⇩</span><b>${esc(t('ist_bundle'))}</b><small>${esc(t('sel_bundle_s'))}</small></button>
-      <button class="ist-src-opt" data-sel="dossier"><span class="ist-src-ic">🗂</span><b>${esc(t('sel_dossier'))}</b><small>${esc(t('sel_dossier_s'))}</small></button>
-    </div>
-    <div class="pk-ft"><button class="add quiet sel-back">‹ ${esc(t('sel_back'))}</button><span class="spacer"></span><span class="pk-count">${esc(t('ist_pk_sel',n))}</span></div>`;
-  box.querySelector('.pk-x').onclick=istPkClose;
-  box.querySelector('.sel-back').onclick=()=>{ box.innerHTML=saved;                   // back to the list, selection intact
-    box.querySelector('.pk-x').onclick=istPkClose; box.querySelector('.pk-cancel').onclick=istPkClose;
-    $('#pk-add').onclick=()=>istPkConfirm(); const q=$('#pk-q'); if(q){ let tm=null; q.oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>istPkSearch(q.value),160); }; }
-    const list=$('#pk-list'); if(list) list.onclick=e=>{ const row=e.target.closest('[data-pk]'); if(!row||row.classList.contains('in')) return; const r=_ISTPK.rows.find(x=>x.person_id===row.dataset.pk); if(r) istPkToggle(r); };
-    istPkPaint(); };
-  box.querySelectorAll('[data-sel]').forEach(b=>b.onclick=async()=>{
-    const which=b.dataset.sel; istPkClose();
-    if(which==='bundle'){ const passports=[...new Set(rows.map(r=>(r.passport_no||'').trim()).filter(Boolean))]; await exportBundle(passports, document.body, 'istimara'); }
-    else await exportDossierZip(rows, document.body);
-  });
-  return true;                                     // keep the dialog: the question lives in it
+  openPicker({host:document.body, title:t('sel_h'), isIn:()=>false, actions:[
+    {label:n=>t('sel_dossier_n',n), cls:' quiet', run:async rows=>{ istPkClose(); await exportDossierZip(rows, document.body); return false; }},
+    {label:n=>t('sel_bundle_n',n), cls:'', run:async rows=>{ istPkClose();
+       const passports=[...new Set(rows.map(r=>(r.passport_no||'').trim()).filter(Boolean))];
+       await exportBundle(passports, document.body, 'istimara'); return false; }},
+  ]});
 }
 /* The dossier ZIP: for each employee the SAME dossier the detail panel prints, rendered page by
    page to a PDF in the browser (html2canvas → jsPDF, A4, landscape for wide scans), then all the
@@ -4061,7 +4044,7 @@ function openPicker(opts){
     <div class="pk-search"><span class="mag"><svg class="ic"><use href="#i-search"/></svg></span><input id="pk-q" placeholder="${esc(t('ist_pk_ph'))}" autocomplete="off" spellcheck="false"></div>
     <div class="pk-list" id="pk-list" role="listbox" aria-multiselectable="true"></div>
     <div class="pk-ft"><span class="pk-count" id="pk-count">${esc(t('ist_pk_sel',0))}</span><span class="spacer"></span>
-      <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button><button class="add pk-add" id="pk-add" disabled>${esc(opts.addLabel(0))}</button></div></div>`;
+      <button class="add quiet pk-cancel">${esc(t('ist_pk_cancel'))}</button>${(opts.actions||[{label:opts.addLabel,cls:''}]).map((a,i)=>`<button class="add pk-add${a.cls||''}" data-act="${i}" disabled>${esc(a.label(0))}</button>`).join('')}</div></div>`;
   const q=$('#pk-q'), list=$('#pk-list');
   const close=()=>{ m.classList.remove('on'); document.removeEventListener('keydown',onKey); if(_ISTPK&&_ISTPK.io) _ISTPK.io.disconnect(); _ISTPK=null; };
   const onKey=e=>{
@@ -4071,14 +4054,14 @@ function openPicker(opts){
       P.cur=e.key==='ArrowDown'?Math.min(n-1,P.cur+1):Math.max(0,P.cur-1); istPkPaintCursor(); return; }
     if(e.key===' '&&document.activeElement!==q){ e.preventDefault(); if(P.cur>=0) istPkToggle(P.rows[P.cur]); return; }
     if(e.key===' '&&document.activeElement===q&&!q.value&&P.cur>=0){ e.preventDefault(); istPkToggle(P.rows[P.cur]); return; }
-    if(e.key==='Enter'){ e.preventDefault(); if(P.sel.size) istPkConfirm(); return; }
+    if(e.key==='Enter'){ e.preventDefault(); if(P.sel.size) istPkConfirm(0); return; }
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'){ e.preventDefault();   // tick every visible row that is not already in the table
       P.rows.forEach(r=>{ if(!_pkIsIn(r)&&!P.sel.has(r.person_id)) P.sel.set(r.person_id,r); }); istPkPaint(); }
   };
   document.addEventListener('keydown',onKey);
   m.querySelector('.pk-x').onclick=close; m.querySelector('.pk-cancel').onclick=close;
   m.onclick=e=>{ if(!e.target.closest('.pk-box')) close(); };
-  $('#pk-add').onclick=()=>istPkConfirm();
+  m.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>istPkConfirm(+b.dataset.act));
   list.onclick=e=>{ const row=e.target.closest('[data-pk]'); if(!row||row.classList.contains('in')) return;
     const r=_ISTPK.rows.find(x=>x.person_id===row.dataset.pk); if(r) istPkToggle(r); };
   let tm=null; q.oninput=()=>{ clearTimeout(tm); tm=setTimeout(()=>istPkSearch(q.value),160); };
@@ -4123,14 +4106,16 @@ function istPkToggle(r){ const P=_ISTPK; if(!P||!r||_pkIsIn(r)) return;
   istPkFoot(); }
 function istPkFoot(){ const P=_ISTPK; if(!P) return; const n=P.sel.size;
   const c=$('#pk-count'); if(c) c.textContent=t('ist_pk_sel',n);
-  const b=$('#pk-add'); if(b){ b.textContent=P.opts.addLabel(n); b.disabled=!n; }
+  const acts=P.opts.actions||[{label:P.opts.addLabel}];
+  $('#istpick').querySelectorAll('[data-act]').forEach(b=>{ const a=acts[+b.dataset.act]; if(a){ b.textContent=a.label(n); b.disabled=!n; } });
 }
 function istPkClose(){ const m=$('#istpick'); if(m&&m._close) m._close(); }
-async function istPkConfirm(){
+async function istPkConfirm(i){
   const P=_ISTPK; if(!P||!P.sel.size) return; const rows=[...P.sel.values()];
-  const b=$('#pk-add'); if(b) b.disabled=true;
-  let keep=false; try{ keep=await P.opts.onConfirm(rows, $('#istpick')); }catch(e){ console.warn('picker',e); }
-  if(!keep) istPkClose(); else if(b) b.disabled=false;
+  const run=(P.opts.actions&&P.opts.actions[i||0])?P.opts.actions[i||0].run:P.opts.onConfirm;
+  const bs=[...$('#istpick').querySelectorAll('[data-act]')]; bs.forEach(b=>b.disabled=true);
+  let keep=false; try{ keep=await run(rows, $('#istpick')); }catch(e){ console.warn('picker',e); }
+  if(!keep) istPkClose(); else bs.forEach(b=>b.disabled=false);
 }
 async function istAddFromRegistry(sel){
   if(!_IST||!sel||!sel.length) return; const ids=sel.map(r=>r.person_id); const selById=new Map(sel.map(r=>[r.person_id,r]));
