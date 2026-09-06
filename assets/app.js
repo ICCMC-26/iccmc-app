@@ -5686,11 +5686,9 @@ function briefGoSec(k){ k=Math.max(0,Math.min(2,k)); const box=$('#brief'); if(!
   box.querySelectorAll('.bf-sec').forEach((s,j)=>{ s.classList.toggle('on',j===k); s.classList.toggle('up',j<k); });
   box.querySelectorAll('.bf-ix').forEach((b,j)=>b.classList.toggle('on',j===k)); briefPlace(); }
 function briefStrip(show){
-  const el=$('#brief-strip'); if(!el) return; const o=OVERVIEW||{}, V=o.visas||{}, d=BRIEF.d||{};
-  el.innerHTML=`<span><i style="background:var(--st-bad)"></i><b>${V.expired==null?'—':briefNum(V.expired)}</b> ${esc(t('bf_t_exp'))}</span>`
-    +`<span><i style="background:var(--st-soon)"></i><b>${V.soon==null?'—':briefNum(V.soon)}</b> ${esc(t('bf_t_soon'))}</span>`
-    +`<span><i style="background:var(--copper)"></i><b>${d.rev==null?(BRIEF.loaded?'—':'…'):briefNum(d.rev)}</b> ${esc(t('bf_t_rev'))}</span>`
-    +`<button data-bf-open>${esc(t('bf_reopen'))}</button>`;
+  /* After the fold, only the handle remains — no numbers (they live in the brief; v283). */
+  const el=$('#brief-strip'); if(!el) return; const d=BRIEF.d||{};
+  el.innerHTML=`<button data-bf-open>${esc(t('bf_reopen'))}</button>`;
   el.hidden=!show;
   { const a=d.ann, b=el.querySelector('[data-bf-open]'); if(b) b.classList.toggle('dot', !!(a&&a.id&&!briefSeen().includes(String(a.id)))); }   // copper dot = an announcement not yet read
 }
@@ -5724,7 +5722,10 @@ function briefBoot(){
   try{ BRIEF.prev=localStorage.getItem('iccmc_last_visit'); localStorage.setItem('iccmc_last_visit',new Date().toISOString()); }catch(_){}
   BRIEF.d={email:'',name:'',role:'',rev:null,ref:null,health:null,ann:null};
   try{ sb.auth.getSession().then(r=>{ const u=r&&r.data&&r.data.session&&r.data.session.user; if(u&&u.email&&BRIEF.d&&!BRIEF.d.email){ BRIEF.d.email=u.email; briefRefresh(); } }); }catch(_){}
-  let first=true; try{ first=!sessionStorage.getItem('iccmc_brief_seen'); sessionStorage.setItem('iccmc_brief_seen','1'); }catch(_){}
+  /* WHEN it greets on its own: once per sign-in (the session lives in sessionStorage, so a refresh
+     keeps the sign-in and does NOT re-greet), and once more if this same tab is still open on a
+     later day — a new working day gets a new brief. Never on every refresh. (v283) */
+  let first=true; try{ const today=new Date().toISOString().slice(0,10); first=sessionStorage.getItem('iccmc_brief_seen')!==today; sessionStorage.setItem('iccmc_brief_seen',today); }catch(_){}
   if(first) briefOpen(true); else briefStrip(true);
 }
 async function briefFill(){
