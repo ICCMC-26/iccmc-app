@@ -4000,7 +4000,9 @@ async function exportDossierZip(rows, host){
     const d=await fetchEmployee(r.person_id); tm.fetch+=performance.now()-t0; if(!d) return null;
     t0=performance.now(); const html=await buildDossier(d.p,d.vs,d.legal,{scanScale:2.4}); tm.build+=performance.now()-t0;
     return html?{d,html}:null; };
-  const prune=pg=>el=>(el.classList&&el.classList.contains('pg')&&el!==pg)||(!el.contains(stage)&&!stage.contains(el));
+  // prune = the other pages + every top-level body child except the stage. NEVER <head> children: the
+  // clone needs the <link>/<style> sheets, or every page comes back unstyled and blank (v296's slip).
+  const prune=pg=>el=>(el.classList&&el.classList.contains('pg')&&el!==pg)||(el.parentElement===document.body&&el!==stage);
   try{
     await ensureLib('jszip'); await ensureLib('html2canvas'); await ensureLib('jspdf');
     const zip=new JSZip(); const {jsPDF}=window.jspdf;
