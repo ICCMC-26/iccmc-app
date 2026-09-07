@@ -138,7 +138,7 @@ const I18N={
     lg_ok_dismiss:'إغلاق',
     pq_nodet:'هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
     pq_nocommit:'لا يمكن حذف ملف مُودَع', pq_delq:n=>`حذف «${n}» نهائيًا؟`,
-    law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
+    ph_s:'ابحث بالاسم أو الجواز…', ms_lang:'English', ms_h:'المزيد', law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
     ist_new:'استمارة', ist_h:'استمارة سمة الدخول', ist_title:'استمارة طلب سمات الدخول للشركات المتعاقدة مع الدولة',
     ist_company:'اسم الشركة', ist_company_nat:'جنسية الشركة', ist_addr:'عنوان الشركة داخل العراق', ist_purpose:'الغاية من الدخول', ist_stay:'مدة البقاء المتوقعة في العراق', ist_visatype:'نوع السمة',
     ist_undertaking_pre:'اني المخول (', ist_undertaking_post:') اتعهد بعدم التصرف بأوراق الشركة دون علمها أو إضافة أو تغيير او تعديل بيانات المعلومات وبخلاف ذلك أتحمل كافة التبعات القانونية وعدم إخفاء أي معلومات عن مديرية شؤون الإقامة',
@@ -303,7 +303,7 @@ const I18N={
     lg_ok_dismiss:'Dismiss',
     pq_nodet:'Retrying cannot help this file — it needs a clearer scan or splitting',
     pq_nocommit:'Cannot delete a committed file', pq_delq:n=>`Delete “${n}” permanently?`,
-    law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
+    ph_s:'Name, passport, visa…', ms_lang:'العربية', ms_h:'More', law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
     ist_new:'Entry form', ist_h:'Entry-visa form', ist_title:'Application form for entry visas — companies contracted with the State',
     ist_company:'Company name', ist_company_nat:'Company nationality', ist_addr:'Address in Iraq', ist_purpose:'Purpose of entry', ist_stay:'Expected stay in Iraq', ist_visatype:'Visa type',
     ist_undertaking_pre:'I, the authorized (', ist_undertaking_post:'), undertake not to dispose of the company documents without its knowledge, nor add/alter/modify the data; otherwise I bear all legal consequences and will not conceal any information from the Residence Directorate.',
@@ -358,7 +358,7 @@ function applyLang(){
   document.documentElement.lang=LANG; document.documentElement.dir=L.dir;
   $('#gtag').textContent=t('gtag'); $('#signin').textContent=t('signin');
   $('#glang').textContent=L.other; $('#tlang').textContent=LANG==='ar'?'EN':'ع';
-  $('#addtxt').textContent=t('add'); $('#q').placeholder=LAWMODE?t('law_ph'):t('ph');
+  $('#addtxt').textContent=t('add'); $('#q').placeholder=LAWMODE?t('law_ph'):((PHONE_MQ_S.matches&&t('ph_s'))||t('ph'));
   { const bl=$('#blawtxt'); if(bl)bl.textContent=t('law_btn'); }
   { const bs=$('#bseltxt'); if(bs)bs.textContent=t('sel_btn'); }
   { const bp=$('#bpendtxt'); if(bp)bp.textContent=t('pq_btn');
@@ -3009,6 +3009,42 @@ $('#signin').addEventListener('click',signIn);
 $('#pass').addEventListener('keydown',e=>{if(e.key==='Enter')signIn()});
 $('#glang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 $('#tlang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
+/* ═══ PHONE LAYER (v302) — see app.css. The header's secondary actions in a bottom sheet behind «⋯»;
+   each row simply clicks the real (hidden) header button, so behaviour and state stay single-sourced.
+   The A4 builder sheet is fitted to the screen width (pinch to zoom in); istFit() only acts while the
+   phone media query matches and clears itself otherwise, so the desktop path never sees it. */
+const PHONE_MQ=window.matchMedia('(max-width:720px)'), PHONE_MQ_S=window.matchMedia('(max-width:520px)');
+function msClose(){ const m=$('#msheet'); if(!m||!m.classList.contains('on')) return; m.classList.remove('on');
+  const b=$('#tmore'); if(b) b.setAttribute('aria-expanded','false'); if(b) b.focus(); }
+function msOpen(){
+  let m=$('#msheet'); if(!m){ m=document.createElement('div'); m.id='msheet'; m.setAttribute('role','dialog'); document.body.appendChild(m);
+    m.addEventListener('click',e=>{ const r=e.target.closest('.ms-row'); if(r){ msClose(); const src=$('#'+r.dataset.for); if(src) src.click(); return; }
+      if(!e.target.closest('.ms-box')) msClose(); });
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') msClose(); }); }
+  const rows=[['bboard',$('#bboardtxt')&&$('#bboardtxt').textContent,'',typeof LAWMODE!=='undefined'&&!LAWMODE&&false],
+              ['blaw',$('#blawtxt')&&$('#blawtxt').textContent,'',typeof LAWMODE!=='undefined'&&LAWMODE],
+              ['tlang',t('ms_lang'),LANG==='ar'?'EN':'ع',false],
+              ['ttheme',($('#ttheme')||{}).title||'','',false],
+              ['tout',($('#tout')||{}).title||'','',false]];
+  m.setAttribute('aria-label',t('ms_h'));
+  m.innerHTML=`<div class="ms-box"><div class="ms-grip"></div>`+rows.map(([id,label,small,on])=>{
+    const src=$('#'+id); const use=src&&src.querySelector('use'); const href=use?use.getAttribute('href'):'';
+    return `<button class="ms-row${on?' on':''}" data-for="${id}" ${on?'aria-pressed="true"':''}>${href?`<svg class="ic"><use href="${href}"/></svg>`:''}<span>${esc(label||'')}</span>${small?`<small>${esc(small)}</small>`:''}</button>`; }).join('')+`</div>`;
+  m.classList.add('on'); const b=$('#tmore'); if(b) b.setAttribute('aria-expanded','true');
+  const first=m.querySelector('.ms-row'); if(first) first.focus();
+}
+{ const b=$('#tmore'); if(b) b.addEventListener('click',msOpen); }
+function istFit(){
+  const host=$('#istimara'), pg=host&&host.querySelector('.ist-page'); if(!pg) return;
+  if(!PHONE_MQ.matches){ if(pg.style.zoom) pg.style.zoom=''; return; }
+  const natural=pg.classList.contains('portrait')?816:1123;          // 215.9mm / 297mm at 96dpi
+  const z=Math.min(1,(host.clientWidth-24)/natural);
+  pg.style.zoom = z<1 ? z.toFixed(3) : '';
+}
+{ let _fitT; const _fitSoon=()=>{ clearTimeout(_fitT); _fitT=setTimeout(istFit,60); };
+  window.addEventListener('resize',_fitSoon); PHONE_MQ.addEventListener('change',_fitSoon);
+  PHONE_MQ_S.addEventListener('change',()=>{ try{ applyLang(); }catch(_){} });
+  const host=$('#istimara'); if(host) new MutationObserver(_fitSoon).observe(host,{childList:true,subtree:true,attributes:true,attributeFilter:['class']}); }
 paintSort();   // render the sort control once; delegated click (survives repaints)
 { const _sb=$('#sortbar'); if(_sb)_sb.addEventListener('click',e=>{const b=e.target.closest('[data-sort]');if(b)setSort(b.dataset.sort);}); }
 $('#ttheme').addEventListener('click',toggleTheme);

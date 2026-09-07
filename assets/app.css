@@ -1548,3 +1548,58 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .sel-chip[hidden]{display:none}
 .pk-ft .pk-add.quiet{background:var(--panel);color:var(--ink);border-color:var(--line)}
 .pk-ft .pk-add.quiet[disabled]{opacity:.45}
+
+/* ═══ PHONE LAYER (v302) ══════════════════════════════════════════════════════════════════════
+   Every desktop feature stays reachable on a small screen; nothing below changes the desktop —
+   all layout rules sit inside width media queries. Patterns (web.dev / NN-g / Smart Interface
+   Design Patterns): the header's secondary actions move into a bottom sheet behind one «⋯»
+   button (48 px targets, labelled rows, Esc/backdrop to close); rows wrap instead of clipping;
+   dialogs become bottom sheets; the A4 builder sheet is fitted to the screen (pinch to zoom). */
+#tmore{display:none}
+#msheet{position:fixed;inset:0;z-index:95;display:none;align-items:flex-end;background:rgba(0,0,0,.45)}
+#msheet.on{display:flex}
+.ms-box{width:100%;background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:18px 18px 0 0;
+  padding:10px 10px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.4);
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.16,1,.3,1)}
+#msheet.on .ms-box{transform:none}
+.ms-grip{width:38px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 8px}
+.ms-row{display:flex;align-items:center;gap:14px;width:100%;min-height:52px;padding:0 12px;background:transparent;border:0;
+  border-radius:12px;color:var(--ink);font:600 15px var(--sans);text-align:start;cursor:pointer}
+.ms-row:active,.ms-row:focus-visible{background:rgba(197,149,107,.12);outline:0}
+.ms-row .ic{width:20px;height:20px;color:var(--ink2);flex:none}
+.ms-row.on{color:var(--copper)} .ms-row.on .ic{color:var(--copper)}
+.ms-row small{margin-inline-start:auto;color:var(--faint);font:500 12px var(--mono)}
+@media (max-width:720px){
+  #tmore{display:grid}
+  .top #bboard,.top #blaw,.top #tlang,.top #ttheme,.top #tout{display:none}   /* they live in the sheet */
+  /* the count · تحديد · legend · sort row wraps instead of clipping; the legend takes its own line */
+  .listbar{flex-wrap:wrap;row-gap:8px}
+  .listbar .legend{order:3;flex-basis:100%;justify-content:flex-start}
+  .sortbar{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .sortbar::-webkit-scrollbar{display:none}
+  /* the brief: on desktop the sections are stacked absolutely and the stage's height is animated by
+     script; on a phone the OPEN section flows in place, so the stage sizes itself (no measuring) */
+  .bf-stage{height:auto!important}
+  .bf-sec{position:absolute}
+  .bf-sec.on{position:relative;top:auto}
+  /* the picker (تحديد / من السجل) becomes a bottom sheet; its actions wrap to full-width rows */
+  #istpick,#ist-src{padding:0;align-items:flex-end}
+  .pk-box{max-height:92dvh;border-radius:18px 18px 0 0;border-bottom:0}
+  .ist-src-box{border-radius:18px 18px 0 0;border-bottom:0;width:100%}
+  .pk-ft{flex-wrap:wrap;gap:8px}
+  .pk-ft .spacer{display:none}
+  .pk-ft .pk-count{flex-basis:100%}
+  .pk-ft .pk-add{flex:1 1 calc(50% - 4px);min-height:44px;justify-content:center}
+  /* the استمارة/تعهد workspace: the toolbar wraps, the paper is fitted to the screen by istFit() */
+  .ist-bar{flex-wrap:wrap;gap:8px 10px;padding:10px 12px}
+  .ist-actions{flex:1 1 100%;flex-wrap:wrap;gap:8px}
+  .ist-actions>*{min-height:44px}
+  .ist-stage{justify-content:center;padding:6px;overflow:visible}
+  /* bars respect the notch */
+  .ik-bar{padding-top:calc(12px + env(safe-area-inset-top))}
+  .ist-bar{padding-top:calc(10px + env(safe-area-inset-top))}
+  .dz-agent{white-space:normal;line-height:1.5}
+}
+@media (max-width:520px){
+  .pk-ft .pk-add{flex-basis:100%}
+}
