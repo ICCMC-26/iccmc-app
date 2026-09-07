@@ -68,7 +68,7 @@ const I18N={
     dz_s:'أو انقر للاختيار · صورة أو PDF أو Excel أو Word · ملفات كبيرة مدعومة · عدة ملفات وموظفين معًا',
     ik_queued:'بالانتظار', ik_done:'رُفع', ik_failed:'فشل', ik_retry:'إعادة',
     ik_nojob:'لم يصل الخادم — أعد الإسقاط',
-    ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
+    ik_bad:'نوع غير مدعوم — صورة أو PDF أو Excel أو Word فقط', ik_quota:n=>`بلغت حدّ اليوم (${n} ملفًا) — يُعاد فتح الخط غدًا`, ik_quota_left:(k,n)=>`المتبقي لك اليوم ${k} من ${n} — أُخذت الملفات الأولى فقط`, ik_big:'أكبر من 200MB', ik_auth:'يلزم تسجيل الدخول',
     ik_up:'رُفع', ik_busy:'قيد الرفع', ik_fail:'فشل',
     ik_next:'الملفات في طابور المسح — تظهر فور اعتمادها.',
     ik_processing:'قيد المعالجة…', ik_landed:'أودعت', ik_pre:'موجودة مسبقًا', ik_sent:'قيد المعالجة', ik_committed:'أودعت', ik_refused:'مرفوض', ik_split:n=>'قُسِّمت إلى '+n, ik_pk_skip:n=>n+' مُتجاهَل', ik_rm_fail:'تعذّر الحذف من الخادم — أُعيدت البطاقة، جرّب مجددًا', ik_v_compact:'مُوجز', ik_v_detailed:'تفصيلي', ik_tidy:'مسح القائمة', ik_tidy_tip:'يُخفي البطاقات المنتهية لترتيب المكان — لا يحذف أي موظف', ik_allclear:'أودِع الكل ✓', ik_lg_rev:'مراجعة',
@@ -232,7 +232,7 @@ const I18N={
     dz_s:'or click to browse · image, PDF, Excel or Word · large files OK · many files & employees at once',
     ik_queued:'Queued', ik_done:'Uploaded', ik_failed:'Failed', ik_retry:'Retry',
     ik_nojob:'never reached the server — drop it again',
-    ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
+    ik_bad:'Unsupported — image, PDF, Excel, or Word only', ik_quota:n=>`Daily limit reached (${n} files) — the line reopens tomorrow`, ik_quota_left:(k,n)=>`${k} of ${n} left for today — only the first files were taken`, ik_big:'Larger than 200MB', ik_auth:'Sign-in required',
     ik_up:'uploaded', ik_busy:'in progress', ik_fail:'failed',
     ik_next:'Files are queued for scanning — they appear once committed.',
     ik_processing:'Processing…', ik_landed:'Committed', ik_pre:'already in the system', ik_sent:'processing', ik_committed:'committed', ik_refused:'Refused', ik_split:n=>'Split into '+n, ik_pk_skip:n=>n+' skipped', ik_rm_fail:'Could not remove on the server — card restored, try again', ik_v_compact:'Compact', ik_v_detailed:'Detailed', ik_tidy:'Clear list', ik_tidy_tip:'Hides the finished cards to tidy up — no employee is deleted', ik_allclear:'All committed ✓', ik_lg_rev:'review',
@@ -2202,6 +2202,24 @@ function ikSyncRow(j){                              // cheap per-row update duri
    A job still MID-FLIGHT is not an answer, so we fall through and behave exactly as before: the
    upload proceeds and reconcile ticks both cards together. */
 const IK_SETTLED=new Set(['done','committed','refused','permanently-failed']);
+/* ═══ DAILY QUOTA (v301) ═══ An editor may put N new files a day into the OCR line (N from the DB:
+   users.daily_intake_limit → role default in app_settings; admins and the uploader Agent unlimited).
+   The DB trigger on scan_jobs is the real gate (every door writes its ledger row BEFORE uploading, so a
+   blocked file never reaches storage — the WhatsApp door will hit the same trigger). This client asks
+   first so the block is a calm message on the card, not a failed request. A re-drop of an already-read
+   file is answered from the ledger by hash and never inserts a row, so it never counts. */
+async function ikQuota(){
+  try{ const {data,error}=await sb.rpc('intake_quota'); if(error||!data) return null;
+       return (data.limit==null) ? null : data; }catch(_){ return null; }      // null = unlimited / unknown → don't block
+}
+function _ikQuotaErr(e){ const m=(e&&e.message)||''; if(!/INTAKE_QUOTA/.test(m)) return null;
+  const n=(/\((\d+)/.exec(m)||[])[1]; return t('ik_quota', n||''); }
+/* trims a list of candidates to what today's quota still allows; returns {take:[], block:[], q} */
+async function ikQuotaSplit(list){
+  const q=await ikQuota(); if(!q) return {take:list, block:[], q:null};
+  const k=Math.max(0, q.remaining|0);
+  return {take:list.slice(0,k), block:list.slice(k), q};
+}
 async function ikLedgerRow(job, path){
   if(!job.hash || job._ledger) return true;
   try{
@@ -2218,7 +2236,7 @@ async function ikLedgerRow(job, path){
       fields:{_original_filename:job.file.name}});
     if(error) throw error;
     job._ledger=true; return true;
-  }catch(e){ job._ledgerErr=(e&&e.message)||'ledger'; return false; }
+  }catch(e){ job._ledgerErr=_ikQuotaErr(e)||(e&&e.message)||'ledger'; job._quota=!!_ikQuotaErr(e); return false; }
 }
 async function ikUpload(job){
   job.state='uploading'; job.pct=0; ikSyncRow(job);
@@ -2240,7 +2258,7 @@ async function ikUpload(job){
     // find_by_hash always finds this row and reuses it (status 'received' is ranked below any real
     // read, so it neither blocks a fresh file nor lets a re-drop of a committed one look new).
     if(!await ikLedgerRow(job, path))
-      throw new Error(t('ik_ledger')||('لم يُسجَّل الملف في السجل — '+(job._ledgerErr||'')));
+      throw new Error(job._quota ? job._ledgerErr : (t('ik_ledger')||('لم يُسجَّل الملف في السجل — '+(job._ledgerErr||''))));
     // already settled in the registry → answer now; the bytes are content-addressed and already stored
     if(job._pre){
       job.pct=100; job.state= job._pre.status==='refused' ? 'refused' : 'landed';
@@ -2815,11 +2833,17 @@ async function ikAdd(files){
               : (f.size>IK_MAX) ? t('ik_big') : '';
     vetted.push([f,bad]);
   }
-  const sending=vetted.filter(([,bad])=>!bad).length;
+  // the daily quota: only the files that still fit today are declared; the rest are cards that say why
+  const good=vetted.filter(([,bad])=>!bad);
+  const {take,block,q}=await ikQuotaSplit(good);
+  const blocked=new Set(block.map(([f])=>f));
+  if(q && block.length){ toast(take.length ? t('ik_quota_left',take.length,q.limit) : t('ik_quota',q.limit)); }
+  const sending=take.length;
   const batch=sending ? await ikStampBatch(sending) : null;
   for(const [f,bad] of vetted){
     const job={id:++_ikSeq, file:f, state:'queued', pct:0, err:'', batch};
     if(bad){ job.state='failed'; job.err=bad; }     // refused here; never declared, never counted
+    else if(blocked.has(f)){ job.state='failed'; job.err=t('ik_quota', q.limit); }   // over today's quota
     IK.push(job);
   }
   ikRender(); ikPump();                              // queue drains IK_CONC at a time
@@ -4321,13 +4345,18 @@ async function istAgentPoll(){
   }
 }
 
-function istAddFromPC(files){
+async function istAddFromPC(files){
   const all=Array.from(files), queue=[]; if(all.length) _IST._dirty=true;
+  const okOf=file=>(IK_OK.test(file.type)||/\.pdf$/i.test(file.name)) && file.size<=IK_MAX;
+  const {take,block,q}=await ikQuotaSplit(all.filter(okOf));
+  const blocked=new Set(block);
+  if(q && block.length){ toast(take.length ? t('ik_quota_left',take.length,q.limit) : t('ik_quota',q.limit)); }
   for(const file of all){
     const okType=IK_OK.test(file.type)||/\.pdf$/i.test(file.name), okSize=file.size<=IK_MAX;
     const row={name:'',nationality:'',passport_no:'',passport_expiry:'',_status:'uploading',_pct:0,_stage:'',_err:''};
     _IST.rows.push(row);
     if(!okType||!okSize){ row._status='refused'; row._err=okSize?t('ik_bad'):t('ik_big'); istRenderRows(); continue; }
+    if(blocked.has(file)){ row._status='refused'; row._err=t('ik_quota',q.limit); istRenderRows(); continue; }
     queue.push([file,row]);
   }
   istRenderRows();
@@ -4351,6 +4380,10 @@ async function istIngest(file,row){
   const {data:{session}}=await sb.auth.getSession(); if(!session) throw new Error(t('ik_auth'));
   const safe=file.name.replace(/[^\w.\-]+/g,'_');
   const path=`${Date.now().toString(36)}-ist-${safe}`;   // plain passport name (NO istimara-/taahud- marker — that would make the worker treat it as a legal FORM)
+  // the ledger row BEFORE the bytes (same seam as the drop box): the file is never invisible, and the
+  // daily-quota trigger answers here — a blocked file never reaches storage
+  const _lj={hash, file, batch:null};
+  if(!await ikLedgerRow(_lj, path)) throw new Error(_lj._quota ? _lj._ledgerErr : (t('ik_ledger')||_lj._ledgerErr||'ledger'));
   await new Promise((res,rej)=>{ const xhr=new XMLHttpRequest();
     xhr.open('POST',`${SUPA_URL}/storage/v1/object/${IK_BUCKET}/${encodeURIComponent(path)}`);
     xhr.setRequestHeader('apikey',SUPA_KEY); xhr.setRequestHeader('Authorization',`Bearer ${session.access_token}`);
