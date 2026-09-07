@@ -457,7 +457,7 @@ function enterApp(){$('#gate').style.display='none';$('#app').style.display='blo
   // After the first paint, never before it: the roster is what the user came for,
   // and the overview must not delay a single row of it.
   briefBoot();                                                       // the brief starts sliding NOW (v282); its numbers fill in as they arrive
-  afterFirstPaint(()=>loadOverview().then(briefFill, briefFill));
+  afterFirstPaint(briefFill);                                        // v303: one RPC, no overview wait (the board loads its own when opened)
   // WhatsApp kiosk door: ?legal=<scan_hash> lands straight on that paper's own
   // review screen instead of making a signed-in reviewer hunt it out of the
   // whole pending pool by eye. One-shot — the param is stripped right away so
@@ -3021,8 +3021,7 @@ function msOpen(){
     m.addEventListener('click',e=>{ const r=e.target.closest('.ms-row'); if(r){ msClose(); const src=$('#'+r.dataset.for); if(src) src.click(); return; }
       if(!e.target.closest('.ms-box')) msClose(); });
     document.addEventListener('keydown',e=>{ if(e.key==='Escape') msClose(); }); }
-  const rows=[['bboard',$('#bboardtxt')&&$('#bboardtxt').textContent,'',typeof LAWMODE!=='undefined'&&!LAWMODE&&false],
-              ['blaw',$('#blawtxt')&&$('#blawtxt').textContent,'',typeof LAWMODE!=='undefined'&&LAWMODE],
+  const rows=[['blaw',$('#blawtxt')&&$('#blawtxt').textContent,'',typeof LAWMODE!=='undefined'&&LAWMODE],
               ['tlang',t('ms_lang'),LANG==='ar'?'EN':'ع',false],
               ['ttheme',($('#ttheme')||{}).title||'','',false],
               ['tout',($('#tout')||{}).title||'','',false]];
@@ -3055,7 +3054,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && BRIEF.on) briefF
 $('#tout').addEventListener('click',async()=>{if(confirm(t('out'))){await sb.auth.signOut();location.reload()}});
 $('#add').addEventListener('click',openIntake);
 $('#blaw').addEventListener('click',()=>setLaw(!LAWMODE));
-$('#bboard').addEventListener('click',openBoard);
+{ const b=$('#bboard'); if(b) b.addEventListener('click',openBoard); }   // v303: the header button is gone; the brief's tile opens the board
 $('#bsel').addEventListener('click',selOpen);
 // Escape closes the board — it is a page you look at, so the way out must never need aiming.
 document.addEventListener('keydown',e=>{
@@ -5986,20 +5985,21 @@ async function briefData(){
   return d;
 }
 function briefTilesHtml(){
-  const o=OVERVIEW||{}, V=o.visas||{}, C=o.complete||null, d=BRIEF.d||{};
+  const o=OVERVIEW||{}, V=o.visas||{}, C=o.complete||null, d=BRIEF.d||{}, s=BRIEF.s||{};
+  const pick=(a,b)=>(a!=null?a:b);
   const T=[
-    {n:V.expired, l:t('bf_t_exp'),  c:'--st-bad',  go:'visa:expired', a:t('bf_go_list')},
-    {n:V.soon,    l:t('bf_t_soon'), c:'--st-soon', go:'visa:soon',    a:t('bf_go_list')},
+    {n:pick(s.expired,V.expired), l:t('bf_t_exp'),  c:'--st-bad',  go:'visa:expired', a:t('bf_go_list')},
+    {n:pick(s.soon,V.soon),       l:t('bf_t_soon'), c:'--st-soon', go:'visa:soon',    a:t('bf_go_list')},
     {n:d.rev,     l:t('bf_t_rev'),  c:'--copper',  go:'pq:review',    a:t('bf_go_inbox')},
     ...(d.role==='admin'?[{n:d.ref, l:t('bf_t_ref'), c:'--st-unk', go:'pq:refused', a:t('bf_go_inbox')}]:[]),
-    {n:C?C.complete:null, of:o.employees, l:t('bf_t_done'), c:'--st-ok', go:'board', a:t('bf_go_board')},
+    {n:pick(s.complete,C?C.complete:null), of:pick(s.employees,o.employees), l:t('bf_t_done'), c:'--st-ok', go:'board', a:t('bf_go_board')},
   ];
   return `<div class="bf-tiles">`+T.map(x=>`<button class="bf-tile" data-go="${x.go}"><b>${x.n==null?(BRIEF.loaded?'—':'…'):briefNum(x.n)}${x.of?`<small>/ ${briefNum(x.of)}</small>`:''}</b><span><i style="background:var(${x.c})"></i>${esc(x.l)}</span><em>${esc(x.a)}</em></button>`).join('')+`</div>`;
 }
 function briefSinceHtml(){
-  const d=BRIEF.d||{}, o=OVERVIEW||{};
+  const d=BRIEF.d||{}, o=OVERVIEW||{}, s=BRIEF.s||{}; const emp=(s.employees!=null?s.employees:o.employees);
   const rows=[['⟲', BRIEF.prev?esc(t('bf_prev')):esc(t('bf_first')), BRIEF.prev?briefWhen(BRIEF.prev):'', '']];
-  if(o.employees!=null) rows.push(['⌕', t('bf_reg',briefNum(o.employees)), '', '']);
+  if(emp!=null) rows.push(['⌕', t('bf_reg',briefNum(emp)), '', '']);
   if(BRIEF.loaded) rows.push(['⇅', t('bf_inbox',briefNum(d.rev),briefNum(d.ref)), '', '']);
   if(d.role==='admin' && d.health) rows.push(['●', esc(d.health.ok?t('bf_health_ok'):t('bf_health_bad')), briefWhen(d.health.ran_at), d.health.ok?'ok':'bad']);
   return `<div class="bf-list">`+rows.map(r=>`<div class="bf-li"><span class="k ${r[3]}">${r[0]}</span><span>${r[1]}</span><span class="t">${esc(r[2])}</span></div>`).join('')+`</div>`;
@@ -6009,9 +6009,15 @@ function briefNewHtml(){
   const seen=briefSeen().includes(String(a.id)), txt=(LANG==='ar'?a.ar:a.en)||a.ar||a.en||'';
   return `<div class="bf-ann${seen?' seen':''}"><span class="tg">${esc(a.id)}</span><p>${esc(txt)}</p>${seen?'':`<button class="bf-ok" data-ann="${esc(a.id)}">${esc(t('bf_ann_ok'))}</button>`}</div>`;
 }
+/* Who gets a name in the greeting (Ibrahim, 2026-09-07): exactly these accounts; any other e-mail is
+   greeted without a name — never the e-mail prefix, never users.name. */
+const BRIEF_NAMES={
+  'ibrahimaljabouri.156.2007.com@gmail.com':{ar:'إبراهيم',en:'Ibrahim'},
+  'hm437617@dal.ca':{ar:'د. حمزة',en:'Dr Hamzea'}};
 function briefGreeting(){
-  const d=BRIEF.d||{}; const h=new Date().getHours(); const who=d.name||(d.email?d.email.split('@')[0]:'');
-  return (h<12?t('bf_morning'):t('bf_evening'))+(who?'، '+who:'');
+  const d=BRIEF.d||{}; const h=new Date().getHours();
+  const nm=BRIEF_NAMES[String(d.email||'').toLowerCase()]; const who=nm?(LANG==='en'?nm.en:nm.ar):'';
+  return (h<12?t('bf_morning'):t('bf_evening'))+(who?(LANG==='en'?', ':'، ')+who:'');
 }
 function renderBrief(){
   const box=$('#brief'); if(!box) return; const d=BRIEF.d||{};
@@ -6073,10 +6079,16 @@ function briefBoot(){
   if(first) briefOpen(true); else briefStrip(true);
 }
 async function briefFill(){
-  /* After the first paint and the overview: the four small reads, then the open sheet is updated
-     IN PLACE (no re-slide, no blink) and the strip gets its numbers. */
-  const d=await briefData(); BRIEF.d=d; BRIEF.loaded=true;
-  briefRefresh(); if(!BRIEF.on) briefStrip(true);
+  /* After the first paint: ONE round trip — brief_data() returns role · inbox counts · health ·
+     announcement · the tiles' statistics (built server-side from the same overview functions) —
+     then the open sheet is updated IN PLACE (no re-slide, no blink). v303: it used to be six calls,
+     four of them in series, after the overview had landed — the tiles showed «…» for seconds. */
+  let d=null;
+  try{ const r=await sb.rpc('brief_data'); if(!r.error&&r.data) d=r.data; }catch(_){}
+  if(d){ const keep=BRIEF.d||{}; BRIEF.d={email:keep.email||'',name:'',role:d.role||'',rev:d.rev,ref:d.ref,health:d.health||null,ann:d.ann||null}; BRIEF.s=d.stats||null; }
+  else { BRIEF.d=await briefData(); await loadOverview(); }          // the old road, only if the RPC is missing
+  if(BRIEF.d&&!BRIEF.d.email){ try{ const {data:{user}}=await sb.auth.getUser(); BRIEF.d.email=(user&&user.email)||''; }catch(_){} }
+  BRIEF.loaded=true; briefRefresh(); if(!BRIEF.on) briefStrip(true);
 }
 function briefRefresh(){
   const box=$('#brief'); if(!box||!box.firstChild){ return; }
