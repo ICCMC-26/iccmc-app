@@ -159,7 +159,7 @@ const I18N={
     ist_src_q:'من أين نضيف الموظفين؟', ist_src_pc:'من جهازك', ist_src_pc_s:'صورة أو PDF للجواز — تُقرأ عبر خط القراءة', ist_src_reg:'من السجل', ist_src_reg_s:'ابحث وحدّد موظفين مسجّلين — بلا قراءة جديدة',
     sel_btn:'تحديد', sel_bundle_n:n=>n?`تصدير الملفات الشخصية (${n})`:'تصدير الملفات الشخصية', sel_dossier_n:n=>n?`الملفات الكاملة في ZIP واحد (${n})`:'الملفات الكاملة في ZIP واحد', sel_dossier_tip:'ملف PDF كامل لكل موظف (الغلاف والتقرير والمسوحات) — الكل داخل مجلد ZIP واحد', sel_bundle_tip:'جواز كل موظف ثم تأشيرته إن وُجدت — الكل في ملف PDF واحد', sel_h:'حدّد موظفين', sel_next:n=>n?`متابعة ${n}`:'متابعة', sel_q:n=>`ماذا تريد لـ ${n} موظفًا؟`, sel_back:'رجوع',
     sel_bundle_s:'جواز كل موظف ثم تأشيرته إن وُجدت — الكل في ملف PDF واحد', sel_dossier:'ملفات الموظفين', sel_dossier_s:'ملف PDF كامل لكل موظف — الكل في مجلد ZIP واحد',
-    sel_zip_working:(i,n)=>`جارٍ إنشاء الملفات… ${i} / ${n}`, sel_zip_page:(p,n)=>` · صفحة ${p}/${n}`, sel_zip_hint:'أبقِ هذه الصفحة ظاهرة حتى يكتمل التنزيل', sel_zip_hidden:'متوقّف مؤقتًا — أعد هذه الصفحة إلى الواجهة ليستمر الإنشاء', sel_zip_done:n=>`تم تنزيل ${n} ملفًا في مجلد ZIP ✓`, sel_zip_fail:'تعذّر إنشاء الملفات — أعِد المحاولة', sel_zip_none:'لم يُبنَ أي ملف',
+    sel_zip_working:(i,n)=>`${i} / ${n}`, sel_zip_hidden:'متوقّف — أعد الصفحة إلى الواجهة', sel_zip_done:n=>`تم تنزيل ${n} ملفًا في مجلد ZIP ✓`, sel_zip_fail:'تعذّر إنشاء الملفات — أعِد المحاولة', sel_zip_none:'لم يُبنَ أي ملف',
     ist_pk_h:'اختر من السجل', ist_pk_ph:'ابحث بالاسم أو الجواز أو الجنسية…', ist_pk_sel:n=>`${n} محدد`, ist_pk_add:n=>n?`أضِف ${n}`:'أضِف', ist_pk_in:'في الجدول', ist_pk_none:'لا نتائج', ist_pk_more:n=>`يُعرض أول ${n} — ضيّق البحث`, ist_pk_done:n=>`أُضيف ${n} من السجل`, ist_pk_cancel:'إلغاء', ist_pk_keys:'↑↓ تنقّل · مسافة تحديد · Enter إضافة · Esc إغلاق',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
     ist_export:'تصدير', ist_export_tip:'ينزّل الملف بالصيغة المختارة إلى جهازك', ist_export_doc:'تصدير المستند', ist_bundle:'تصدير الملفات الشخصية', ist_fmt_pdf:'مستند جاهز للطباعة', ist_fmt_docx:'مستند قابل للتعديل', ist_fmt_xlsx:'جدول قابل للتعديل', ist_bundle_working:'جارٍ تجميع الملفات…', ist_bundle_done:'تم تنزيل الملفات الشخصية ✓', ist_bundle_fail:'تعذّر التجميع — أعِد المحاولة', ist_bundle_empty:'أضِف موظفاً واحداً على الأقل', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل الملف ✓', ist_pdf_fail:'تعذّر إنشاء الملف — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء الملف…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_waiting:'في الطابور خلف قراءات الجوازات — لحظات', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
@@ -323,7 +323,7 @@ const I18N={
     ist_src_q:'Where do the employees come from?', ist_src_pc:'From this device', ist_src_pc_s:'A passport image or PDF — read through the OCR line', ist_src_reg:'From the registry', ist_src_reg_s:'Search and tick registered employees — no new read',
     sel_btn:'Select', sel_bundle_n:n=>n?`Export personal files (${n})`:'Export personal files', sel_dossier_n:n=>n?`Complete dossiers in one ZIP (${n})`:'Complete dossiers in one ZIP', sel_dossier_tip:'One complete PDF per employee (cover, report, scans) — all inside a single ZIP folder', sel_bundle_tip:"Each employee's passport, then the visa if any — all in one PDF", sel_h:'Select employees', sel_next:n=>n?`Continue ${n}`:'Continue', sel_q:n=>`What do you want for ${n} employees?`, sel_back:'Back',
     sel_bundle_s:"Each employee's passport, then the visa if any — all in one PDF", sel_dossier:'Employee dossiers', sel_dossier_s:'One complete PDF per employee — all in one ZIP folder',
-    sel_zip_working:(i,n)=>`Building the files… ${i} / ${n}`, sel_zip_page:(p,n)=>` · page ${p}/${n}`, sel_zip_hint:'Keep this page visible until the download completes', sel_zip_hidden:'Paused — bring this page back to the front to continue', sel_zip_done:n=>`${n} files downloaded in a ZIP folder ✓`, sel_zip_fail:'Could not build the files — try again', sel_zip_none:'No file could be built',
+    sel_zip_working:(i,n)=>`${i} / ${n}`, sel_zip_hidden:'Paused — bring the page to the front', sel_zip_done:n=>`${n} files downloaded in a ZIP folder ✓`, sel_zip_fail:'Could not build the files — try again', sel_zip_none:'No file could be built',
     ist_pk_h:'Pick from the registry', ist_pk_ph:'Search by name, passport or nationality…', ist_pk_sel:n=>`${n} selected`, ist_pk_add:n=>n?`Add ${n}`:'Add', ist_pk_in:'in the table', ist_pk_none:'No results', ist_pk_more:n=>`Showing the first ${n} — narrow the search`, ist_pk_done:n=>`${n} added from the registry`, ist_pk_cancel:'Cancel', ist_pk_keys:'↑↓ move · Space tick · Enter add · Esc close',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
@@ -3988,13 +3988,13 @@ function _pdfPrepStage(stage){
      resumes the moment it is shown — a slow tab is better than a fast ZIP of empty pages. */
 async function exportDossierZip(rows, host){
   if(!rows||!rows.length) return false;
-  const ov=_waitOverlay(host||document.body, t('sel_zip_working',0,rows.length), t('sel_zip_hint'));
+  const ov=_waitOverlay(host||document.body, t('sel_zip_working',0,rows.length), '');
   const note=ov.querySelector('.ist-wait-t'), sub=ov.querySelector('.ist-wait-s');
   const stage=$('#print'); const keep={p:CURRENT_P,vs:CURRENT_VS,lg:CURRENT_LEGAL};
   let built=0, names=[], bytes=0; const tm={fetch:0,build:0,draw:0,t0:performance.now()};
   const visible=()=>new Promise(res=>{ if(!document.hidden) return res();     // pause, don't render blanks
     if(sub) sub.textContent=t('sel_zip_hidden');
-    const on=()=>{ if(!document.hidden){ document.removeEventListener('visibilitychange',on); if(sub) sub.textContent=t('sel_zip_hint'); res(); } };
+    const on=()=>{ if(!document.hidden){ document.removeEventListener('visibilitychange',on); if(sub) sub.textContent=''; res(); } };
     document.addEventListener('visibilitychange',on); });
   const prep=async r=>{ await visible(); let t0=performance.now();          // fetch + build one employee (runs one ahead)
     const d=await fetchEmployee(r.person_id); tm.fetch+=performance.now()-t0; if(!d) return null;
@@ -4018,7 +4018,6 @@ async function exportDossierZip(rows, host){
       const pages=[...stage.querySelectorAll('.pg')]; let pdf=null; const t0=performance.now();
       for(let k=0;k<pages.length;k++){
         const pg=pages[k]; const land=pg.classList.contains('land');
-        if(note) note.textContent=t('sel_zip_working',i+1,rows.length)+t('sel_zip_page',k+1,pages.length);
         await visible();
         const cv=await html2canvas(pg,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:pg.offsetWidth,height:pg.offsetHeight,ignoreElements:prune(pg)});
         const img=cv.toDataURL('image/jpeg',0.85);
