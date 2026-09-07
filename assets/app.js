@@ -3967,7 +3967,7 @@ function selOpen(){
    (#print.pdfing *) because spaced text is drawn one character at a time, which breaks Arabic joining. */
 function _pdfPrepStage(stage){
   try{ stage.querySelectorAll('.cv-logo').forEach(lg=>{ const m=/^data:image\/svg\+xml;base64,(.+)$/.exec(lg.getAttribute('src')||'');
-       if(m){ const raw=atob(m[1]).replace(/#fff/gi,'#111').replace(/fill:\s*white/gi,'fill:#111'); lg.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(raw); /* percent-encoded, not btoa: btoa throws on a non-Latin-1 byte and the fill stayed white */ } }); }catch(_){}
+       if(m){ const raw=atob(m[1]).replace(/#fff/gi,'#111').replace(/fill:\s*white/gi,'fill:#111'); lg.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(raw); /* percent-encoded, not btoa: btoa throws on a non-Latin-1 byte and the fill stayed white */ } }); }catch(_){}
   try{ stage.querySelectorAll('.pv-face img').forEach(im=>{ const d=im.parentElement; d.style.background=`url("${im.src}") center/cover no-repeat`; im.remove(); }); }catch(_){}
 }
 /* The dossier ZIP: for each employee the SAME dossier the detail panel prints, rendered page by
