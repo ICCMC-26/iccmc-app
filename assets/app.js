@@ -159,7 +159,7 @@ const I18N={
     ist_src_q:'من أين نضيف الموظفين؟', ist_src_pc:'من جهازك', ist_src_pc_s:'صورة أو PDF للجواز — تُقرأ عبر خط القراءة', ist_src_reg:'من السجل', ist_src_reg_s:'ابحث وحدّد موظفين مسجّلين — بلا قراءة جديدة',
     sel_btn:'تحديد', sel_bundle_n:n=>n?`تصدير الملفات الشخصية (${n})`:'تصدير الملفات الشخصية', sel_dossier_n:n=>n?`الملفات الكاملة في ZIP واحد (${n})`:'الملفات الكاملة في ZIP واحد', sel_dossier_tip:'ملف PDF كامل لكل موظف (الغلاف والتقرير والمسوحات) — الكل داخل مجلد ZIP واحد', sel_bundle_tip:'جواز كل موظف ثم تأشيرته إن وُجدت — الكل في ملف PDF واحد', sel_h:'حدّد موظفين', sel_next:n=>n?`متابعة ${n}`:'متابعة', sel_q:n=>`ماذا تريد لـ ${n} موظفًا؟`, sel_back:'رجوع',
     sel_bundle_s:'جواز كل موظف ثم تأشيرته إن وُجدت — الكل في ملف PDF واحد', sel_dossier:'ملفات الموظفين', sel_dossier_s:'ملف PDF كامل لكل موظف — الكل في مجلد ZIP واحد',
-    sel_zip_working:(i,n)=>`جارٍ إنشاء الملفات… ${i} / ${n}`, sel_zip_done:n=>`تم تنزيل ${n} ملفًا في مجلد ZIP ✓`, sel_zip_fail:'تعذّر إنشاء الملفات — أعِد المحاولة', sel_zip_none:'لم يُبنَ أي ملف',
+    sel_zip_working:(i,n)=>`جارٍ إنشاء الملفات… ${i} / ${n}`, sel_zip_page:(p,n)=>` · صفحة ${p}/${n}`, sel_zip_hint:'أبقِ هذه الصفحة ظاهرة حتى يكتمل التنزيل', sel_zip_hidden:'متوقّف مؤقتًا — أعد هذه الصفحة إلى الواجهة ليستمر الإنشاء', sel_zip_done:n=>`تم تنزيل ${n} ملفًا في مجلد ZIP ✓`, sel_zip_fail:'تعذّر إنشاء الملفات — أعِد المحاولة', sel_zip_none:'لم يُبنَ أي ملف',
     ist_pk_h:'اختر من السجل', ist_pk_ph:'ابحث بالاسم أو الجواز أو الجنسية…', ist_pk_sel:n=>`${n} محدد`, ist_pk_add:n=>n?`أضِف ${n}`:'أضِف', ist_pk_in:'في الجدول', ist_pk_none:'لا نتائج', ist_pk_more:n=>`يُعرض أول ${n} — ضيّق البحث`, ist_pk_done:n=>`أُضيف ${n} من السجل`, ist_pk_cancel:'إلغاء', ist_pk_keys:'↑↓ تنقّل · مسافة تحديد · Enter إضافة · Esc إغلاق',
     ist_close_q:'لديك عمل غير محفوظ — احفظه لتتابع لاحقًا؟', ist_save:'حفظ', ist_discard:'عدم الحفظ', ist_cancel:'إلغاء', ist_saved:'حُفظ ✓',
     ist_export:'تصدير', ist_export_tip:'ينزّل الملف بالصيغة المختارة إلى جهازك', ist_export_doc:'تصدير المستند', ist_bundle:'تصدير الملفات الشخصية', ist_fmt_pdf:'مستند جاهز للطباعة', ist_fmt_docx:'مستند قابل للتعديل', ist_fmt_xlsx:'جدول قابل للتعديل', ist_bundle_working:'جارٍ تجميع الملفات…', ist_bundle_done:'تم تنزيل الملفات الشخصية ✓', ist_bundle_fail:'تعذّر التجميع — أعِد المحاولة', ist_bundle_empty:'أضِف موظفاً واحداً على الأقل', ist_export_empty:'أضِف موظفاً واحداً على الأقل قبل التصدير', ist_pdf_done:'تم تنزيل الملف ✓', ist_pdf_fail:'تعذّر إنشاء الملف — أعِد المحاولة', ist_pdf_working:'جارٍ إنشاء الملف…', ist_pdf_step1:'تجهيز البيانات', ist_pdf_step2:'بناء الورقة الرسمية', ist_pdf_waiting:'في الطابور خلف قراءات الجوازات — لحظات', ist_pdf_step3:'المُصيّر يستيقظ — قد يستغرق لحظات في أول تصدير', ist_pdf_step4:'جارٍ التنزيل…',
@@ -323,7 +323,7 @@ const I18N={
     ist_src_q:'Where do the employees come from?', ist_src_pc:'From this device', ist_src_pc_s:'A passport image or PDF — read through the OCR line', ist_src_reg:'From the registry', ist_src_reg_s:'Search and tick registered employees — no new read',
     sel_btn:'Select', sel_bundle_n:n=>n?`Export personal files (${n})`:'Export personal files', sel_dossier_n:n=>n?`Complete dossiers in one ZIP (${n})`:'Complete dossiers in one ZIP', sel_dossier_tip:'One complete PDF per employee (cover, report, scans) — all inside a single ZIP folder', sel_bundle_tip:"Each employee's passport, then the visa if any — all in one PDF", sel_h:'Select employees', sel_next:n=>n?`Continue ${n}`:'Continue', sel_q:n=>`What do you want for ${n} employees?`, sel_back:'Back',
     sel_bundle_s:"Each employee's passport, then the visa if any — all in one PDF", sel_dossier:'Employee dossiers', sel_dossier_s:'One complete PDF per employee — all in one ZIP folder',
-    sel_zip_working:(i,n)=>`Building the files… ${i} / ${n}`, sel_zip_done:n=>`${n} files downloaded in a ZIP folder ✓`, sel_zip_fail:'Could not build the files — try again', sel_zip_none:'No file could be built',
+    sel_zip_working:(i,n)=>`Building the files… ${i} / ${n}`, sel_zip_page:(p,n)=>` · page ${p}/${n}`, sel_zip_hint:'Keep this page visible until the download completes', sel_zip_hidden:'Paused — bring this page back to the front to continue', sel_zip_done:n=>`${n} files downloaded in a ZIP folder ✓`, sel_zip_fail:'Could not build the files — try again', sel_zip_none:'No file could be built',
     ist_pk_h:'Pick from the registry', ist_pk_ph:'Search by name, passport or nationality…', ist_pk_sel:n=>`${n} selected`, ist_pk_add:n=>n?`Add ${n}`:'Add', ist_pk_in:'in the table', ist_pk_none:'No results', ist_pk_more:n=>`Showing the first ${n} — narrow the search`, ist_pk_done:n=>`${n} added from the registry`, ist_pk_cancel:'Cancel', ist_pk_keys:'↑↓ move · Space tick · Enter add · Esc close',
     ist_reading:'… reading', ist_read_fail:'Could not read — try again', ist_drop_sub:'click or drop the employees’ passports',
     ist_close_q:'You have unsaved work — save it to continue later?', ist_save:'Save', ist_discard:'Discard', ist_cancel:'Cancel', ist_saved:'Saved ✓',
@@ -1584,7 +1584,8 @@ async function _renderPage(page, ctx, viewport){
     return false;
   }finally{ clearTimeout(timer); }
 }
-async function scanImage(path){
+async function scanImage(path, scale){
+  scale=scale||3.5;
   if(!path)return null;
   if(/\.(xlsx|docx)$/i.test(path)) return null;      // Word/Excel isn't an image → rendered as its own office page
   const url=await docUrl(path); if(!url)return null;
@@ -1601,7 +1602,7 @@ async function scanImage(path){
     // than one page, take the first page that is document-shaped, and fall back to page 1 if the
     // file is only ever square (then a photo is genuinely all we have — better than nothing).
     const page=await pdf.getPage(await _docPageNo(pdf));
-    const vp=page.getViewport({scale:3.5});
+    const vp=page.getViewport({scale});
     const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
     if(!await _renderPage(page, c.getContext('2d'), vp)) return null;
     return c.toDataURL('image/jpeg',0.95);
@@ -1684,7 +1685,8 @@ const PRINT_DOCS=[
     fields:['visa_no','visa_type','visa_country','visa_issue','visa_expiry','visa_entry_days','visa_stay_days'],
     expiry:r=>r.visa_expiry, estimated:r=>r.visa_expiry_basis==='estimated', scan:r=>r.visa_scan },
 ];
-async function buildDossier(P,VS,LG){
+async function buildDossier(P,VS,LG,opts){
+  const SC=(opts&&opts.scanScale)||3.5;   // print keeps 3.5; the ZIP passes a scale matched to its output pixels
   const p=P||CURRENT_P, vs=VS||CURRENT_VS||[]; if(!p)return '';
   const name=p.name_latin||p.name_native||'—';
   const curVs=splitVisas(vs).cur;   // the dossier's overall status reflects CURRENT visas, not superseded ones
@@ -1737,7 +1739,7 @@ async function buildDossier(P,VS,LG){
   if(face){ const _pi=scanTasks.findIndex(s=>s.isPassport); scanTasks.splice(_pi>=0?_pi+1:0, 0, {title:t('pv_photo'), img:face, photo:true}); }
   const perTask=await Promise.all(scanTasks.map(s=>
     s.img ? Promise.resolve([s.img])
-    : s.multi ? scanImagesAll(s.path, s.rotDeg||0) : scanImage(s.path).then(i=>i?[i]:[])));
+    : s.multi ? scanImagesAll(s.path, s.rotDeg||0, SC) : scanImage(s.path, SC).then(i=>i?[i]:[])));
   // flatten to printable pages, labelling a multi-page scan «title (p/N)»; carry the highlight onto its page
   const scanPages=[];
   scanTasks.forEach((s,i)=>{ const imgs=(perTask[i]||[]).filter(Boolean);
@@ -3965,38 +3967,66 @@ function selOpen(){
    (#print.pdfing *) because spaced text is drawn one character at a time, which breaks Arabic joining. */
 function _pdfPrepStage(stage){
   try{ stage.querySelectorAll('.cv-logo').forEach(lg=>{ const m=/^data:image\/svg\+xml;base64,(.+)$/.exec(lg.getAttribute('src')||'');
-       if(m){ const raw=atob(m[1]).replace(/#fff/gi,'#111').replace(/fill:\s*white/gi,'fill:#111'); lg.src='data:image/svg+xml;base64,'+btoa(raw); } }); }catch(_){}
+       if(m){ const raw=atob(m[1]).replace(/#fff/gi,'#111').replace(/fill:\s*white/gi,'fill:#111'); lg.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(raw); /* percent-encoded, not btoa: btoa throws on a non-Latin-1 byte and the fill stayed white */ } }); }catch(_){}
   try{ stage.querySelectorAll('.pv-face img').forEach(im=>{ const d=im.parentElement; d.style.background=`url("${im.src}") center/cover no-repeat`; im.remove(); }); }catch(_){}
 }
 /* The dossier ZIP: for each employee the SAME dossier the detail panel prints, rendered page by
    page to a PDF in the browser (html2canvas → jsPDF, A4, landscape for wide scans), then all the
-   PDFs in one ZIP. Sequential on purpose — one employee at a time keeps memory flat and the
-   progress honest («3 / 8»). The on-screen #print stage is used and cleared afterwards. */
+   PDFs in one ZIP. The on-screen #print stage is used and cleared afterwards.
+
+   WHY IT TOOK «FOREVER» (v296, measured on the live app):
+   · html2canvas clones the WHOLE document for every page — the roster's ~1,700 nodes and all the
+     app CSS, ten times per employee. Cover page: 6.1 s plain → 0.9 s when everything outside the
+     page is pruned (`ignoreElements`). That is the single biggest cut.
+   · scans were rasterised at the print scale (3.5×, ~2,100 px wide) and then squeezed into a page
+     drawn at 2× (≈1,360 px) — pixels nobody sees. The ZIP now rasterises at 2.4× and packs JPEG 0.85.
+   · everything ran in series: sign a URL, download, rasterise, draw, encode — then the next person.
+     Now the NEXT employee's fetch + build runs while the current one is being drawn (one ahead,
+     so memory stays flat).
+   · in a background tab the browser stops painting, pdf.js never finishes a page, each scan waits
+     out its 20 s timeout and comes back BLANK. So the build now pauses while the tab is hidden and
+     resumes the moment it is shown — a slow tab is better than a fast ZIP of empty pages. */
 async function exportDossierZip(rows, host){
   if(!rows||!rows.length) return false;
-  const ov=_waitOverlay(host||document.body, t('sel_zip_working',0,rows.length), '');
-  const note=ov.querySelector('.ist-wait-t');
+  const ov=_waitOverlay(host||document.body, t('sel_zip_working',0,rows.length), t('sel_zip_hint'));
+  const note=ov.querySelector('.ist-wait-t'), sub=ov.querySelector('.ist-wait-s');
   const stage=$('#print'); const keep={p:CURRENT_P,vs:CURRENT_VS,lg:CURRENT_LEGAL};
-  let built=0, names=[], bytes=0;
+  let built=0, names=[], bytes=0; const tm={fetch:0,build:0,draw:0,t0:performance.now()};
+  const visible=()=>new Promise(res=>{ if(!document.hidden) return res();     // pause, don't render blanks
+    if(sub) sub.textContent=t('sel_zip_hidden');
+    const on=()=>{ if(!document.hidden){ document.removeEventListener('visibilitychange',on); if(sub) sub.textContent=t('sel_zip_hint'); res(); } };
+    document.addEventListener('visibilitychange',on); });
+  const prep=async r=>{ await visible(); let t0=performance.now();          // fetch + build one employee (runs one ahead)
+    const d=await fetchEmployee(r.person_id); tm.fetch+=performance.now()-t0; if(!d) return null;
+    t0=performance.now(); const html=await buildDossier(d.p,d.vs,d.legal,{scanScale:2.4}); tm.build+=performance.now()-t0;
+    return html?{d,html}:null; };
+  const prune=pg=>el=>(el.classList&&el.classList.contains('pg')&&el!==pg)||(!el.contains(stage)&&!stage.contains(el));
   try{
     await ensureLib('jszip'); await ensureLib('html2canvas'); await ensureLib('jspdf');
     const zip=new JSZip(); const {jsPDF}=window.jspdf;
+    let ahead=prep(rows[0]);
     for(let i=0;i<rows.length;i++){
       if(note) note.textContent=t('sel_zip_working',i+1,rows.length);
-      const d=await fetchEmployee(rows[i].person_id); if(!d) continue;
-      const html=await buildDossier(d.p,d.vs,d.legal); if(!html) continue;
+      const cur=await ahead; ahead=(i+1<rows.length)?prep(rows[i+1]):null;
+      if(!cur) continue;
+      const {d,html}=cur;
+      await visible();
       stage.innerHTML=html; stage.classList.add('pdfing'); _pdfPrepStage(stage); await waitImages(stage); _flipWidePages();
       await new Promise(r=>setTimeout(r,80));     // a plain timer: requestAnimationFrame never fires in a background tab and would hang the build
-      const pages=[...stage.querySelectorAll('.pg')]; let pdf=null;
-      for(const pg of pages){
-        const land=pg.classList.contains('land');
-        const cv=await html2canvas(pg,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:pg.offsetWidth,height:pg.offsetHeight});
-        const img=cv.toDataURL('image/jpeg',0.9);
+      const pages=[...stage.querySelectorAll('.pg')]; let pdf=null; const t0=performance.now();
+      for(let k=0;k<pages.length;k++){
+        const pg=pages[k]; const land=pg.classList.contains('land');
+        if(note) note.textContent=t('sel_zip_working',i+1,rows.length)+t('sel_zip_page',k+1,pages.length);
+        await visible();
+        const cv=await html2canvas(pg,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false,width:pg.offsetWidth,height:pg.offsetHeight,ignoreElements:prune(pg)});
+        const img=cv.toDataURL('image/jpeg',0.85);
         if(!pdf) pdf=new jsPDF({orientation:land?'landscape':'portrait',unit:'mm',format:'a4',compress:true});
         else pdf.addPage('a4', land?'landscape':'portrait');
         const W=land?297:210, H=land?210:297;
         pdf.addImage(img,'JPEG',0,0,W,H,undefined,'FAST');
+        cv.width=cv.height=0;
       }
+      tm.draw+=performance.now()-t0;
       if(!pdf) continue;
       const blob=pdf.output('blob'); bytes+=blob.size;
       const nm=String(d.p.name_latin||d.p.name_native||d.p.person_id).replace(/[\\/:*?"<>|]+/g,' ').trim();
@@ -4005,7 +4035,8 @@ async function exportDossierZip(rows, host){
     }
     if(!built){ toast(t('sel_zip_none')); return false; }
     const out=await zip.generateAsync({type:'blob'});
-    window.__lastExport={files:built, names, bytes, zipBytes:out.size};   // a hook for the live check
+    window.__lastExport={files:built, names, bytes, zipBytes:out.size, ms:Math.round(performance.now()-tm.t0),
+                         fetchMs:Math.round(tm.fetch), buildMs:Math.round(tm.build), drawMs:Math.round(tm.draw)};   // a hook for the live check
     _downloadBlob(out,'ملفات الموظفين.zip'); toast(t('sel_zip_done',built)); return true;
   }catch(e){ console.warn('exportDossierZip',e); toast(t('sel_zip_fail')); return false; }
   finally{ stage.classList.remove('pdfing'); stage.innerHTML=''; CURRENT_P=keep.p; CURRENT_VS=keep.vs; CURRENT_LEGAL=keep.lg; ov.remove(); }
