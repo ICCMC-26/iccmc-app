@@ -3965,9 +3965,16 @@ function selOpen(){
    filters are not supported, so the SVG's fill is rewritten to ink; (2) the face uses object-fit,
    also unsupported, so it becomes a background image sized «cover». Letter-spacing is zeroed in CSS
    (#print.pdfing *) because spaced text is drawn one character at a time, which breaks Arabic joining. */
-function _pdfPrepStage(stage){
+async function _pdfPrepStage(stage){
   try{ stage.querySelectorAll('.cv-logo').forEach(lg=>{ const m=/^data:image\/svg\+xml;base64,(.+)$/.exec(lg.getAttribute('src')||'');
        if(m){ const raw=atob(m[1]).replace(/#fff/gi,'#111').replace(/fill:\s*white/gi,'fill:#111'); lg.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(raw); /* percent-encoded, not btoa: btoa throws on a non-Latin-1 byte and the fill stayed white */ } }); }catch(_){}
+  // html2canvas re-parses SVG through its own path renderer and turns the 70-path wordmark into two blobs
+  // (measured v299). The browser draws the same SVG perfectly into a canvas, so hand it a PNG instead.
+  for(const lg of stage.querySelectorAll('.cv-logo')){
+    try{ await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>{ const w=lg.offsetWidth||132, h=Math.round(w*im.naturalHeight/im.naturalWidth)||70;
+           const c=document.createElement('canvas'); c.width=w*4; c.height=h*4; c.getContext('2d').drawImage(im,0,0,c.width,c.height); lg.src=c.toDataURL('image/png'); res(); };
+         im.onerror=rej; im.src=lg.getAttribute('src'); }); }catch(_){}
+  }
   try{ stage.querySelectorAll('.pv-face img').forEach(im=>{ const d=im.parentElement; d.style.background=`url("${im.src}") center/cover no-repeat`; im.remove(); }); }catch(_){}
 }
 /* The dossier ZIP: for each employee the SAME dossier the detail panel prints, rendered page by
@@ -4013,7 +4020,7 @@ async function exportDossierZip(rows, host){
       if(!cur) continue;
       const {d,html}=cur;
       await visible();
-      stage.innerHTML=html; stage.classList.add('pdfing'); _pdfPrepStage(stage); await waitImages(stage); _flipWidePages();
+      stage.innerHTML=html; stage.classList.add('pdfing'); await _pdfPrepStage(stage); await waitImages(stage); _flipWidePages();
       await new Promise(r=>setTimeout(r,80));     // a plain timer: requestAnimationFrame never fires in a background tab and would hang the build
       const pages=[...stage.querySelectorAll('.pg')]; let pdf=null; const t0=performance.now();
       for(let k=0;k<pages.length;k++){
