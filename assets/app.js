@@ -138,7 +138,7 @@ const I18N={
     lg_ok_dismiss:'إغلاق',
     pq_nodet:'هذا الملف لن ينجح بإعادة المحاولة — يحتاج ملفًا أوضح أو تقسيمًا',
     pq_nocommit:'لا يمكن حذف ملف مُودَع', pq_delq:n=>`حذف «${n}» نهائيًا؟`,
-    ph_s:'ابحث بالاسم أو الجواز…', ms_lang:'English', ms_h:'المزيد', ic_rows:'الموظفون', ic_photo_change:'تغيير الصورة', ic_view_sheet:'معاينة الورقة', ic_view_edit:'تحرير', law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
+    ph_s:'ابحث بالاسم أو الجواز…', ms_lang:'English', ms_h:'المزيد', law_h:'القانون', law_btn:'المعاملات', law_ph:'ابحث عن دفعة — رقم المنح، اسم موظف، جواز…', law_none:'لا دفعات قانونية بعد',
     ist_new:'استمارة', ist_h:'استمارة سمة الدخول', ist_title:'استمارة طلب سمات الدخول للشركات المتعاقدة مع الدولة',
     ist_company:'اسم الشركة', ist_company_nat:'جنسية الشركة', ist_addr:'عنوان الشركة داخل العراق', ist_purpose:'الغاية من الدخول', ist_stay:'مدة البقاء المتوقعة في العراق', ist_visatype:'نوع السمة',
     ist_undertaking_pre:'اني المخول (', ist_undertaking_post:') اتعهد بعدم التصرف بأوراق الشركة دون علمها أو إضافة أو تغيير او تعديل بيانات المعلومات وبخلاف ذلك أتحمل كافة التبعات القانونية وعدم إخفاء أي معلومات عن مديرية شؤون الإقامة',
@@ -303,7 +303,7 @@ const I18N={
     lg_ok_dismiss:'Dismiss',
     pq_nodet:'Retrying cannot help this file — it needs a clearer scan or splitting',
     pq_nocommit:'Cannot delete a committed file', pq_delq:n=>`Delete “${n}” permanently?`,
-    ph_s:'Name, passport, visa…', ms_lang:'العربية', ms_h:'More', ic_rows:'Employees', ic_photo_change:'Change photo', ic_view_sheet:'Preview sheet', ic_view_edit:'Edit', law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
+    ph_s:'Name, passport, visa…', ms_lang:'العربية', ms_h:'More', law_h:'Law', law_btn:'Procedures', law_ph:'Search a batch — grant no., employee name, passport…', law_none:'No legal batches yet',
     ist_new:'Entry form', ist_h:'Entry-visa form', ist_title:'Application form for entry visas — companies contracted with the State',
     ist_company:'Company name', ist_company_nat:'Company nationality', ist_addr:'Address in Iraq', ist_purpose:'Purpose of entry', ist_stay:'Expected stay in Iraq', ist_visatype:'Visa type',
     ist_undertaking_pre:'I, the authorized (', ist_undertaking_post:'), undertake not to dispose of the company documents without its knowledge, nor add/alter/modify the data; otherwise I bear all legal consequences and will not conceal any information from the Residence Directorate.',
@@ -3011,8 +3011,7 @@ $('#glang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 $('#tlang').addEventListener('click',()=>setLang(LANG==='ar'?'en':'ar'));
 /* ═══ PHONE LAYER (v302) — see app.css. The header's secondary actions in a bottom sheet behind «⋯»;
    each row simply clicks the real (hidden) header button, so behaviour and state stay single-sourced.
-   The A4 builder sheet is fitted to the screen width (pinch to zoom in); istFit() only acts while the
-   phone media query matches and clears itself otherwise, so the desktop path never sees it. */
+   The A4 builder sheet keeps its true size on a phone and pans left/right (Ibrahim, v305). */
 const PHONE_MQ=window.matchMedia('(max-width:720px)'), PHONE_MQ_S=window.matchMedia('(max-width:520px)');
 function msClose(){ const m=$('#msheet'); if(!m||!m.classList.contains('on')) return; m.classList.remove('on');
   const b=$('#tmore'); if(b) b.setAttribute('aria-expanded','false'); if(b) b.focus(); }
@@ -3033,17 +3032,6 @@ function msOpen(){
   const first=m.querySelector('.ms-row'); if(first) first.focus();
 }
 { const b=$('#tmore'); if(b) b.addEventListener('click',msOpen); }
-function istFit(){
-  const host=$('#istimara'), pg=host&&host.querySelector('.ist-page'); if(!pg) return;
-  if(!PHONE_MQ.matches){ if(pg.style.zoom) pg.style.zoom=''; return; }
-  const natural=pg.classList.contains('portrait')?816:1123;          // 215.9mm / 297mm at 96dpi
-  const z=Math.min(1,(host.clientWidth-24)/natural);
-  pg.style.zoom = z<1 ? z.toFixed(3) : '';
-}
-{ let _fitT; const _fitSoon=()=>{ clearTimeout(_fitT); _fitT=setTimeout(istFit,60); };
-  window.addEventListener('resize',_fitSoon); PHONE_MQ.addEventListener('change',_fitSoon);
-  PHONE_MQ_S.addEventListener('change',()=>{ try{ applyLang(); }catch(_){} });
-  const host=$('#istimara'); if(host) new MutationObserver(_fitSoon).observe(host,{childList:true,subtree:true,attributes:true,attributeFilter:['class']}); }
 paintSort();   // render the sort control once; delegated click (survives repaints)
 { const _sb=$('#sortbar'); if(_sb)_sb.addEventListener('click',e=>{const b=e.target.closest('[data-sort]');if(b)setSort(b.dataset.sort);}); }
 $('#ttheme').addEventListener('click',toggleTheme);
@@ -3767,67 +3755,6 @@ function istPickMenu(btn){
     document.removeEventListener('click',off); },{once:true}),0);
 }
 function istPaper(){ return IST_PAPERS[(_IST&&_IST.paper)||'istimara']||IST_PAPERS.istimara; }
-/* ═══ PHONE CARD EDITOR (v304) — see app.css. Same draft (_IST), same handlers (istPickMenu, istOpenReview,
-   the sheet's own remove path, istChooseSource, the photo box), thumb-sized controls. Rendered only while
-   the phone media query matches; on desktop the box stays empty and hidden. */
-function istRenderCards(){
-  const wrap=$('#istimara .ist-wrap'); if(!wrap||!_IST) return;
-  let box=$('#ist-cards'); if(!box){ box=document.createElement('div'); box.id='ist-cards'; wrap.insertBefore(box, wrap.querySelector('.ist-stage'));
-    box.addEventListener('focusout',()=>setTimeout(()=>{ if(box._dirty&&!box.contains(document.activeElement)) istRenderCards(); },60)); }
-  if(!PHONE_MQ.matches){ box.innerHTML=''; return; }
-  if(box.contains(document.activeElement)){ box._dirty=true; return; }   // never yank the keyboard mid-word
-  box._dirty=false;
-  const P=istPaper(), H=_IST.header||{};
-  const pickBtn=(k,ri)=>(istDefs(k).length||ri!=null)?`<button class="ic-pick" type="button" data-pick="${k}"${ri!=null?` data-ri="${ri}"`:''} title="${esc(t('ist_pick'))}"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`:'';
-  let h='';
-  if(P.photo) h+=`<div class="ic-sec">${esc(t('ist_photo'))}</div><div class="ic-card ic-photo">${_IST.photo?`<img src="${_IST.photo}" alt="">`:`<span class="ph-empty"></span>`}<div class="ic-acts"><button type="button" data-icphoto="1">${esc(t('ic_photo_change'))}</button>${_IST.photo?`<button type="button" class="ic-rm" data-icphotox="1">✕</button>`:''}</div></div>`;
-  if(P.fields.length||(P.texts||[]).length){
-    h+=`<div class="ic-sec">${esc(t(P.h))}</div><div class="ic-card">`;
-    (P.texts||[]).forEach(x=>{ const v=(H[x.k]!=null&&H[x.k]!=='')?H[x.k]:t(x.d); h+=`<label class="ic-f"><span>${esc(t('taa_editable'))}</span><textarea class="ic-ta" data-h="${x.k}">${esc(v)}</textarea></label>`; });
-    P.fields.forEach(f=>{ h+=`<label class="ic-f"><span>${esc(t(f.lab))}</span><span class="ic-fw"><input class="ic-in ist-in${(_IST._pre&&_IST._pre[f.k])?' ist-pre':''}" data-h="${f.k}" value="${esc(H[f.k]||'')}" placeholder="${f.ph?esc(t(f.ph)):''}">${pickBtn(f.k)}</span></label>`; });
-    if(_IST.paper!=='taahud') h+=`<label class="ic-f"><span>${esc(t('ist_sig_auth'))}</span><span class="ic-fw"><input class="ic-in ist-in" data-h="authorized" value="${esc(H.authorized||'')}"></span></label>`;
-    h+=`</div>`;
-  }
-  h+=`<div class="ic-sec">${esc(t('ic_rows'))} · ${_IST.rows.length}</div>`;
-  _IST.rows.forEach((r,i)=>{
-    h+=`<div class="ic-card"><div class="ic-row-hd"><span class="ic-ser">${i+1}</span><b>${esc(r.name||'—')}</b></div>`;
-    const sub=[r.nationality?tv(r.nationality):'', r.passport_no||'', istFmtDate(r.passport_expiry)||''].filter(Boolean).join(' · ');
-    if(sub) h+=`<div class="ic-row-sub">${esc(sub)}</div>`;
-    if(r._status==='uploading'||r._status==='processing'||r._status==='committing') h+=`<div class="ic-row-st">${esc(istRowStatusTxt(r))}</div>`;
-    else if(r._status==='refused') h+=`<div class="ic-row-st err">${esc(r._err||t('ist_read_fail'))}</div>`;
-    else P.cols.forEach(c=>{
-      if(c.hand) h+=`<label class="ic-f"><span>${esc(t(c.lab))}</span><span class="ic-fw"><input class="ic-in${(r._pre&&r._pre[c.k])?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}" placeholder="${esc((r._sug&&r._sug[c.k])||istDef1(c.k)||'')}">${pickBtn(c.k,i)}</span></label>`;
-      else if(c.edit) h+=`<label class="ic-f"><span>${esc(t(c.lab))}</span><span class="ic-fw"><input class="ic-in" data-ri="${i}" data-rk="${c.k}" value="${esc(r[c.k]||'')}" placeholder="${esc(t('taa_ph_'+c.k)||'')}"></span></label>`;
-    });
-    const acts=[]; if(r._status==='review') acts.push(`<button type="button" class="ic-rev" data-istreview="${i}">⚑ ${esc(t('ik_review'))}</button>`);
-    if(r._status==='review'||r._status==='refused') acts.push(`<button type="button" class="ic-rm" data-rmrow="${i}">✕ ${esc(t('ist_remove'))}</button>`);
-    if(acts.length) h+=`<div class="ic-acts">${acts.join('')}</div>`;
-    h+=`</div>`;
-  });
-  h+=`<button type="button" class="ic-add" id="ic-add">${esc(t('ist_add_more'))}</button>`;
-  box.innerHTML=h;
-  // header fields: the same write as the sheet's inputs, then the sheet's twin is kept in step
-  box.querySelectorAll('.ic-in[data-h],.ic-ta[data-h]').forEach(inp=>inp.addEventListener('input',()=>{
-    const k=inp.dataset.h; _IST.header[k]=inp.value; _IST._dirty=true; if(_IST._pre) delete _IST._pre[k]; inp.classList.remove('ist-pre');
-    $('#istimara').querySelectorAll('.ist-in[data-h="'+k+'"]').forEach(o=>{ if(o!==inp){ o.value=inp.value; o.classList.remove('ist-pre'); } });
-    $('#istimara').querySelectorAll('.ist-tx[data-h="'+k+'"]').forEach(o=>{ o.textContent=inp.value; }); }));
-  // row cells: same write as .ist-hin/.ist-ein, twin kept in step
-  box.querySelectorAll('.ic-in[data-ri]').forEach(inp=>inp.addEventListener('input',()=>{
-    const r=_IST.rows[+inp.dataset.ri], k=inp.dataset.rk; if(!r) return; r[k]=inp.value; _IST._dirty=true; if(r._pre) delete r._pre[k]; inp.classList.remove('ist-pre');
-    const tw=$('#istimara').querySelector('.ist-hin[data-ri="'+inp.dataset.ri+'"][data-rk="'+k+'"],.ist-ein[data-ri="'+inp.dataset.ri+'"][data-rk="'+k+'"]'); if(tw){ tw.value=inp.value; tw.classList.remove('ist-pre'); } }));
-  box.querySelectorAll('.ic-pick').forEach(b=>b.onclick=e=>{ e.stopPropagation(); istPickMenu(b); });
-  box.querySelectorAll('[data-istreview]').forEach(b=>b.onclick=()=>istOpenReview(+b.dataset.istreview));
-  box.querySelectorAll('[data-rmrow]').forEach(b=>b.onclick=()=>{ const s=$('#ist-tbody [data-rmrow="'+b.dataset.rmrow+'"]'); if(s) s.click(); });   // the sheet's remove path (clears the worker row too)
-  const add=$('#ic-add'); if(add) add.onclick=()=>istChooseSource();
-  box.querySelectorAll('[data-icphoto]').forEach(b=>b.onclick=()=>{ const ph=$('#ist-photo'); if(ph) ph.click(); });
-  box.querySelectorAll('[data-icphotox]').forEach(b=>b.onclick=()=>{ const x=$('#ist-ph-x'); if(x) x.click(); });
-}
-function istViewWire(){
-  const b=$('#ist-view'), wrap=$('#istimara .ist-wrap'); if(!b||!wrap) return;
-  const lab=()=>{ const l=$('#ist-viewlbl'); if(l) l.textContent=wrap.classList.contains('sheet')?t('ic_view_edit'):t('ic_view_sheet'); };
-  b.onclick=()=>{ wrap.classList.toggle('sheet'); lab(); if(wrap.classList.contains('sheet')) istFit(); else istRenderCards(); $('#istimara').scrollTop=0; };
-  lab();
-}
 /* THE DEFAULT REPRESENTATIVE PHOTO.
    «صورة ممثل الشركة» is the same man on every استمارة this company files, so the box should open
    holding him rather than an empty dashed square. Kept as a repo asset and converted to a data URL
@@ -3903,7 +3830,6 @@ async function istimaraOpen(paper){
             <svg viewBox="0 0 24 24" class="ist-bic"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
             <span id="ist-bndlbl">${t('ist_bundle')}</span>
           </button>
-          <button class="ist-btn2 ist-sec2" id="ist-view" type="button"><span id="ist-viewlbl">${t('ic_view_sheet')}</span></button>
         </div>
       </div>
       <div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="ist-page">
@@ -3957,7 +3883,6 @@ async function istimaraOpen(paper){
   if(istPending().length){ istEnsureWatch(); istReconcile().catch(()=>{}); }
   istWirePhoto();
   $('#istimara').classList.add('on'); document.body.style.overflow='hidden';
-  istRenderCards(); istViewWire();                                   // v304: the phone card editor (no-op on desktop)
   { const sc=$('#istimara'); sc.scrollTop=0;                       // the bar tints only once the paper scrolls under it (v263)
     sc.onscroll=()=>{ const b=sc.querySelector('.ist-bar'); if(b) b.classList.toggle('stuck', sc.scrollTop>8); }; }
 }
@@ -3991,6 +3916,14 @@ function istRequestClose(){
   dlg.querySelector('[data-a="cancel"]').onclick=done;
   dlg.onclick=e=>{ if(e.target===dlg) done(); };        // click backdrop = cancel (safest)
 }
+/* a table value never clips (v305): when the text is wider than its cell the type steps down (to 8pt at
+   the least). The WhatsApp kiosk applies the same rule (fitCell), so both papers read alike. */
+function istFitCell(inp){
+  inp.style.fontSize='';
+  let pt=11;
+  while(inp.scrollWidth>inp.clientWidth+1 && pt>8){ pt-=0.5; inp.style.fontSize=pt+'pt'; }
+}
+function istFitCells(){ const tb=$('#ist-tbody'); if(tb) tb.querySelectorAll('.ist-hin,.ist-ein').forEach(istFitCell); }
 function istRenderRows(){
   const tb=$('#ist-tbody'); if(!tb)return;
   const COLS=istPaper().cols, N=COLS.length;               // the columns THIS paper carries
@@ -4034,13 +3967,13 @@ function istRenderRows(){
     ? `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop slim">＋ ${esc(t('ist_add_more'))}　·　${_agentLink}<span class="ist-agent-note" id="ist-agent-note"></span></td></tr>`
     : `<tr class="ist-addrow"><td colspan="${N}" id="ist-drop" class="ist-drop"><span class="ist-drop-hint">⬆<br>${esc(t('dz_t'))}<br><em>${esc(t('ist_drop_sub'))}</em></span><br>${_agentLink}<span class="ist-agent-note" id="ist-agent-note"></span></td></tr>`;
   tb.innerHTML=dataHtml+drop;
-  istRenderCards();                                                  // v304: the phone cards mirror the rows
   // hand columns: type into a cell (kept live in the row, no re-render → focus stays); ⤓ fills the value DOWN
   tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri];
     if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; if(r._pre) delete r._pre[inp.dataset.rk]; }
-    inp.classList.remove('ist-pre'); });
+    inp.classList.remove('ist-pre'); istFitCell(inp); });
   tb.querySelectorAll('.ist-ein').forEach(inp=>inp.oninput=()=>{ const r=_IST.rows[+inp.dataset.ri];
-    if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; } });
+    if(r){ r[inp.dataset.rk]=inp.value; _IST._dirty=true; } istFitCell(inp); });
+  istFitCells();
   tb.querySelectorAll('.ist-pick,.ist-handle').forEach(b=>b.onclick=e=>{ e.stopPropagation(); istPickMenu(b); });
   // remove an UNCOMMITTED row (refused / pending-review): also clear its worker scan_jobs row so nothing
   // lingers in the review queue — no leaks. (The storage blob is swept by the janitor, sweep_orphan_files,

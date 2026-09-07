@@ -1590,11 +1590,13 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   .pk-ft .spacer{display:none}
   .pk-ft .pk-count{flex-basis:100%}
   .pk-ft .pk-add{flex:1 1 calc(50% - 4px);min-height:44px;justify-content:center}
-  /* the استمارة/تعهد workspace: the toolbar wraps, the paper is fitted to the screen by istFit() */
+  /* the استمارة/تعهد workspace: the toolbar wraps; the paper below keeps its true size and pans */
   .ist-bar{flex-wrap:wrap;gap:8px 10px;padding:10px 12px}
   .ist-actions{flex:1 1 100%;flex-wrap:wrap;gap:8px}
   .ist-actions>*{min-height:44px}
-  .ist-stage{justify-content:center;padding:6px;overflow:visible}
+  /* the paper stays at its TRUE size on a phone (Ibrahim: «like the PC, go left and right») — the stage
+     pans horizontally; pinch-zoom is native */
+  .ist-stage{justify-content:flex-start;padding:6px 6px 40px;overflow-x:auto;-webkit-overflow-scrolling:touch}
   /* bars respect the notch */
   .ik-bar{padding-top:calc(12px + env(safe-area-inset-top))}
   .ist-bar{padding-top:calc(10px + env(safe-area-inset-top))}
@@ -1602,46 +1604,4 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 }
 @media (max-width:520px){
   .pk-ft .pk-add{flex-basis:100%}
-}
-
-/* ═══ PHONE CARD EDITOR — استمارة/تعهد (v304) ═══════════════════════════════════════════════
-   A fitted A4 sheet on a phone is a picture: every input lands under 20 px tall. So on phones the
-   SAME draft (_IST) is edited through thumb-sized cards — header fields, then one card per employee
-   with its hand-typed columns — and the true sheet is one tap away («معاينة الورقة»). Export reads
-   _IST, so both views produce the identical paper. Nothing here exists on desktop. */
-#ist-cards,#ist-view{display:none}
-@media (max-width:720px){
-  #ist-view{display:inline-flex}
-  .ist-wrap:not(.sheet) #ist-cards{display:block}
-  .ist-wrap:not(.sheet) .ist-stage{display:none}
-  #ist-cards{padding:6px 12px calc(30px + env(safe-area-inset-bottom));color:var(--ink);font-family:var(--sans)}
-  .ic-sec{margin:14px 2px 8px;font:700 11.5px var(--mono);letter-spacing:.14em;color:var(--copper)}
-  .ic-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 12px 8px;margin-bottom:10px}
-  .ic-f{display:block;position:relative;margin:0 0 10px}
-  .ic-f>span:first-child{display:block;font-size:12.5px;color:var(--faint);margin-bottom:5px}
-  .ic-fw{display:flex;align-items:center;gap:6px;position:relative}
-  #ist-cards .ic-in{flex:1;min-width:0;height:44px;border:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:10px;
-    background:var(--bg);color:var(--ink);font:500 16px var(--sans);padding:0 12px;text-align:start}
-  #ist-cards .ic-in:focus{border-color:var(--copper);outline:0;box-shadow:0 0 0 3px rgba(197,149,107,.14)}
-  #ist-cards .ic-in.ist-pre{color:var(--faint)}
-  .ic-ta{width:100%;min-height:96px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);
-    font:500 16px/1.6 var(--sans);padding:10px 12px;resize:vertical;text-align:start}
-  .ic-pick{width:44px;height:44px;flex:none;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--copper);display:grid;place-items:center;cursor:pointer}
-  .ic-pick svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .ic-fw .ist-menu{inset-inline-start:auto;inset-inline-end:0;top:calc(100% + 4px);max-width:calc(100vw - 48px)}
-  .ic-row-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
-  .ic-row-hd b{font-size:15px;color:var(--ink)}
-  .ic-row-hd .ic-ser{font:700 12px var(--mono);color:var(--copper)}
-  .ic-row-sub{font:500 12px var(--mono);color:var(--muted);margin-bottom:10px;word-break:break-all;direction:ltr;text-align:end}
-  .ic-row-st{font-size:13px;color:var(--muted);margin:2px 0 8px}
-  .ic-row-st.err{color:var(--st-bad)}
-  .ic-acts{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 4px}
-  .ic-acts button{min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font:600 14px var(--sans);cursor:pointer}
-  .ic-acts .ic-rev{border-color:var(--copper);color:var(--copper)}
-  .ic-acts .ic-rm{color:var(--st-bad)}
-  .ic-add{width:100%;min-height:52px;border:1.5px dashed var(--copper);border-radius:14px;background:rgba(197,149,107,.08);color:var(--ink);font:700 15px var(--sans);margin:4px 0 12px;cursor:pointer}
-  .ic-photo{display:flex;align-items:center;gap:12px;padding-bottom:12px}
-  .ic-photo img{width:64px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:none}
-  .ic-photo .ph-empty{width:64px;height:80px;border:1px dashed var(--line);border-radius:8px;flex:none}
-  .ic-photo .ic-acts{margin:0}
 }
