@@ -949,10 +949,12 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* #11 (v80) Review filter toggle in the legal section */
 .law-review.on{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--ink)}
 /* #12 (v84) header logo — ICCMC mark, viewBox cropped tight (no dead space), theme-tinted mask */
-.top-logo{display:block;flex:none;align-self:center;height:44px;width:158px;   /* Al-Amin wordmark (2026-10-01) */
+.top-logo{display:block;flex:none;align-self:center;height:56px;width:210px;   /* Al-Amin lockup: 480×130 artwork — at 44px the calligraphy was illegible (Ibrahim, 2026-10-01) */
   background:url(alamin-top-dark.png?v=1) left center/contain no-repeat}
   html[data-theme="light"] .top-logo{background-image:url(alamin-top-light.png?v=1)}
-@media(max-width:520px){ .top-logo{height:40px;width:102px} }  /* phone: trim slightly so the معاملات + إضافة buttons fit at full size */
+@media(max-width:520px){ /* the full lockup cannot live in 102px — the COLUMN alone carries the brand on phones */
+  .top-logo{height:40px;width:42px;background-image:url(alamin-icon-dark.png?v=1)}
+  html[data-theme="light"] .top-logo{background-image:url(alamin-icon-light.png?v=1)} }  /* phone: trim slightly so the معاملات + إضافة buttons fit at full size */
 /* #14 (v92) minimalist list sort — count row + subtle sort toggles */
 .listbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 4px 10px}
 .listbar .count{margin:0}

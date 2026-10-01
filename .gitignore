@@ -47,6 +47,9 @@
 !assets/app-bg-light.jpg
 !assets/alamin-top-dark.png
 !assets/alamin-top-light.png
+# The Al-Amin column icon alone — the phone bar’s brand mark (the full lockup is illegible at 102px).
+!assets/alamin-icon-dark.png
+!assets/alamin-icon-light.png
 # The تعهد letterhead logo (Shanghai Electric), shown in the builder workspace so it mirrors the
 # exported PDF (the PDF gets its own copy from the Word template). Image only — no code/keys.
 !assets/taahud-logo.jpg
