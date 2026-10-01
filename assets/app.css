@@ -284,6 +284,8 @@
   .st-expired{color:#ff6f78;background:rgba(218,30,40,.17)}   .st-expired .pi{background:#da1e28;color:#fff}
   .st-unknown{color:#b3b7ba;background:rgba(111,111,111,.20)} .st-unknown .pi{background:#6f6f6f;color:#fff}
   .empty{position:relative;text-align:center;color:var(--faint);padding:56px 0 44px;font-size:14px}
+  /* when the list is empty/loading its own crown speaks — the closing seal under it stands down */
+  #results:has(.empty) + .crownseal-line{display:none}
   .empty::before{content:"";display:block;width:180px;height:30px;margin:0 auto 20px;
     /* the SAME solid crown as everywhere (the seal), with clean hairlines AT ITS SIDES — never inside it */
     background:
