@@ -74,6 +74,10 @@
     --dia:none;
     --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 34px rgba(0,0,0,.28)}
   #gate::before{content:none}
+  /* an email is LTR text; inside the RTL page the browser was re-ordering its runs around the "@",
+     so a pasted/autofilled address LOOKED scrambled (the value itself was always correct).
+     Pin the two sign-in fields to LTR so what you see is the address as typed (Ibrahim, 2026-10-01). */
+  #gate .field input{direction:ltr;text-align:left;unicode-bidi:plaintext}
   .gate-card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
     border-radius:18px;max-width:420px;width:100%;padding:36px 34px;box-shadow:var(--shadow);position:relative;overflow:hidden;z-index:1;text-align:center}
   .gate-card::before{content:"";position:absolute;inset:0;background:
