@@ -284,8 +284,8 @@
   .st-expired{color:#ff6f78;background:rgba(218,30,40,.17)}   .st-expired .pi{background:#da1e28;color:#fff}
   .st-unknown{color:#b3b7ba;background:rgba(111,111,111,.20)} .st-unknown .pi{background:#6f6f6f;color:#fff}
   .empty{position:relative;text-align:center;color:var(--faint);padding:56px 0 44px;font-size:14px}
-  .empty::before{content:"";display:block;width:26px;height:26px;margin:0 auto 20px;   /* a lone login diamond */
-    border:1.5px solid var(--teal);border-radius:6px;transform:rotate(45deg);opacity:.5}
+  .empty::before{content:"";display:block;width:54px;height:30px;margin:0 auto 20px;   /* the crown, outlined — the mark of the house */
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 104' fill='none' stroke='%23C8A046' stroke-width='7'%3E%3Cpath d='M6 6h188l-9 24H15zM26 46h148l-8 22H34zM46 82h108v16H46z'/%3E%3C/svg%3E") center/contain no-repeat;opacity:.75}
   /* ── employee detail = the digital template (passport + visa + photo) ────── */
   #detail{position:fixed;inset:0;z-index:40;background:var(--app-grad);display:none;flex-direction:column}
   #detail.on{display:flex}
@@ -1564,7 +1564,8 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* the «⋯» drawer — the Al-Amin website's menu philosophy (2026-10-01): a full-height panel that
    enters from the edge and flips with the language, face-aware, a gold hairline on its opening
    edge, the brand's column at its head and the crown seal at its foot. Same JS, same rows. */
-  #msheet{position:fixed;inset:0;z-index:95;display:none;background:rgba(23,21,15,.55)}
+  #msheet{position:fixed;inset:0;z-index:95;background:rgba(23,21,15,.55);
+    opacity:0;visibility:hidden;transition:opacity .42s cubic-bezier(.22,.61,.21,1),visibility 0s linear .46s}
   #msheet .ms-box{position:absolute;inset-block:0;inset-inline-end:auto;inset-inline-start:auto}
 
 .ms-box{position:fixed;inset-block:0;inset-inline-end:0;width:min(84vw,340px);display:flex;flex-direction:column;
@@ -1581,18 +1582,24 @@ html[dir="ltr"] .ms-box{transform:translateX(100%)}
 .ms-box::after{content:"";flex:none;order:99;height:46px;margin-top:auto;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 60'%3E%3Cpath fill='%23B8923A' d='M0 0h200l-6 14H6zM14 20h172l-5 12H19zM30 38h140v10H30z'/%3E%3C/svg%3E") center bottom/44px auto no-repeat;opacity:.9}
 .ms-brandhead{display:none}
-#msheet.on{display:block}
+#msheet.on{opacity:1;visibility:visible;transition:opacity .42s cubic-bezier(.22,.61,.21,1),visibility 0s}
 #msheet.on .ms-box{transform:none}
-/* the rows arrive staggered, like the website's drawer links */
-.ms-box .ms-row{opacity:0;transform:translateX(18px);transition:opacity .3s ease,transform .3s ease}
-html[dir="ltr"] .ms-box .ms-row{transform:translateX(-18px)}
-#msheet.on .ms-row{opacity:1;transform:none}
+/* the entrance runs as ANIMATIONS so the very first open glides too (the sheet is built on
+   first tap — a display flip in the same frame used to swallow the transition = the "off" feel) */
+@keyframes ms-in-r{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes ms-in-l{from{transform:translateX(100%)}to{transform:none}}
+html[dir="rtl"] #msheet.on .ms-box{animation:ms-in-r .46s cubic-bezier(.22,.61,.21,1) both}
+html[dir="ltr"] #msheet.on .ms-box{animation:ms-in-l .46s cubic-bezier(.22,.61,.21,1) both}
+@keyframes msrow-r{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes msrow-l{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+.ms-box .ms-row{opacity:0}
 .ms-box .ms-row:first-of-type,.ms-box .ms-grip + .ms-row{border-block-start:0}
-#msheet.on .ms-row:nth-child(2){transition-delay:.08s}
-#msheet.on .ms-row:nth-child(3){transition-delay:.14s}
-#msheet.on .ms-row:nth-child(4){transition-delay:.2s}
-#msheet.on .ms-row:nth-child(5){transition-delay:.26s}
-@media (prefers-reduced-motion:reduce){.ms-box,.ms-box .ms-row{transition-duration:.01ms!important}}
+html[dir="rtl"] #msheet.on .ms-row{animation:msrow-r .34s ease both;animation-delay:.12s}
+html[dir="ltr"] #msheet.on .ms-row{animation:msrow-l .34s ease both;animation-delay:.12s}
+#msheet.on .ms-row:nth-child(3){animation-delay:.2s}
+#msheet.on .ms-row:nth-child(4){animation-delay:.26s}
+#msheet.on .ms-row:nth-child(5){animation-delay:.32s}
+@media (prefers-reduced-motion:reduce){.ms-box,.ms-box .ms-row,#msheet{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-delay:0s!important}}
 .ms-grip{height:78px;background:url(alamin-top-dark.png?v=1) center top/auto 54px no-repeat;margin:4px 0 12px;
     border-block-end:1px solid rgba(184,146,58,.3);}
   html[data-theme="light"] .ms-grip{background-image:url(alamin-top-light.png?v=1)}
