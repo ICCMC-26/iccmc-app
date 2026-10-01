@@ -68,7 +68,7 @@
   #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;overflow:auto;
     /* Al-Amin skin (F, 2026-10-01): the rendered charcoal stone — the emblem's monument, the carved
        inscription, the gold diagonal. Same skeleton; only colours + the backdrop changed. */
-    background:#17150F url("gate-bg.jpg?v=1") center/cover no-repeat;
+    background:#17150F url("gate-bg.jpg?v=2") center/cover no-repeat;
     --panel:#232017;--panel2:#2a261c;--bg:#17150F;--bg2:#1d1a13;--line:rgba(217,182,92,.24);
     --ink:#f4efe4;--ink2:#dcd5c4;--muted:#a69d89;--copper:#D9B65C;--copper-dim:#B8923A;--teal:#D9B65C;
     --dia:none;
@@ -97,7 +97,7 @@
   .gate-lang{margin-top:14px;background:transparent;border:1px solid var(--line);color:var(--ink2);
     border-radius:20px;padding:6px 16px;font-family:var(--sans);font-size:12.5px;cursor:pointer;transition:.16s}
   .gate-lang:hover{border-color:var(--copper);color:var(--copper)}
-  @media (max-width:700px){ #gate{background-image:url("gate-bg-phone.jpg?v=1")} }
+  @media (max-width:700px){ #gate{background-image:url("gate-bg-phone.jpg?v=2")} }
   .wordmark{font-family:var(--mono);font-weight:800;font-size:19px;letter-spacing:.14em;color:var(--ink)}
   .wordmark b{color:var(--copper)}
 
