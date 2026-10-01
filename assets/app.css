@@ -284,8 +284,13 @@
   .st-expired{color:#ff6f78;background:rgba(218,30,40,.17)}   .st-expired .pi{background:#da1e28;color:#fff}
   .st-unknown{color:#b3b7ba;background:rgba(111,111,111,.20)} .st-unknown .pi{background:#6f6f6f;color:#fff}
   .empty{position:relative;text-align:center;color:var(--faint);padding:56px 0 44px;font-size:14px}
-  .empty::before{content:"";display:block;width:54px;height:30px;margin:0 auto 20px;   /* the crown, outlined — the mark of the house */
-    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 104' fill='none' stroke='%23C8A046' stroke-width='7'%3E%3Cpath d='M6 6h188l-9 24H15zM26 46h148l-8 22H34zM46 82h108v16H46z'/%3E%3C/svg%3E") center/contain no-repeat;opacity:.75}
+  .empty::before{content:"";display:block;width:180px;height:30px;margin:0 auto 20px;
+    /* the SAME solid crown as everywhere (the seal), with clean hairlines AT ITS SIDES — never inside it */
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 60'%3E%3Cpath fill='%23C8A046' d='M0 0h200l-6 14H6zM14 20h172l-5 12H19zM30 38h140v10H30z'/%3E%3C/svg%3E") center/44px auto no-repeat,
+      linear-gradient(to left,transparent,rgba(200,160,70,.55),transparent) left center/56px 1px no-repeat,
+      linear-gradient(to right,transparent,rgba(200,160,70,.55),transparent) right center/56px 1px no-repeat;
+    opacity:.95}
   /* ── employee detail = the digital template (passport + visa + photo) ────── */
   #detail{position:fixed;inset:0;z-index:40;background:var(--app-grad);display:none;flex-direction:column}
   #detail.on{display:flex}
@@ -1566,17 +1571,17 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
    edge, the brand's column at its head and the crown seal at its foot. Same JS, same rows. */
   #msheet{position:fixed;inset:0;z-index:95;background:rgba(23,21,15,.55);
     opacity:0;visibility:hidden;transition:opacity .42s cubic-bezier(.22,.61,.21,1),visibility 0s linear .46s}
-  #msheet .ms-box{position:absolute;inset-block:0;inset-inline-end:auto;inset-inline-start:auto}
 
-.ms-box{position:fixed;inset-block:0;inset-inline-end:0;width:min(84vw,340px);display:flex;flex-direction:column;
-  background:var(--bg2);border-inline-start:1px solid rgba(217,182,92,.5);border-radius:0;
+.ms-box{position:fixed;inset-block:0;right:0;left:auto;width:min(84vw,340px);display:flex;flex-direction:column;
+  background:var(--bg2);border-left:1px solid rgba(217,182,92,.5);border-radius:0;
   padding:calc(24px + env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));
   box-shadow:0 0 24px rgba(0,0,0,.35),0 0 80px rgba(0,0,0,.5);
   transition:transform .46s cubic-bezier(.22,.61,.21,1)}
-html[dir="rtl"] .ms-box{transform:translateX(-100%)}
-html[dir="ltr"] .ms-box{transform:translateX(100%)}
+/* the website's law: the panel enters from the edge its button is on. The «⋯» dots sit at the
+   RIGHT of the always-LTR bar in BOTH languages → anchored right, sliding right→left, always. */
+.ms-box{transform:translateX(100%)}
 /* the gold hairline down the opening edge — the website drawer's signature */
-.ms-box::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:1px;
+.ms-box::before{content:"";position:absolute;inset-block:0;left:0;width:1px;
   background:linear-gradient(to bottom,transparent,var(--copper-dim) 18%,var(--copper-dim) 82%,transparent)}
 /* the brand's column at the head · the crown seal at the foot (both face-aware images) */
 .ms-box::after{content:"";flex:none;order:99;height:46px;margin-top:auto;
@@ -1586,16 +1591,12 @@ html[dir="ltr"] .ms-box{transform:translateX(100%)}
 #msheet.on .ms-box{transform:none}
 /* the entrance runs as ANIMATIONS so the very first open glides too (the sheet is built on
    first tap — a display flip in the same frame used to swallow the transition = the "off" feel) */
-@keyframes ms-in-r{from{transform:translateX(-100%)}to{transform:none}}
-@keyframes ms-in-l{from{transform:translateX(100%)}to{transform:none}}
-html[dir="rtl"] #msheet.on .ms-box{animation:ms-in-r .46s cubic-bezier(.22,.61,.21,1) both}
-html[dir="ltr"] #msheet.on .ms-box{animation:ms-in-l .46s cubic-bezier(.22,.61,.21,1) both}
-@keyframes msrow-r{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
-@keyframes msrow-l{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes ms-in{from{transform:translateX(100%)}to{transform:none}}
+#msheet.on .ms-box{animation:ms-in .46s cubic-bezier(.22,.61,.21,1) both}
+@keyframes msrow{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
 .ms-box .ms-row{opacity:0}
 .ms-box .ms-row:first-of-type,.ms-box .ms-grip + .ms-row{border-block-start:0}
-html[dir="rtl"] #msheet.on .ms-row{animation:msrow-r .34s ease both;animation-delay:.12s}
-html[dir="ltr"] #msheet.on .ms-row{animation:msrow-l .34s ease both;animation-delay:.12s}
+#msheet.on .ms-row{animation:msrow .34s ease both;animation-delay:.12s}
 #msheet.on .ms-row:nth-child(3){animation-delay:.2s}
 #msheet.on .ms-row:nth-child(4){animation-delay:.26s}
 #msheet.on .ms-row:nth-child(5){animation-delay:.32s}
