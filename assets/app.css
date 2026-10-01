@@ -1384,7 +1384,7 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .ist-pick svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.4;
   stroke-linecap:round;stroke-linejoin:round;transition:transform .18s}
 .ist-pick.open svg{transform:rotate(180deg)}
-.ist-fill{color:#3f6f6f;background:rgba(79,140,140,.16);border:1px solid rgba(79,140,140,.62)}
+.ist-fill{color:#6F5520;background:rgba(184,146,58,.16);border:1px solid rgba(140,110,44,.62)}
 .ist-fill:hover{background:rgba(184,146,58,.30);color:#50400f;border-color:#8C6E2C}
 
 /* the header field's ▾ has no ⤓ beside it, so it sits alone at the line end */
