@@ -36,6 +36,11 @@
 !assets/docx-preview.min.js
 # The ICCMC logo mark (SVG), shown in the login + the app header. Image only — no code/keys.
 !assets/logo.svg
+# The Al-Amin gate skin (2026-10-01): the login backdrop (rendered stone, + a portrait cut for
+# phones) and the Al-Amin logo shown on the login card. Images only — no code/keys.
+!assets/gate-bg.jpg
+!assets/gate-bg-phone.jpg
+!assets/alamin-gate-logo.png
 # The تعهد letterhead logo (Shanghai Electric), shown in the builder workspace so it mirrors the
 # exported PDF (the PDF gets its own copy from the Word template). Image only — no code/keys.
 !assets/taahud-logo.jpg
