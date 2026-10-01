@@ -953,9 +953,8 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 .top-logo{display:block;flex:none;align-self:center;height:56px;width:210px;   /* Al-Amin lockup: 480×130 artwork — at 44px the calligraphy was illegible (Ibrahim, 2026-10-01) */
   background:url(alamin-top-dark.png?v=1) left center/contain no-repeat}
   html[data-theme="light"] .top-logo{background-image:url(alamin-top-light.png?v=1)}
-@media(max-width:520px){ /* the full lockup cannot live in 102px — the COLUMN alone carries the brand on phones */
-  .top-logo{height:40px;width:42px;background-image:url(alamin-icon-dark.png?v=1)}
-  html[data-theme="light"] .top-logo{background-image:url(alamin-icon-light.png?v=1)} }  /* phone: trim slightly so the معاملات + إضافة buttons fit at full size */
+@media(max-width:520px){ /* the FULL brand on the phone bar (Ibrahim, 2026-10-02): 148px is the readable floor */
+  .top-logo{height:40px;width:148px} }  /* phone: trim slightly so the معاملات + إضافة buttons fit at full size */
 /* #14 (v92) minimalist list sort — count row + subtle sort toggles */
 .listbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 4px 10px}
 .listbar .count{margin:0}
@@ -1569,10 +1568,10 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   #msheet .ms-box{position:absolute;inset-block:0;inset-inline-end:auto;inset-inline-start:auto}
 
 .ms-box{position:fixed;inset-block:0;inset-inline-end:0;width:min(84vw,340px);display:flex;flex-direction:column;
-  background:var(--bg2);border-inline-start:1px solid var(--line);border-radius:0;
+  background:var(--bg2);border-inline-start:1px solid rgba(217,182,92,.5);border-radius:0;
   padding:calc(24px + env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));
-  box-shadow:0 0 60px rgba(0,0,0,.45);
-  transition:transform .4s cubic-bezier(.16,1,.3,1)}
+  box-shadow:0 0 24px rgba(0,0,0,.35),0 0 80px rgba(0,0,0,.5);
+  transition:transform .46s cubic-bezier(.22,.61,.21,1)}
 html[dir="rtl"] .ms-box{transform:translateX(-100%)}
 html[dir="ltr"] .ms-box{transform:translateX(100%)}
 /* the gold hairline down the opening edge — the website drawer's signature */
@@ -1585,17 +1584,19 @@ html[dir="ltr"] .ms-box{transform:translateX(100%)}
 #msheet.on{display:block}
 #msheet.on .ms-box{transform:none}
 /* the rows arrive staggered, like the website's drawer links */
-.ms-box .ms-row{opacity:0;transform:translateX(12px);transition:opacity .3s ease,transform .3s ease}
-html[dir="ltr"] .ms-box .ms-row{transform:translateX(-12px)}
+.ms-box .ms-row{opacity:0;transform:translateX(18px);transition:opacity .3s ease,transform .3s ease}
+html[dir="ltr"] .ms-box .ms-row{transform:translateX(-18px)}
 #msheet.on .ms-row{opacity:1;transform:none}
+.ms-box .ms-row:first-of-type,.ms-box .ms-grip + .ms-row{border-block-start:0}
 #msheet.on .ms-row:nth-child(2){transition-delay:.08s}
 #msheet.on .ms-row:nth-child(3){transition-delay:.14s}
 #msheet.on .ms-row:nth-child(4){transition-delay:.2s}
 #msheet.on .ms-row:nth-child(5){transition-delay:.26s}
 @media (prefers-reduced-motion:reduce){.ms-box,.ms-box .ms-row{transition-duration:.01ms!important}}
-.ms-grip{height:84px;background:url(alamin-icon-dark.png?v=1) center top/44px auto no-repeat;margin:0 0 10px}
-  html[data-theme="light"] .ms-grip{background-image:url(alamin-icon-light.png?v=1)}
-.ms-row{display:flex;align-items:center;gap:14px;width:100%;min-height:52px;padding:0 12px;background:transparent;border:0;
+.ms-grip{height:78px;background:url(alamin-top-dark.png?v=1) center top/auto 54px no-repeat;margin:4px 0 12px;
+    border-block-end:1px solid rgba(184,146,58,.3);}
+  html[data-theme="light"] .ms-grip{background-image:url(alamin-top-light.png?v=1)}
+.ms-row{display:flex;align-items:center;gap:14px;width:100%;min-height:54px;padding:0 12px;background:transparent;border:0;border-block-start:1px solid rgba(184,146,58,.22);
   border-radius:12px;color:var(--ink);font:600 15px var(--sans);text-align:start;cursor:pointer}
 .ms-row:active,.ms-row:focus-visible{background:rgba(217,182,92,.14);outline:0}
 .ms-row .ic{width:20px;height:20px;color:var(--ink2);flex:none}
