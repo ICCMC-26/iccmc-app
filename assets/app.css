@@ -14,16 +14,16 @@
 @font-face{font-family:"IBM Plex Sans Arabic";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/plex-arabic-700-latin.woff2) format("woff2");unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}
 :root{
     /* exact v1 brand tokens */
-    --bg:#1e2422; --bg2:#232a28; --panel:#2a3230; --panel2:#313a37; --card:#2c3533;
-    --ink:#f7f4ec; --ink2:#dcd8cc; --muted:#a7ada6; --faint:#7b827c;
-    --line:rgba(122,178,178,.26); --line2:rgba(247,244,236,.11); --grid:#3b4542;
-    --copper:#dba875; --copper-dim:#c08f5d; --teal:#6fc0c0; --teal-dim:#4a9090; --indigo:#9b8fe0; --cream:#efe9dd;
+    --bg:#17150F; --bg2:#1d1a13; --panel:#232017; --panel2:#2a261c; --card:#201d15;
+    --ink:#f4efe4; --ink2:#dcd5c4; --muted:#a69d89; --faint:#8a8270;
+    --line:rgba(217,182,92,.28); --line2:rgba(244,239,228,.11); --grid:#3a352a;
+    --copper:#D9B65C; --copper-dim:#B8923A; --teal:#C8A046; --teal-dim:#8C6E2C; --indigo:#D9B65C; --cream:#efe9dd;
     --ok:#63d18a; --warn:#f7b64f; --hot:#ff6068; --red:#ff4d59;
     --scroll:rgba(247,244,236,.16); --scroll-h:rgba(247,244,236,.3);
     --mono:"IBM Plex Mono",ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
     --sans:"IBM Plex Sans Arabic","Segoe UI",system-ui,Tahoma,"Noto Sans Arabic",sans-serif;
     /* ONE radius scale: 8 small controls · 12 buttons+avatars · 16 cards+search · 999 chips+pills */
-    --radius:12px; --radius-s:8px; --radius-l:16px; --radius-pill:999px;
+    --radius:8px; --radius-s:8px; --radius-l:12px; --radius-pill:999px;   /* «less sharp» (Ibrahim, 2026-10-01) */
     --ava-dim:.9;   /* passport scans are white — a 10% dim on dark keeps them from punching through */
     --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 34px rgba(0,0,0,.28);
     --dia:none;
