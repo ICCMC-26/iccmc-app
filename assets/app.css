@@ -66,14 +66,14 @@
   /* the login gate is LOCKED to the v1 dark look — the tokens are redefined here,
      so the app's light/dark toggle never changes anything on the login page. */
   #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:24px;overflow:auto;
-    background:linear-gradient(140deg,#3d8a85 0%,#347479 38%,#305d72 70%,#333f66 100%);
-    --panel:#2a3230;--panel2:#313a37;--bg:#1e2422;--bg2:#232a28;--line:rgba(122,178,178,.26);
-    --ink:#f7f4ec;--ink2:#dcd8cc;--muted:#a7ada6;--copper:#dba875;--copper-dim:#c08f5d;--teal:#6fc0c0;
-    /* the minimal V1 diamond lattice — soft teal, delicate, fades out early */
-    --dia:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%236fc0c0' stroke-width='1.1'%3E%3Cpath d='M44 5 L53 24 L44 43 L35 24 Z'/%3E%3Cpath d='M44 45 L53 64 L44 83 L35 64 Z'/%3E%3Cpath d='M83 44 L64 53 L45 44 L64 35 Z'/%3E%3Cpath d='M5 44 L24 53 L43 44 L24 35 Z'/%3E%3C/g%3E%3C/svg%3E");
+    /* Al-Amin skin (F, 2026-10-01): the rendered charcoal stone — the emblem's monument, the carved
+       inscription, the gold diagonal. Same skeleton; only colours + the backdrop changed. */
+    background:#17150F url("gate-bg.jpg?v=1") center/cover no-repeat;
+    --panel:#232017;--panel2:#2a261c;--bg:#17150F;--bg2:#1d1a13;--line:rgba(217,182,92,.24);
+    --ink:#f4efe4;--ink2:#dcd5c4;--muted:#a69d89;--copper:#D9B65C;--copper-dim:#B8923A;--teal:#D9B65C;
+    --dia:none;
     --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 34px rgba(0,0,0,.28)}
-  #gate::before{content:"";position:absolute;inset:0;background-image:var(--dia);background-size:88px 88px;opacity:.22;
-    -webkit-mask-image:radial-gradient(1100px 800px at 50% 42%,#000,transparent 82%);mask-image:radial-gradient(1100px 800px at 50% 42%,#000,transparent 82%);pointer-events:none}
+  #gate::before{content:none}
   .gate-card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
     border-radius:18px;max-width:420px;width:100%;padding:36px 34px;box-shadow:var(--shadow);position:relative;overflow:hidden;z-index:1;text-align:center}
   .gate-card::before{content:"";position:absolute;inset:0;background:
@@ -97,6 +97,7 @@
   .gate-lang{margin-top:14px;background:transparent;border:1px solid var(--line);color:var(--ink2);
     border-radius:20px;padding:6px 16px;font-family:var(--sans);font-size:12.5px;cursor:pointer;transition:.16s}
   .gate-lang:hover{border-color:var(--copper);color:var(--copper)}
+  @media (max-width:700px){ #gate{background-image:url("gate-bg-phone.jpg?v=1")} }
   .wordmark{font-family:var(--mono);font-weight:800;font-size:19px;letter-spacing:.14em;color:var(--ink)}
   .wordmark b{color:var(--copper)}
 
