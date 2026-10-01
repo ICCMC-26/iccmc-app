@@ -26,30 +26,29 @@
     --radius:12px; --radius-s:8px; --radius-l:16px; --radius-pill:999px;
     --ava-dim:.9;   /* passport scans are white — a 10% dim on dark keeps them from punching through */
     --shadow:0 1px 2px rgba(0,0,0,.35),0 10px 34px rgba(0,0,0,.28);
-    --dia:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%236fc0c0' stroke-width='1.2'%3E%3Cpath d='M44 5 L53 24 L44 43 L35 24 Z'/%3E%3Cpath d='M44 45 L53 64 L44 83 L35 64 Z'/%3E%3Cpath d='M83 44 L64 53 L45 44 L64 35 Z'/%3E%3Cpath d='M5 44 L24 53 L43 44 L24 35 Z'/%3E%3C/g%3E%3C/svg%3E");
+    --dia:none;
     /* the login's spirit, softened for a content surface (dark) — teal glow → indigo */
     --app-grad:linear-gradient(150deg,#21403b 0%,#1b2930 44%,#1f2037 100%); --dia-opacity:.10;
   }
   :root[data-theme="light"]{
-    --bg:#eef2f0; --bg2:#e6ece9; --panel:#fff; --panel2:#f6f9f7; --card:#fff;
-    --ink:#141d1b; --ink2:#333f3b; --muted:#515b55; --faint:#79837c;
-    --line:rgba(74,144,144,.30); --line2:rgba(24,34,32,.08); --grid:#dde5e2;
-    --copper:#a5713f; --copper-dim:#8f6033; --teal:#2f7f7f; --red:#d0242f;
-    --scroll:rgba(24,34,32,.2); --scroll-h:rgba(24,34,32,.36);
-    --shadow:0 1px 3px rgba(60,90,88,.12),0 8px 24px rgba(60,90,88,.10);
+    --bg:#F4EFE4; --bg2:#EFE8D9; --panel:#FBF8F0; --panel2:#E9E1D1; --card:#FFFDF7;
+    --ink:#17150F; --ink2:#3a362b; --muted:#6d6453; --faint:#98907d;
+    --line:rgba(111,85,32,.32); --line2:rgba(23,21,15,.10); --grid:#d8cfbc;
+    --copper:#B8923A; --copper-dim:#8C6E2C; --teal:#8C6E2C; --red:#d0242f;
+    --scroll:rgba(23,21,15,.2); --scroll-h:rgba(23,21,15,.36);
+    --shadow:0 1px 3px rgba(90,75,40,.12),0 8px 24px rgba(90,75,40,.10);
     --ava-dim:1;
-    /* the same spirit, airy for light — pale teal → lavender whisper */
-    --app-grad:linear-gradient(150deg,#dfeeeb 0%,#e7edf1 46%,#ece9f5 100%); --dia-opacity:.10;
-    /* the diamond stroke must DARKEN on light — a pale-teal line on a pale-teal bg is invisible */
-    --dia:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%232f7f7f' stroke-width='1.3'%3E%3Cpath d='M44 5 L53 24 L44 43 L35 24 Z'/%3E%3Cpath d='M44 45 L53 64 L44 83 L35 64 Z'/%3E%3Cpath d='M83 44 L64 53 L45 44 L64 35 Z'/%3E%3Cpath d='M5 44 L24 53 L43 44 L24 35 Z'/%3E%3C/g%3E%3C/svg%3E");
+    --app-grad:linear-gradient(150deg,#F7F3E8 0%,#F4EFE4 46%,#ECE4D2 100%); --dia-opacity:.10;
+    --dia:none;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{-webkit-text-size-adjust:100%}
   /* mobile taps: kill the 300ms delay + double-tap-zoom that can make taps feel dead */
   button,a,label,input,.row,.dz,.d-face.clickable,.ik-x,.ik-retry{touch-action:manipulation}
   *{-webkit-tap-highlight-color:rgba(219,168,117,.18)}
-  body{background:var(--app-grad);background-attachment:fixed;color:var(--ink);
+  body{background:#17150F url("app-bg-dark.jpg?v=1") center/cover no-repeat fixed;color:var(--ink);
     font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
+  html[data-theme="light"] body{background:#F4EFE4 url("app-bg-light.jpg?v=1") center/cover no-repeat fixed}
   /* the login's diamond, a whisper — fixed behind all content, masked so it fades away from the top.
      Cards are opaque (--card) so they float clean over it → the spirit shows only in the gaps. */
   /* ONE faint diamond frame — a thin rail in the left+right gutters only, cleared out of the centre
@@ -119,7 +118,7 @@
   .add:hover{filter:brightness(1.06)}
   .add.quiet{background:var(--panel);color:var(--ink);border-color:var(--line);font-weight:600;transition:border-color .12s,color .12s}
   .add.quiet:hover{filter:none;border-color:var(--copper);color:var(--copper)}
-  .icon{width:40px;height:40px;border:1px solid var(--line);border-radius:var(--radius-s);background:var(--panel);
+  .icon{width:40px;height:40px;border:1px solid var(--line);border-radius:999px;background:var(--panel);
     color:var(--ink2);cursor:pointer;font-size:12.5px;font-weight:600;display:grid;place-items:center;font-family:var(--sans)}
   .icon .ic{width:17px;height:17px}
   .icon:hover{border-color:var(--copper);color:var(--copper)}
@@ -950,10 +949,9 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
 /* #11 (v80) Review filter toggle in the legal section */
 .law-review.on{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--ink)}
 /* #12 (v84) header logo — ICCMC mark, viewBox cropped tight (no dead space), theme-tinted mask */
-.top-logo{display:block;flex:none;align-self:center;height:44px;width:113px;   /* minimalist ICCMC wordmark, aspect 466/182 ≈ 2.56 */
-  background:var(--ink);
-  -webkit-mask:url(logo.svg?v=4) left center/contain no-repeat;
-          mask:url(logo.svg?v=4) left center/contain no-repeat}
+.top-logo{display:block;flex:none;align-self:center;height:44px;width:158px;   /* Al-Amin wordmark (2026-10-01) */
+  background:url(alamin-top-dark.png?v=1) left center/contain no-repeat}
+  html[data-theme="light"] .top-logo{background-image:url(alamin-top-light.png?v=1)}
 @media(max-width:520px){ .top-logo{height:40px;width:102px} }  /* phone: trim slightly so the معاملات + إضافة buttons fit at full size */
 /* #14 (v92) minimalist list sort — count row + subtle sort toggles */
 .listbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 4px 10px}

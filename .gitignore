@@ -41,6 +41,12 @@
 !assets/gate-bg.jpg
 !assets/gate-bg-phone.jpg
 !assets/alamin-gate-logo.png
+# The Al-Amin app theme («المسلّة», 2026-10-01): the twin backdrops behind the whole app
+# (dark + light faces) and the Al-Amin wordmark for the top bar in both faces. Images only.
+!assets/app-bg-dark.jpg
+!assets/app-bg-light.jpg
+!assets/alamin-top-dark.png
+!assets/alamin-top-light.png
 # The تعهد letterhead logo (Shanghai Electric), shown in the builder workspace so it mirrors the
 # exported PDF (the PDF gets its own copy from the Word template). Image only — no code/keys.
 !assets/taahud-logo.jpg
