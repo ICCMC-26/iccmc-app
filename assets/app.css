@@ -1644,7 +1644,12 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   /* the استمارة/تعهد workspace: the toolbar wraps; the paper below keeps its true size and pans */
   .ist-bar{flex-wrap:wrap;gap:8px 10px;padding:10px 12px}
   .ist-bar .ist-t{display:none}   /* phone: only the buttons — the paper name lives on the sheet itself */
-  .ist-actions{flex:1 1 100%;flex-wrap:wrap;gap:8px}
+  .ist-actions{flex:1 1 100%;flex-wrap:nowrap;gap:8px}
+  /* the TWO buttons share one row at their full pill design — never stacked (Ibrahim, 2026-10-02) */
+  .ist-actions .ist-menuwrap{flex:1 1 0;min-width:0}
+  .ist-actions .ist-menuwrap .ist-btn2{width:100%;justify-content:center}
+  .ist-actions>.ist-btn2{flex:1 1 0;min-width:0;justify-content:center}
+  .ist-actions .ist-btn2{padding-inline:10px;font-size:13px;white-space:nowrap}
   .ist-actions>*{min-height:44px}
   /* the paper stays at its TRUE size on a phone (Ibrahim: «like the PC, go left and right») — the stage
      pans horizontally; pinch-zoom is native */
