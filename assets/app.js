@@ -174,7 +174,7 @@ const I18N={
     law_addname:'اكتب الاسم', law_name_saved:'حُفظ الاسم', law_gaps:n=>`⚑ لا تكفي البيانات لربط الدفعة بالمنح — أكمِل اسم أحد طرفَيها`,
     law_nodate:'لا تاريخ للمنح — الدفعة ساكنة ولن ترتبط بأي تأشيرة حتى يُدخَل', law_savedate:'احفظ التاريخ',
     law_date_saved:'حُفظ تاريخ المنح ✓', law_baddate:'تاريخ غير صالح', law_datetaken:'للدفعة تاريخ بالفعل',
-    law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
+    law_cover:id=>`الأوراق القانونية للمنح رقم ${id}`, law_cover2:lb=>`الأوراق القانونية للدفعة ${lb}`, law_emp:'الموظف', law_kicker:'ملف قانوني',
     law_rot_saved:'حُفظ التدوير — سيظهر في الطباعة',
     lr_verify:'رقم المنح (العدد) — تحقّق منه واكتبه', law_main:'‹ الصفحة الرئيسية', lr_rotate:'تدوير الورقة 90°',
     lr_xlsx:'ملف {k} · لا صورة للعرض', lr_xlsx_dl:'تنزيل ملف {k}',
@@ -339,7 +339,7 @@ const I18N={
     law_addname:'Type the name', law_name_saved:'Name saved', law_gaps:n=>`⚑ Not enough to match this batch to its منح — fill one endpoint name`,
     law_nodate:'No grant date — this batch is static and will bind to no visa until one is entered', law_savedate:'Save date',
     law_date_saved:'Grant date saved ✓', law_baddate:'Not a valid date', law_datetaken:'This batch already has a date',
-    law_cover:id=>`Legal papers — Grant no. ${id}`, law_emp:'Employee', law_kicker:'Legal file',
+    law_cover:id=>`Legal papers — Grant no. ${id}`, law_cover2:lb=>`Legal papers — batch ${lb}`, law_emp:'Employee', law_kicker:'Legal file',
     law_rot_saved:'Rotation saved — shows in print',
     lr_verify:'Grant number (العدد) — verify & type it', law_main:'‹ Home', lr_rotate:'Rotate 90°',
     lr_xlsx:'{k} file · no image to show', lr_xlsx_dl:'Download {k} file',
@@ -1698,7 +1698,7 @@ async function buildDossier(P,VS,LG,opts){
     today=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; time=''; }catch(_){}
   const native=p.name_native?`<span class="native">${esc(p.name_native)}</span>`:'';
   const nat=p.nationality?esc(tv(p.nationality)):'—';
-  const run=`<div class="pv-run"><b>AL-AMIN LEGAL</b><span>${esc(name)}</span></div>`;  // running head
+  const run=`<div class="pv-run"><b>AL-AMIN ADVOCATES &amp; LEGAL CONSULTANTS</b><span>${esc(name)}</span></div>`;  // running head
   // walk the registry → report cards + raw-scan tasks (each mold contributes both)
   let cards=''; const scanTasks=[];
   for(const d of PRINT_DOCS){
@@ -1723,7 +1723,7 @@ async function buildDossier(P,VS,LG,opts){
     legal.forEach(m=>{ const b=m.batch||{}; const id=b.batch_id||m.batch_id; if(seenB[id])return; seenB[id]=1;
       // legal papers are multi-page tables → print ALL pages (multi:true), so a worker on page 2+ is shown.
       // `hl` = where HIS row sits on that paper (from the member's boxes) → a yellow band in print.
-      const bx=m.boxes||{}, rot=b.rot||{}, sfx=multiB?` ${id}`:'';
+      const bx=m.boxes||{}, rot=b.rot||{}, sfx=multiB?` ${b.batch_id?batchName(b):id}`:'';
       if(b.taahud_scan)   scanTasks.push({title:`${t('lg_taahud')}${sfx}`,   path:_printPath(b.taahud_scan),   multi:true, rotDeg:rot.taahud||0, hl:bx.taahud});
       // الاستمارة may arrive sideways → the human's stored turn (rot) stands it up; its box isn't mapped to
       // that frame yet, so alongside the upright scan we keep a gentle professional NOTE of his serial.
@@ -1824,7 +1824,8 @@ async function buildBatchDossier(b){
   const id=b.batch_id;
   let today='—', time=''; try{ const d=new Date(), p=n=>String(n).padStart(2,'0');
     today=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; time=''; }catch(_){}
-  const run=`<div class="pv-run"><b>AL-AMIN LEGAL</b><span>⚖ ${esc(id)}</span></div>`;
+  const disp=batchName(b);                      // «~…» synthetic ids print as the app's own label, never raw
+  const run=`<div class="pv-run"><b>AL-AMIN ADVOCATES &amp; LEGAL CONSULTANTS</b><span>⚖ ${esc(disp)}</span></div>`;
   const tl=Object.fromEntries(ptKeys().map(k=>[k,ptLabel(k)]));   // registry-driven labels (G6)
   const scanTasks=[];
   const brot=b.rot||{};
@@ -1846,7 +1847,7 @@ async function buildBatchDossier(b){
   const cover=`<div class="pg cover">
       <div class="cv-top"><img class="cv-logo" src="assets/alamin-top-light.png?v=1" alt=""><div class="cv-co">${t('pv_company')}</div></div>
       <div class="cv-mid"><div class="cv-kicker">${t('law_kicker')}</div>
-        <div class="cv-name">${esc(t('law_cover',id))}</div>
+        <div class="cv-name">${esc(id.startsWith('~')?t('law_cover2',disp):t('law_cover',id))}</div>
         <div class="cv-meta">${t('law_covers')} ${esc(b.interval_from??'—')}–${esc(b.interval_to??'—')} · ${t('law_members',b.members.length)}${b.manh_date?` · ${esc(b.manh_date)}`:''}</div></div>
       <div class="cv-foot"><div>${t('pv_generated')} ${today}${time?` · ${time}`:''}</div><div class="pgn">1 / ${total}</div></div></div>`;
   const rosterTitle=i=>t('law_roster')+(chunks.length>1?` (${i+1}/${chunks.length})`:'');
