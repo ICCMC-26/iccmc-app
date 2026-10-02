@@ -807,7 +807,7 @@
     #print .cv-foot .pgn{margin-top:6px;font-size:10px;color:#aaa;font-variant-numeric:tabular-nums}
     /* cover */
     #print .cover{text-align:center;justify-content:center;align-items:center;position:relative}
-    #print .cv-logo{width:132px;filter:invert(1);margin:0 auto 7mm}
+    #print .cv-logo{width:170px;margin:0 auto 7mm}   /* the Al-Amin lockup is ink already — no invert */
     #print .cv-co{font-size:12.5px;letter-spacing:.03em;color:#555}
     #print .cv-mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:3px}
     /* running header on the non-cover pages (standard place: top, ruled) */
