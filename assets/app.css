@@ -1643,6 +1643,7 @@ html.cv-auto .row{content-visibility:auto;contain-intrinsic-size:auto 72px}
   .pk-ft .pk-add{flex:1 1 calc(50% - 4px);min-height:44px;justify-content:center}
   /* the استمارة/تعهد workspace: the toolbar wraps; the paper below keeps its true size and pans */
   .ist-bar{flex-wrap:wrap;gap:8px 10px;padding:10px 12px}
+  .ist-bar .ist-t{display:none}   /* phone: only the buttons — the paper name lives on the sheet itself */
   .ist-actions{flex:1 1 100%;flex-wrap:wrap;gap:8px}
   .ist-actions>*{min-height:44px}
   /* the paper stays at its TRUE size on a phone (Ibrahim: «like the PC, go left and right») — the stage

@@ -5859,8 +5859,8 @@ async function lrCommit(){
         // Name the batch it joined, in plain digits. The old line read «دُمجت في الدفعة: 16 (؟) — (؟) 1 · 0/16»
         // — a label built from endpoints the OCR hadn't read, next to a bare ratio. Nobody could tell
         // from that whether anything had been saved.
-        const _mm=t('lg_ok_merged', tgt.batch_id, _np, res.total, res.linked);
-        toast(t('lg_merged')+tgt.batch_id); await lrAfterCommit(); lrCommitted(_mm); }
+        const _mm=t('lg_ok_merged', batchName(tgt), _np, res.total, res.linked);   // a «~» id speaks as the app's own label
+        toast(t('lg_merged')+batchName(tgt)); await lrAfterCommit(); lrCommitted(_mm); }
       catch(e){ lrFail(e, b0); }
       return; }
     id=provKey(ep); }
@@ -6135,4 +6135,4 @@ window.__APP_VER = (function(){
   }catch(_){ return 'v?'; }
 })();
 try{ const _av=document.getElementById('appver'); if(_av)_av.textContent='build '+window.__APP_VER;
-     console.info('%cICCMC dashboard '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
+     console.info('%cAl-Amin registry '+window.__APP_VER,'color:#c5956b;font-weight:700'); }catch(_){}
