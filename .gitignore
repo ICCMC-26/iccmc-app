@@ -43,8 +43,8 @@
 !assets/alamin-gate-logo.png
 # The Al-Amin app theme («المسلّة», 2026-10-01): the twin backdrops behind the whole app
 # (dark + light faces) and the Al-Amin wordmark for the top bar in both faces. Images only.
-!assets/app-bg-dark.webp
-!assets/app-bg-light.webp
+!assets/app-bg-dark.svg
+!assets/app-bg-light.svg
 !assets/alamin-top-dark.png
 !assets/alamin-top-light.png
 # The Al-Amin column icon alone — the phone bar’s brand mark (the full lockup is illegible at 102px).
