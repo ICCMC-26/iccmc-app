@@ -713,6 +713,10 @@ function setLaw(on){
   LAWMODE=!!on; _lawBatch=null; LAW_FILTER='all'; lsReset();   // enter the legal section on "All"
   const b=$('#blaw'); if(b)b.classList.toggle('on',LAWMODE);
   { const bs=$('#bsel'); if(bs) bs.hidden=LAWMODE; }
+  // «الموجز» is the roster's greeting — the legal section shows neither the brief nor its reopen handle
+  { const st=$('#brief-strip');
+    if(LAWMODE){ BRIEF._strip = BRIEF.on || !!(st&&!st.hidden); briefFold(); if(st) st.hidden=true; }
+    else if(BRIEF._strip){ briefStrip(true); BRIEF._strip=false; } }
   const q=$('#q'); if(q){ q.placeholder=LAWMODE?t('law_ph'):t('ph'); q.value=''; }
   $('#filters').innerHTML=''; $('#count').innerHTML='';
   _fOpen=false; paintFilters(_rItems||[]);   // the drawer belongs to the employee page; the legal section has its own chips
