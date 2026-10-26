@@ -40,6 +40,9 @@
 # phones) and the Al-Amin logo shown on the login card. Images only — no code/keys.
 !assets/gate-bg.jpg
 !assets/gate-bg-phone.jpg
+# 2026-10-26: the same backdrop as TRUE vector (sharp on any screen); the .jpg pair stays as rollback.
+!assets/gate-bg.svg
+!assets/gate-bg-phone.svg
 !assets/alamin-gate-logo.png
 # The Al-Amin app theme («المسلّة», 2026-10-01): the twin backdrops behind the whole app
 # (dark + light faces) and the Al-Amin wordmark for the top bar in both faces. Images only.
