@@ -470,8 +470,7 @@
     const authSig=W.paper==='taahud'?'':`<div class="ist-sig"><div class="ist-sig-lbl">${T1('ist_sig_auth')}</div><input class="ist-in ist-in-name ist-sig-name" data-h="authorized" value="${E(H.authorized||'')}"></div>`;
     const heads=P.cols.map(c=>`<th${c.hand?' class="ist-hcol"':''}>${T1(c.lab)}</th>`).join('');
     const cgroup=P.cols.map(c=>`<col class="c-${c.k}">`).join('');
-    const tabs=`<div class="d2-papers"><button class="d2-ptab${W.paper==='istimara'?' on':''}" data-paper="istimara" type="button">${t2('p_ist')}</button><button class="d2-ptab${W.paper==='taahud'?' on':''}" data-paper="taahud" type="button">${t2('p_taa')}</button>
-      <span class="spacer"></span>
+    const tabs=`<div class="d2-papers"><span class="spacer"></span>
       <button class="ist-btn2 ist-exp2 d2-word" id="d2-word" type="button"><svg viewBox="0 0 24 24" class="ist-bic"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg><span>${t2('word')}</span></button></div>`;
     return `${tabs}<div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="d2-page"><div class="ist-body">
       ${photoBox}${P.logo?`<img class="ist-logo" src="${P.logo}" alt="">`:''}${txt(0)}
@@ -513,7 +512,29 @@
     tb.querySelectorAll('.ist-handle').forEach(b=>b.onclick=e=>{ e.stopPropagation(); cellMenu(b); });
     tb.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>removeRow(+b.dataset.rm));
     tb.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>openReview(+b.dataset.rv));
-    const dz=$('#d2-drop'); if(dz) dz.onclick=pickRegistry;          // «＋ أضِف موظفين» = the registry picker, directly
+    // «＋ أضِف موظفين»: the same question as Door 1 — from the device or from the registry; a drop = the device
+    const dz=$('#d2-drop'); if(dz){
+      dz.onclick=chooseSource;
+      dz.ondragover=e=>{ e.preventDefault(); dz.classList.add('over'); }; dz.ondragleave=()=>dz.classList.remove('over');
+      dz.ondrop=async e=>{ e.preventDefault(); dz.classList.remove('over'); const fs=await filesFromDrop(e.dataTransfer); if(fs.length) addFromDevice(fs); };
+    }
+  }
+  // Door 2's copy of Door 1's source question (same classes → same look), hosted in the wizard
+  function chooseSource(){
+    let o=$('#d2-src'); if(!o){ o=document.createElement('div'); o.id='d2-src'; $('#d2-wiz').appendChild(o); }
+    o.innerHTML=`<div class="ist-src-box" role="dialog" aria-label="${E(t2('src_q'))}">
+      <div class="ist-src-q">${E(t2('src_q'))}</div>
+      <div class="ist-src-opts">
+        <button class="ist-src-opt" data-src="pc" type="button"><span class="ist-src-ic">⬆</span><b>${E(t2('src_pc'))}</b><small>${E(t2('src_pc_s'))}</small></button>
+        <button class="ist-src-opt" data-src="reg" type="button"><span class="ist-src-ic">⌕</span><b>${E(t2('src_reg'))}</b><small>${E(t2('src_reg_s'))}</small></button>
+      </div></div>`;
+    const close=()=>{ o.classList.remove('on'); document.removeEventListener('keydown',onKey); };
+    const onKey=e=>{ if(e.key==='Escape'){ e.stopPropagation(); close(); } };
+    o.onclick=e=>{ const b=e.target.closest('[data-src]');
+      if(b){ close(); if(b.dataset.src==='pc') pickDevice(false); else pickRegistry(); return; }
+      if(!e.target.closest('.ist-src-box')) close(); };
+    document.addEventListener('keydown',onKey);
+    o.classList.add('on'); const first=o.querySelector('[data-src="pc"]'); if(first) first.focus();
   }
   function cellMenu(btn){
     document.querySelectorAll('.ist-menu').forEach(m=>m.remove());
@@ -536,7 +557,6 @@
     ov.querySelectorAll('.ist-in[data-h]').forEach(inp=>inp.addEventListener('input',()=>{ const k=inp.dataset.h; delete W._pre[k]; inp.classList.remove('ist-pre'); W.header[k]=inp.value; W.dirty=true;
       ov.querySelectorAll('.ist-in[data-h="'+k+'"]').forEach(o=>{ if(o!==inp) o.value=inp.value; }); }));
     ov.querySelectorAll('.ist-tx[data-h]').forEach(el=>el.addEventListener('input',()=>{ W.header[el.dataset.h]=el.textContent; W.dirty=true; }));
-    ov.querySelectorAll('[data-paper]').forEach(b=>b.onclick=()=>{ W.paper=b.dataset.paper; W.step=W.paper==='taahud'?4:3; wizPaint(); });
     const wd=$('#d2-word'); if(wd) wd.onclick=exportWord;
     // the photo box: click → pick an image from the device → data URL (the export carries it); ✕ → clear
     const ph=$('#d2-photo'); if(ph){

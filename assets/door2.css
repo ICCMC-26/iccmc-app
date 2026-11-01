@@ -97,6 +97,12 @@ tr.d2-review td{background:#fff8e6}
 .d2-chipst.ok{color:var(--st-ok)}
 .d2-rrow.refused .d2-rnm{color:var(--muted);text-decoration:line-through}
 
+/* ── the source question inside the wizard (same box as Door 1's, own overlay id) ───────── */
+#d2-src{position:fixed;inset:0;z-index:80;display:none;place-items:center;background:rgba(0,0,0,.42);padding:20px}
+#d2-src.on{display:grid}
+#d2-drop.over{background:rgba(197,149,107,.16)}
+@media (max-width:720px){ #d2-src{padding:0;align-items:flex-end} #d2-src .ist-src-box{border-radius:18px 18px 0 0;border-bottom:0;width:100%} }
+
 /* ── the review walk bar (Door 2's own ‹ › over the inbox's pane) ───────────────────────── */
 #d2-rvbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:90;display:none;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;
   background:var(--panel);border:1px solid var(--copper);box-shadow:0 10px 30px rgba(0,0,0,.35)}
