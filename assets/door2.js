@@ -80,7 +80,8 @@
   /* ── the hallway ──────────────────────────────────────────────────────────────────────── */
   let door='door1';
   const ICON_SCALE='<svg class="ic"><use href="#i-scale"/></svg>';
-  const ICON_FOLDER='<svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+  // one-stroke folder on the app's 24-grid (same weight as the header icons) — crisp at 24 px
+  const ICON_FOLDER='<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5A1.5 1.5 0 0 1 5 5h4.2l2 2.2H19a1.5 1.5 0 0 1 1.5 1.5v8.8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M3.5 10.5h17"/></svg>';
   function paint(){
     const d1=$('#door-1'), d2=$('#door-2'); if(!d1||!d2) return;
     d1.innerHTML=`${ICON_SCALE}<span>${t2('door1')}</span>`; d2.innerHTML=`${ICON_FOLDER}<span>${t2('door2')}</span>`;
@@ -98,7 +99,7 @@
   function onLaw(on){ document.body.classList.toggle('lawmode',!!on); if(on) select('door1'); else { door='door1'; document.body.classList.remove('door2'); paint(); } }
 
   /* ── the folder list ──────────────────────────────────────────────────────────────────── */
-  const L={rows:[], q:'', arch:false, loaded:false};
+  const L={rows:[], q:'', arch:false, loaded:false, justDone:new Set()};
   async function loadList(){
     if(!has('sb')) return;
     try{
@@ -106,17 +107,26 @@
         .select('dossier_id,name,status,created_at,saved_at,updated_at,editing_by,editing_at,build,files,legal_dossier_members(count)')
         .order('created_at',{ascending:false}).limit(500);
       if(error) throw error;
+      // a build that just finished while the list was watching says «جاهز ✓» once, then the mark disappears:
+      // no spinner = ready. (Only the transition is announced — a folder opened later shows nothing.)
+      const was={}; L.rows.forEach(d=>{ was[d.dossier_id]=d.build&&d.build.state; });
       L.rows=(data||[]).map(d=>({...d, n:(d.legal_dossier_members&&d.legal_dossier_members[0]&&d.legal_dossier_members[0].count)||0}));
+      L.rows.forEach(d=>{ const now=d.build&&d.build.state;
+        if((was[d.dossier_id]==='building'||was[d.dossier_id]==='queued') && now==='done'){ L.justDone.add(d.dossier_id);
+          setTimeout(()=>{ L.justDone.delete(d.dossier_id); paintList(); },4000); } });
       L.loaded=true;
     }catch(e){ console.warn('door2 list',e); say((e&&e.message)||String(e)); }
     paintList();
     // a folder still building → the list refreshes itself until it is done (one timer, never two)
     clearTimeout(L.tm); if(L.rows.some(d=>d.build&&(d.build.state==='building'||d.build.state==='queued'))) L.tm=setTimeout(loadList,4000);
   }
-  const buildChip=b=>{ if(!b||!b.state) return '';
-    const s=b.state, cls=s==='done'?'ok':s==='error'?'refused':'reading';
-    const txt=s==='building'?(b.step==='papers'?t2('b_papers'):t2('b_building',b.done||0,b.n||0)):s==='done'?t2('b_done'):s==='error'?t2('b_error'):t2('b_queued');
-    return `<span class="d2-chipst ${cls}" title="${E(b.error||'')}">${E(txt)}</span>`; };
+  // the build mark: a SPINNER while the service works (no words), nothing when ready, «جاهز ✓» once at the
+  // moment it finishes, a red chip only when it failed (that one needs a human)
+  const buildMark=(b,id)=>{ if(!b||!b.state) return '';
+    if(b.state==='building'||b.state==='queued') return `<span class="ist-spin d2-spin" title="${E(b.step==='papers'?t2('b_papers'):t2('b_building',b.done||0,b.n||0))}"></span>`;
+    if(b.state==='error') return `<span class="d2-chipst refused" title="${E(b.error||'')}">✕ ${t2('b_error')}</span>`;
+    if(b.state==='done'&&id!=null&&L.justDone.has(id)) return `<span class="d2-chipst ok d2-fade">✓ ${t2('b_done')}</span>`;
+    return ''; };
   async function downloadZip(id, files){
     if(!files||!files.zip) return;
     try{ const {data,error}=await sb.storage.from('dossiers').createSignedUrl(files.zip,120); if(error||!data) throw error||new Error('sign');
@@ -141,7 +151,7 @@
       const lock=d.editing_by && d.editing_at && (Date.now()-new Date(d.editing_at).getTime()<15*60e3);
       return `<div class="row d2-row" data-open="${d.dossier_id}">
         <div class="ava d2-ava">${ICON_FOLDER}</div>
-        <div class="who"><div class="nm">${E(d.name)} <span class="d2-st ${st}">${t2('st_'+st)}</span>${buildChip(d.build)}${lock?` <span class="d2-lock" title="${E(t2('locked',d.editing_by))}">✎ ${E(d.editing_by||'')}</span>`:''}</div>
+        <div class="who"><div class="nm">${E(d.name)} ${st==='draft'?`<span class="d2-st draft">${t2('st_draft')}</span>`:''}${buildMark(d.build,d.dossier_id)}${lock?` <span class="d2-lock" title="${E(t2('locked',d.editing_by))}">✎ ${E(d.editing_by||'')}</span>`:''}</div>
           <div class="sub">${fmtDay(d.created_at)} · ${t2('members',d.n)}</div></div>
         ${(d.files&&d.files.zip&&d.build&&d.build.state==='done')?`<button class="d2-zipbtn" data-zip="${d.dossier_id}" title="${E(t2('b_zip'))}">⤓ ZIP</button>`:''}
       </div>`; }).join('');
@@ -263,7 +273,8 @@
     const b=W.build, done=b.state==='done';
     const flags=[]; if(done&&b.weak&&b.weak.length) flags.push(t2('b_weak',b.weak.map(n=>String(n).padStart(2,'0')).join('، ')));
     if(done&&b.missing&&b.missing.length) flags.push(t2('b_missing',b.missing.map(n=>String(n).padStart(2,'0')).join('، ')));
-    return `<div class="d2-bstrip">${buildChip(b)}${flags.map(f=>`<span class="d2-bflag">⚑ ${E(f)}</span>`).join('')}<span class="spacer"></span>
+    if(!done && b.state!=='error' && !flags.length) return `<div class="d2-bstrip"><span class="ist-spin d2-spin"></span><span class="d2-muted">${E(b.step==='papers'?t2('b_papers'):t2('b_building',b.done||0,b.n||0))}</span></div>`;
+    return `<div class="d2-bstrip">${buildMark(b,null)}${flags.map(f=>`<span class="d2-bflag">⚑ ${E(f)}</span>`).join('')}<span class="spacer"></span>
       ${done&&W.files&&W.files.zip?`<button class="d2-nav primary" id="d2-zip" type="button">${t2('b_zip')}</button>`:''}
       ${(done||b.state==='error')?`<button class="d2-nav" id="d2-rebuild" type="button">${t2('b_rebuild')}</button>`:''}</div>`;
   }

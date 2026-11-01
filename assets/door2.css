@@ -38,7 +38,12 @@ body.door2 #door2{display:block}
 .d2-empty b{display:block;color:var(--ink2);font-size:15px}
 .d2-empty.slim{padding:18px}
 .d2-row{cursor:pointer}
-.d2-ava .ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.d2-ava{background:var(--card);color:var(--copper)}
+.d2-ava .ic{width:24px;height:24px;display:block}
+/* the build spinner: the app's own spinner, small, inline, no words (no spinner = ready) */
+.d2-spin{display:inline-block;width:16px;height:16px;border-width:2px;margin:0 8px;vertical-align:middle}
+.d2-fade{animation:d2fade 4s forwards}
+@keyframes d2fade{0%,70%{opacity:1}100%{opacity:0}}
 .d2-st{display:inline-block;margin-inline-start:8px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line);color:var(--muted);vertical-align:middle}
 .d2-st.saved{color:var(--st-ok);border-color:currentColor}
 .d2-st.draft{color:var(--st-soon);border-color:currentColor}
