@@ -29,6 +29,10 @@
 !assets/app.css
 !assets/vendor.js
 !assets/app.js
+# Door 2 of the legal section — «المجلدات القانونية» (2026-11-01). Its OWN script + stylesheet, so
+# app.js / app.css stay untouched (isolation principle). Explicit entries only.
+!assets/door2.js
+!assets/door2.css
 # the company representative's photo — the استمارة's default «صورة ممثل الشركة»
 !assets/rep-photo.jpg
 # vendored docx-preview (Apache-2.0) — renders Word/Excel legal papers in-app for the review + print,

@@ -12,6 +12,7 @@
   (Design north star: V2.0/_guide/V2-RESEARCH.md)
 -->
 <link rel="stylesheet" href="assets/app.css?v=168">
+<link rel="stylesheet" href="assets/door2.css?v=1">
 </head>
 <body>
 
@@ -61,6 +62,9 @@
     <button class="icon" id="tout" title="خروج"><svg class="ic"><use href="#i-power"/></svg></button>
   </div>
 
+  <!-- the legal hallway (Door 1 = today's section · Door 2 = legal folders) — painted by assets/door2.js -->
+  <nav id="law-doors"></nav>
+
   <!-- the filter lives IN the search box: tokens before the input, one «تصفية» button after it, the drawer beneath -->
   <div class="hero">
     <div class="sbox">
@@ -78,6 +82,8 @@
   <div class="filters" id="filters"></div>
   <div class="listbar"><div class="lb-start"><button class="sel-chip" id="bsel" title="تحديد موظفين / Select employees"><svg class="ic"><use href="#i-check"/></svg><span id="bseltxt">تحديد</span></button><div class="count" id="count"></div></div><span class="legend" id="legend" hidden></span><div class="sortbar" id="sortbar"></div></div>
   <div id="results"></div>
+  <!-- Door 2 — «المجلدات القانونية» (own room; see assets/door2.js) -->
+  <div id="door2"></div>
   <!-- the Al-Amin crown seal closes the list («المسلّة», decorative only) -->
   <div class="crownseal-line" aria-hidden="true" style="text-align:center;padding:26px 0 4px"><svg viewBox="0 0 200 60" style="height:11px;width:auto;color:var(--copper);opacity:.9"><path fill="currentColor" d="M0 0h200l-6 14H6zM14 20h172l-5 12H19zM30 38h140v10H30z"/></svg></div>
 </div>
@@ -153,5 +159,6 @@
 <!-- pdf.js — rasterizes a PDF passport/visa scan into a printable image for the dossier -->
 <!-- pdf.js is lazy-loaded on first PDF need (ensurePdfjs in app.js) -->
 <script src="assets/app.js?v=310"></script>
+<script src="assets/door2.js?v=1"></script>
 </body>
 </html>

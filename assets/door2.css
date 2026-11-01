@@ -1,0 +1,44 @@
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   DOOR 2 — «المجلدات القانونية» · own stylesheet (app.css is NOT touched — isolation principle).
+   The legal section is a hallway with two doors: Door 1 = today's legal section exactly as it is
+   (only ever shown/hidden here, never restyled); Door 2 = this file's own surfaces.
+   Theme: only the app's existing tokens (--panel/--line/--ink/--copper…), so light/dark follow.
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── the hallway: two door tabs, visible only while the legal section is open ───────────────── */
+#law-doors{display:none;gap:6px;margin:0 0 14px;padding:5px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+body.lawmode #law-doors{display:flex}
+.door{flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 14px;
+  border-radius:10px;border:1px solid transparent;background:transparent;color:var(--ink2);
+  font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:color .12s,background .12s}
+.door:hover{color:var(--copper)}
+.door.on{background:var(--copper);color:#160f08;border-color:var(--copper)}
+.door .ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.door .door-n{font-size:11px;font-weight:600;opacity:.75;padding:1px 7px;border-radius:999px;border:1px solid currentColor}
+
+/* ── behind Door 2 the roster/Door-1 surfaces are hidden — hidden, not changed ─────────────── */
+body.door2 .hero,body.door2 .filters,body.door2 .listbar,body.door2 #results,
+body.door2 .crownseal-line,body.door2 #brief-strip{display:none!important}
+
+/* ── Door 2's own room ──────────────────────────────────────────────────────────────────────── */
+#door2{display:none}
+body.door2 #door2{display:block}
+.d2-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.d2-sbox{flex:1;display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.d2-sbox .ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;color:var(--muted);flex:none}
+.d2-sbox input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--ink);font:inherit;font-size:15px}
+.d2-sbox input::placeholder{color:var(--faint)}
+.d2-add{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 18px;border-radius:14px;cursor:pointer;
+  background:rgba(197,149,107,.08);border:1px dashed var(--copper);color:var(--ink);font:inherit;font-size:13.5px;font-weight:700;white-space:nowrap}
+.d2-add:hover{background:rgba(197,149,107,.16);border-style:solid}
+.d2-empty{padding:42px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px;font-size:14px;line-height:1.8}
+.d2-empty b{display:block;color:var(--ink2);font-size:15px}
+
+/* ── phone (same breakpoint as the app's phone layer; desktop untouched) ───────────────────── */
+@media (max-width:720px){
+  .door{font-size:13px;padding:0 8px}
+  .door .door-n{display:none}
+  .d2-head{flex-wrap:wrap}
+  .d2-sbox{flex-basis:100%}
+  .d2-add{flex:1;justify-content:center;min-height:44px}
+}
