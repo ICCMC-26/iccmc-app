@@ -95,7 +95,7 @@ tr.d2-review td{background:#fff8e6}
 .d2-chipst.review{color:var(--st-soon)}
 .d2-chipst.refused{color:var(--st-bad)}
 .d2-chipst.ok{color:var(--st-ok)}
-.d2-rrow.refused .d2-rnm{color:var(--muted);text-decoration:line-through}
+.d2-rrow.refused .d2-rnm{color:var(--ink2)}   /* the file name stays readable — the chip says it was refused */
 
 /* ── the source question inside the wizard (same box as Door 1's, own overlay id) ───────── */
 #d2-src{position:fixed;inset:0;z-index:80;display:none;place-items:center;background:rgba(0,0,0,.42);padding:20px}

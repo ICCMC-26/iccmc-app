@@ -158,10 +158,26 @@
     if(W.rows.some(r=>r._hash && (r.row_state==='reading'||r.row_state==='review'))) ensureWatch();   // heal rows left mid-read
   }
   function wizKey(e){ if(e.key==='Escape'&&!document.querySelector('#istpick.on')&&!document.querySelector('#ikreview.on')){ e.stopPropagation(); wizClose(); } }
-  async function wizClose(){
+  // leaving mid-work asks, exactly as Door 1's sheet does: Save · Discard · Cancel (backdrop = cancel)
+  function wizClose(){
     if(!W) return;
     if(has('istPkClose')) istPkClose();   // a picker still open must close by its own path (drops its key handler)
-    if(W.dirty && W.rows.length && W.name.trim()){ if(confirm(t2('close_q'))) await wizSave(W.status==='saved'?'saved':'draft',true); }
+    if(!(W.dirty && W.rows.length && W.name.trim())){ wizCloseNow(); return; }
+    const ov=$('#d2-wiz'); if(!ov){ wizCloseNow(); return; }
+    const dlg=document.createElement('div'); dlg.className='ist-dlg-wrap';
+    dlg.innerHTML=`<div class="ist-dlg"><div class="ist-dlg-t">${E(T1('ist_close_q'))}</div>
+      <div class="ist-dlg-btns"><button class="ist-btn primary" data-a="save" type="button">${E(T1('ist_save'))}</button>
+        <button class="ist-btn" data-a="discard" type="button">${E(T1('ist_discard'))}</button>
+        <button class="ist-btn ghost" data-a="cancel" type="button">${E(T1('ist_cancel'))}</button></div></div>`;
+    ov.appendChild(dlg);
+    const done=()=>dlg.remove();
+    dlg.querySelector('[data-a="save"]').onclick=async()=>{ await wizSave(W.status==='saved'?'saved':'draft',true); if(W&&W.dirty) return; done(); say(T1('ist_saved')); wizCloseNow(); };
+    dlg.querySelector('[data-a="discard"]').onclick=()=>{ done(); wizCloseNow(); };
+    dlg.querySelector('[data-a="cancel"]').onclick=done;
+    dlg.onclick=e=>{ if(e.target===dlg) done(); };
+  }
+  async function wizCloseNow(){
+    if(!W) return;
     if(W.id){ try{ await sb.rpc('dossier_release',{p_id:W.id}); }catch(_){} }
     if(_watch){ clearInterval(_watch); _watch=null; }
     W=null; const ov=$('#d2-wiz'); if(ov){ ov.classList.remove('on'); ov.innerHTML=''; } document.body.style.overflow='';
@@ -598,7 +614,7 @@
       const {data,error}=await sb.rpc('dossier_save',{p_id:W.id, p_name:W.name, p_status:status, p_header:W.header, p_hand:W.hand, p_rows:rows});
       if(error) throw error;
       W.id=data; W.status=status; W.dirty=false;
-      if(!quiet){ say(status==='saved'?t2('saved'):t2('draft_saved')); if(status==='saved') wizClose(); }
+      if(!quiet){ say(status==='saved'?t2('saved'):t2('draft_saved')); if(status==='saved') wizCloseNow(); }
     }catch(e){ console.warn('door2 save',e); say((e&&e.message)||String(e)); }
   }
 
