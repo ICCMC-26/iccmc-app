@@ -7,10 +7,13 @@
 
    Hooks WITHOUT a line in app.js: setLaw() already toggles #blaw.on, applyLang() already writes
    <html lang>; both are observed here. Everything else Door 2 needs from the app is used as a
-   LIBRARY (pure helpers: t · esc · tv · toast · istFmtDate · istDef1 · istResCountry · istHasVisa ·
-   istRepPhoto · openPicker · istWake · istAwaitRender) or as a SERVICE (the render line:
-   istimara_renders → the worker fills the real Word template). Door 2's data lives in its OWN
-   tables (legal_dossiers · legal_dossier_members) through its OWN RPCs (dossier_open/save/release/archive).
+   LIBRARY (pure helpers: t · esc · tv · toast · sha256 · istFmtDate · istDef1 · istResCountry ·
+   istHasVisa · istRepPhoto · openPicker · ikBuildReview · istWake · istAwaitRender) or as a SERVICE:
+     · the INTAKE LINE (ledger → bucket → worker → ikCommitSerial) reads every device file exactly as
+       the drop box does — same hash dedup, same quota, same gate, same registry commit;
+     · the RENDER LINE (istimara_renders → the worker fills the real Word template).
+   Door 2's data lives in its OWN tables (legal_dossiers · legal_dossier_members) through its OWN
+   RPCs (dossier_open/save/release/archive) and its OWN bucket (dossiers = a second copy of each file).
    ══════════════════════════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
@@ -24,14 +27,16 @@
         s1:'اسم المجلد', s2:'الموظفون', s3:'الاستمارة', s4:'التعهد', s5:'حفظ',
         name_ph:'مثال: دفعة شنغهاي — تشرين الثاني', name_need:'اكتب اسم المجلد أولًا',
         src_q:'من أين نضيف الموظفين؟', src_reg:'من السجل', src_reg_s:'ابحث واختر موظفين مسجّلين', src_pc:'من الجهاز',
-        src_pc_s:'ملفات جوازات PDF أو مجلدات كاملة', src_pc_soon:'يأتي في الخطوة التالية (الشريحة 3)',
+        src_pc_s:'ملفات جوازات PDF أو صور — أو مجلد كامل', pc_folder:'اختر مجلدًا كاملًا', pc_drop:'أو اسحب الملفات أو المجلدات إلى هنا',
         roster_h:n=>`القائمة — ${n} موظف`, roster_empty:'لم يُضَف أحد بعد', need_rows:'أضِف موظفًا واحدًا على الأقل',
         rm:'إزالة', back:'‹ السابق', next:'التالي ›', save:'حفظ المجلد', saved:'حُفظ المجلد ✓', draft_saved:'حُفظت المسودة',
         word:'تصدير Word', word_wait:'يُجهَّز ملف Word…', word_fail:'تعذّر التصدير — حاول مجددًا', word_done:'نُزِّل الملف ✓',
-        gate:n=>`${n} صف يحتاج مراجعة أو إزالة قبل المتابعة`, dup:'هذا الجواز موجود في المجلد',
-        apply_all:'تطبيق على كل الصفوف', fill_down:'نسخ إلى الصفوف تحتها', fold:'من المجلد', close_q:'تغييرات غير محفوظة — حفظ كمسودة؟',
-        closed:'إغلاق', p_ist:'الاستمارة', p_taa:'التعهد', one_roster:'قائمة واحدة لكلا الورقتين — أي تغيير هنا يظهر هناك',
-        pick_add:n=>`إضافة ${n} إلى المجلد`, pick_in:'في المجلد', ok_rows:n=>`${n} ✓`},
+        gate:n=>`${n} صف يحتاج مراجعة أو إزالة قبل المتابعة`, gate_reading:n=>`${n} ملف ما زال قيد القراءة — انتظر اكتماله`,
+        dup:'هذا الجواز موجود في المجلد', reading:'قيد القراءة', review:'تحتاج مراجعة', refused:'مرفوض', pre:'موجودة مسبقًا',
+        fill_down:'نسخ إلى الصفوف تحتها', close_q:'تغييرات غير محفوظة — حفظ كمسودة؟',
+        closed:'إغلاق', p_ist:'الاستمارة', p_taa:'التعهد',
+        pick_add:n=>`إضافة ${n} إلى المجلد`, rv_of:(k,n)=>`⚑ ${k} / ${n}`, rv_prev:'‹ السابق', rv_next:'التالي ›', rv_done:'اكتملت مراجعة المجلد ✓',
+        none_ok:n=>`${n} ملفًا لا يصلح (صورة أو PDF فقط)`},
     en:{door1:'Procedures', door1s:'Istimara · Taahud · Grant', door2:'Legal folders', door2s:'Visa-ready folders',
         q:'Search by folder name…', add:'＋ New folder', empty_h:'No folders yet',
         empty:'Each folder = Istimara + Taahud as Word, and a «Names» folder with the passport page and portrait of every employee.',
@@ -41,14 +46,16 @@
         s1:'Folder name', s2:'Employees', s3:'Istimara', s4:'Taahud', s5:'Save',
         name_ph:'e.g. Shanghai batch — November', name_need:'Type the folder name first',
         src_q:'Where do the employees come from?', src_reg:'From the registry', src_reg_s:'Search and pick registered employees', src_pc:'From this device',
-        src_pc_s:'Passport PDFs or whole folders', src_pc_soon:'Arrives in the next step (slice 3)',
+        src_pc_s:'Passport PDFs or images — or a whole folder', pc_folder:'Pick a whole folder', pc_drop:'or drop files or folders here',
         roster_h:n=>`Roster — ${n} employees`, roster_empty:'Nobody added yet', need_rows:'Add at least one employee',
         rm:'Remove', back:'‹ Back', next:'Next ›', save:'Save folder', saved:'Folder saved ✓', draft_saved:'Draft saved',
         word:'Export Word', word_wait:'Preparing the Word file…', word_fail:'Export failed — try again', word_done:'Downloaded ✓',
-        gate:n=>`${n} row(s) need review or removal before continuing`, dup:'This passport is already in the folder',
-        apply_all:'Apply to all rows', fill_down:'Copy to the rows below', fold:'from folder', close_q:'Unsaved changes — save as draft?',
-        closed:'Close', p_ist:'Istimara', p_taa:'Taahud', one_roster:'One roster for both papers — a change here shows there',
-        pick_add:n=>`Add ${n} to the folder`, pick_in:'in folder', ok_rows:n=>`${n} ✓`}
+        gate:n=>`${n} row(s) need review or removal before continuing`, gate_reading:n=>`${n} file(s) still being read — wait for them`,
+        dup:'This passport is already in the folder', reading:'Reading', review:'Needs review', refused:'Refused', pre:'Already in the system',
+        fill_down:'Copy to the rows below', close_q:'Unsaved changes — save as draft?',
+        closed:'Close', p_ist:'Istimara', p_taa:'Taahud',
+        pick_add:n=>`Add ${n} to the folder`, rv_of:(k,n)=>`⚑ ${k} / ${n}`, rv_prev:'‹ Previous', rv_next:'Next ›', rv_done:'Folder review complete ✓',
+        none_ok:n=>`${n} file(s) not usable (image or PDF only)`}
   };
   const $=s=>document.querySelector(s);
   const lang=()=>document.documentElement.lang==='en'?'en':'ar';
@@ -58,10 +65,9 @@
   const has=n=>{ try{ return (0,eval)('typeof '+n)!=='undefined'; }catch(_){ return false; } };
   const E=s=>has('esc')?esc(s):String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const say=m=>{ if(has('toast')) toast(m); else console.info(m); };
-  const T1=k=>has('t')?t(k):k;                       // the app's own labels (ist_c_name …) — same words as Door 1
+  const T1=(k,...a)=>has('t')?t(k,...a):k;                 // the app's own labels (ist_c_name …) — same words as Door 1
   const fmtD=s=>has('istFmtDate')?istFmtDate(s):String(s||'');
   const TV=v=>has('tv')?tv(v):v;
-  const HAND=['addr_iraq','border','profession','res_country','visited'];
 
   /* ── the hallway ──────────────────────────────────────────────────────────────────────── */
   let door='door1';
@@ -121,12 +127,18 @@
   }
 
   /* ── the wizard: ① اسم المجلد → ② الموظفون → ③ الاستمارة → ④ التعهد → ⑤ حفظ ─────────── */
-  let W=null;   // {id,name,status,header,hand,rows:[{person_id,passport_no,name,nationality,passport_expiry,hand,row_state}],step,paper,photo,dirty}
+  let W=null;   // {id,name,status,header,hand,rows:[{person_id,passport_no,name,nationality,passport_expiry,hand,row_state,scan_hash,scan_job_id,src_path, _status,_job,_file…}],step,paper,photo,dirty}
   const PAPERS=()=>has('IST_PAPERS')?IST_PAPERS:null;
   const def1=(k,p)=>has('istDef1')?(istDef1(k,p)||''):'';
   const defs=(k,p)=>has('istDefs')?(istDefs(k,p)||[]):[];
   function freshHeader(){ const H={company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:'',project:'',to_line:'',intro:'',body:''}, pre={};
     Object.keys(H).forEach(k=>{ const v=def1(k,'istimara'); if(v){ H[k]=v; pre[k]=1; } }); return {H,pre}; }
+  function rowFromMember(m){
+    const st=m.row_state||'ok';
+    return {person_id:m.person_id, passport_no:m.passport_no||'', name:m.name||'', nationality:m.nationality||'', passport_expiry:m.passport_expiry||'',
+            hand:m.hand||{}, row_state:st, scan_hash:m.scan_hash||null, scan_job_id:m.scan_job_id||null, src_path:m.src_path||null,
+            _pre:{}, _status: st==='reading'?'processing': st==='refused'?'refused': st==='review'?'review':'landed', _hash:m.scan_hash||null, _file:null};
+  }
   async function wizOpen(id){
     if(!has('sb')) return;
     if(has('istLoadDefaults')) { try{ await istLoadDefaults(); }catch(_){} }
@@ -140,31 +152,35 @@
     const fh=freshHeader();
     W={ id:d?d.dossier_id:null, name:d?d.name:'', status:d?d.status:'draft',
         header:Object.assign(fh.H, (d&&d.header)||{}), _pre:d?{}:fh.pre, hand:(d&&d.hand)||{},
-        rows:members.map(m=>({person_id:m.person_id,passport_no:m.passport_no||'',name:m.name||'',nationality:m.nationality||'',
-                              passport_expiry:m.passport_expiry||'',hand:m.hand||{},row_state:m.row_state||'ok'})),
-        step:d?3:1, paper:'istimara', photo:null, dirty:false };
+        rows:members.map(rowFromMember), step:d?3:1, paper:'istimara', photo:null, dirty:false };
     if(has('istRepPhoto')){ try{ W.photo=await istRepPhoto()||null; }catch(_){} }
     let ov=$('#d2-wiz'); if(!ov){ ov=document.createElement('div'); ov.id='d2-wiz'; document.body.appendChild(ov); }
     ov.classList.add('on'); document.body.style.overflow='hidden';
     document.addEventListener('keydown',wizKey);
     wizPaint();
+    if(W.rows.some(r=>r._hash && (r.row_state==='reading'||r.row_state==='review'))) ensureWatch();   // heal rows left mid-read
   }
-  function wizKey(e){ if(e.key==='Escape'&&!document.querySelector('#istpick.on')){ e.stopPropagation(); wizClose(); } }
+  function wizKey(e){ if(e.key==='Escape'&&!document.querySelector('#istpick.on')&&!document.querySelector('#ikreview.on')){ e.stopPropagation(); wizClose(); } }
   async function wizClose(){
     if(!W) return;
     if(has('istPkClose')) istPkClose();   // a picker still open must close by its own path (drops its key handler)
     if(W.dirty && W.rows.length && W.name.trim()){ if(confirm(t2('close_q'))) await wizSave(W.status==='saved'?'saved':'draft',true); }
     if(W.id){ try{ await sb.rpc('dossier_release',{p_id:W.id}); }catch(_){} }
+    if(_watch){ clearInterval(_watch); _watch=null; }
     W=null; const ov=$('#d2-wiz'); if(ov){ ov.classList.remove('on'); ov.innerHTML=''; } document.body.style.overflow='';
     document.removeEventListener('keydown',wizKey);
     loadList();
   }
-  const gateBad=()=>W.rows.filter(r=>r.row_state==='review'||r.row_state==='refused').length;
+  const badRows=()=>W.rows.filter(r=>r.row_state==='review'||r.row_state==='refused');
+  const readingRows=()=>W.rows.filter(r=>r.row_state==='reading');
   function wizGo(step){
     if(!W) return;
     if(step>1 && !W.name.trim()){ say(t2('name_need')); W.step=1; wizPaint(); return; }
     if(step>2 && !W.rows.length){ say(t2('need_rows')); W.step=2; wizPaint(); return; }
-    if(step>=5){ const n=gateBad(); if(n){ say(t2('gate',n)); W.step=W.paper==='taahud'?4:3; wizPaint(); wizScrollBad(); return; } wizSave('saved'); return; }
+    if(step>=5){
+      const nr=readingRows().length; if(nr){ say(t2('gate_reading',nr)); return; }
+      const n=badRows().length; if(n){ say(t2('gate',n)); W.step=W.paper==='taahud'?4:3; wizPaint(); wizScrollBad(); return; }
+      wizSave('saved'); return; }
     if(step===3) W.paper='istimara'; if(step===4) W.paper='taahud';
     W.step=Math.max(1,Math.min(4,step)); wizPaint();
   }
@@ -196,19 +212,29 @@
   }
   function wizStep1(){ return `<div class="d2-q"><label class="d2-lbl" for="d2-name">${t2('s1')}</label>
     <input class="d2-in" id="d2-name" value="${E(W.name)}" placeholder="${E(t2('name_ph'))}" autocomplete="off"></div>`; }
+  const stateChip=r=>r.row_state==='reading'?`<span class="d2-chipst reading">${E(has('istRowStatusTxt')?(istRowStatusTxt(r)||t2('reading')):t2('reading'))}</span>`
+    : r.row_state==='review'?`<span class="d2-chipst review">⚑ ${t2('review')}</span>`
+    : r.row_state==='refused'?`<span class="d2-chipst refused" title="${E(r._err||'')}">✕ ${t2('refused')}${r._err?' · '+E(r._err):''}</span>`
+    : r._preexisting?`<span class="d2-chipst ok">✓ ${t2('pre')}</span>`:'';
   function wizStep2(){
-    const roster=W.rows.length? `<div class="d2-roster">${W.rows.map((r,i)=>`<div class="d2-rrow"><b>${i+1}</b><span class="d2-rnm">${E(r.name)}</span><small>${E(r.passport_no)} · ${E(TV(r.nationality))}</small><button class="ist-rowx sm" data-rm="${i}" title="${E(t2('rm'))}">✕</button></div>`).join('')}</div>`
+    const roster=W.rows.length? `<div class="d2-roster" id="d2-roster">${W.rows.map((r,i)=>`<div class="d2-rrow${r.row_state!=='ok'?' '+r.row_state:''}"><b>${i+1}</b><span class="d2-rnm">${E(r.name||(r._file&&r._file.name)||'…')}</span><small>${E(r.passport_no||'')}${r.passport_no?' · ':''}${E(TV(r.nationality||''))}</small>${stateChip(r)}<button class="ist-rowx sm" data-rm="${i}" title="${E(t2('rm'))}">✕</button></div>`).join('')}</div>`
       : `<div class="d2-empty slim">${t2('roster_empty')}</div>`;
-    return `<div class="d2-q"><div class="d2-lbl">${t2('src_q')}</div>
+    return `<div class="d2-q" id="d2-step2"><div class="d2-lbl">${t2('src_q')}</div>
       <div class="ist-src-opts d2-src">
-        <button class="ist-src-opt" id="d2-src-pc" type="button" disabled title="${E(t2('src_pc_soon'))}"><span class="ist-src-ic">⬆</span><b>${t2('src_pc')}</b><small>${t2('src_pc_s')} · ${t2('src_pc_soon')}</small></button>
+        <button class="ist-src-opt" id="d2-src-pc" type="button"><span class="ist-src-ic">⬆</span><b>${t2('src_pc')}</b><small>${t2('src_pc_s')}</small></button>
         <button class="ist-src-opt" id="d2-src-reg" type="button"><span class="ist-src-ic">⌕</span><b>${t2('src_reg')}</b><small>${t2('src_reg_s')}</small></button>
       </div>
+      <div class="d2-pcline"><button class="d2-link" id="d2-src-folder" type="button">📁 ${t2('pc_folder')}</button><span class="d2-muted">· ${t2('pc_drop')}</span></div>
       <div class="d2-lbl">${t2('roster_h',W.rows.length)}</div>${roster}</div>`;
   }
   function wireStep2(){
     $('#d2-src-reg').onclick=pickRegistry;
-    document.querySelectorAll('#d2-wiz [data-rm]').forEach(b=>b.onclick=()=>{ W.rows.splice(+b.dataset.rm,1); W.dirty=true; wizPaint(); });
+    $('#d2-src-pc').onclick=()=>pickDevice(false);
+    $('#d2-src-folder').onclick=()=>pickDevice(true);
+    const z=$('#d2-step2');
+    z.ondragover=e=>{ e.preventDefault(); z.classList.add('over'); }; z.ondragleave=()=>z.classList.remove('over');
+    z.ondrop=async e=>{ e.preventDefault(); z.classList.remove('over'); const fs=await filesFromDrop(e.dataTransfer); if(fs.length) addFromDevice(fs); };
+    document.querySelectorAll('#d2-wiz [data-rm]').forEach(b=>b.onclick=()=>removeRow(+b.dataset.rm));
   }
   const inRoster=r=>{ const no=String((r&&r.passport_no)||'').trim(), pid=r&&r.person_id;
     return W.rows.some(x=>(pid&&x.person_id===pid)||(no&&String(x.passport_no||'').trim()===no)); };
@@ -230,12 +256,204 @@
     for(const id of ids){ const p=byId.get(id)||sel.find(r=>r.person_id===id); if(!p) continue;
       if(inRoster({person_id:id,passport_no:p.passport_no})) continue;
       const row={person_id:id, name:p.name_latin||p.name||'', nationality:p.nationality||'', passport_no:p.passport_no||'',
-                 passport_expiry:p.passport_expiry||'', hand:{}, row_state:'ok', _pre:{}};
-      const rc=has('istResCountry')?istResCountry(p):''; if(rc){ row.hand.res_country=rc; row._pre.res_country=1; }   // fact: residence ← passport country
-      W.rows.push(row); n++;
-      if(has('istHasVisa')) istHasVisa(id).then(v=>{ if(v===null||!W) return; if(!row.hand.visited||row._pre.visited){ row.hand.visited=v?'نعم':'كلا'; row._pre.visited=1; if(W.step>=3) renderRows(); } }).catch(()=>{});   // fact: visited ← any visa
+                 passport_expiry:p.passport_expiry||'', hand:{}, row_state:'ok', _status:'landed', _pre:{}};
+      W.rows.push(row); n++; facts(row, p, id);
     }
     if(n) W.dirty=true;            // the caller repaints once the picker is gone
+  }
+  // the two FACT fills, from the same helpers Door 1 uses: residence ← the passport's country · visited ← any visa on file
+  function facts(row, f, pid){
+    const rc=has('istResCountry')?istResCountry(f||{}):''; if(rc && !row.hand.res_country){ row.hand.res_country=rc; row._pre.res_country=1; }
+    const ask=pid ? Promise.resolve(pid) : (has('istPidByPassport')?istPidByPassport(row.passport_no):Promise.resolve(null));
+    if(!has('istHasVisa')) return;
+    ask.then(p=>p?istHasVisa(p):null).then(v=>{ if(v===null||v===undefined||!W) return;
+      if(!row.hand.visited||row._pre.visited){ row.hand.visited=v?'نعم':'كلا'; row._pre.visited=1; if(W.step>=3) renderRows(); else wizPaint(); } }).catch(()=>{});
+  }
+
+  /* ── FROM THE DEVICE: files or whole folders → the INTAKE LINE, as a service ─────────────────
+     Exactly the drop box's path: content hash → ledger row (quota answers here; an already-settled
+     file answers «موجودة مسبقًا» without a second read) → the intake bucket → the worker reads it →
+     the row fills → the intake's own commit registers the person. A scan that needs a human PARKS
+     the row (⚑) until it is reviewed in the same review pane the inbox uses. Door 2 adds ONE thing:
+     a second copy of the file into its own bucket, for the pictures (slice 4). */
+  const isDoc=f=>((has('IK_OK')?IK_OK:/^(image\/|application\/pdf)/).test(f.type)||/\.pdf$/i.test(f.name));
+  const maxB=()=>has('IK_MAX')?IK_MAX:200*1024*1024;
+  function pickDevice(folder){
+    const inp=document.createElement('input'); inp.type='file'; inp.multiple=true;
+    if(folder) inp.webkitdirectory=true; else inp.accept='image/*,application/pdf';
+    inp.onchange=()=>{ const fs=Array.from(inp.files||[]); if(fs.length) addFromDevice(fs); }; inp.click();
+  }
+  async function filesFromDrop(dt){                      // folders dropped → walked recursively, flattened
+    const out=[]; const items=[...((dt&&dt.items)||[])];
+    const entries=items.map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);
+    if(!entries.length) return [...((dt&&dt.files)||[])];
+    const walk=async en=>{
+      if(en.isFile) await new Promise(r=>en.file(f=>{ out.push(f); r(); },()=>r()));
+      else if(en.isDirectory){ const rd=en.createReader(); let batch;
+        do{ batch=await new Promise(r=>rd.readEntries(r,()=>r([]))); for(const e of batch) await walk(e); }while(batch.length); } };
+    for(const en of entries) await walk(en);
+    return out;
+  }
+  async function addFromDevice(files){
+    if(!W) return;
+    files=files.filter(f=>f && !/^\./.test(f.name) && !/^(thumbs\.db|desktop\.ini)$/i.test(f.name));
+    if(!files.length) return;
+    if(!W.id){ await wizSave('draft',true); if(!W.id) return; }      // the folder needs its id for its own copies
+    const usable=files.filter(f=>isDoc(f)&&f.size<=maxB());
+    let take=usable, block=[], q=null;
+    if(has('ikQuotaSplit')){ try{ ({take,block,q}=await ikQuotaSplit(usable)); }catch(_){} }
+    const blocked=new Set(block);
+    if(q&&block.length) say(take.length?T1('ik_quota_left',take.length,q.limit):T1('ik_quota',q.limit));
+    const bad=files.length-usable.length; if(bad) say(t2('none_ok',bad));
+    const queue=[];
+    for(const f of files){
+      const row={person_id:null,name:'',nationality:'',passport_no:'',passport_expiry:'',hand:{},row_state:'reading',
+                 _status:'uploading',_pct:0,_stage:'',_err:'',_file:f,_pre:{}};
+      W.rows.push(row);
+      if(!isDoc(f)||f.size>maxB()){ row.row_state='refused'; row._status='refused'; row._err=f.size>maxB()?T1('ik_big'):T1('ik_bad'); continue; }
+      if(blocked.has(f)){ row.row_state='refused'; row._status='refused'; row._err=T1('ik_quota',q&&q.limit); continue; }
+      queue.push([f,row]);
+    }
+    W.dirty=true; if(W.step>=3) renderRows(); else wizPaint();
+    drain(queue);
+  }
+  let _up=0;
+  async function drain(queue){
+    while(queue.length){
+      while(_up>=4) await new Promise(r=>setTimeout(r,250));
+      const [f,row]=queue.shift(); _up++;
+      ingest(f,row).catch(e=>{ row.row_state='refused'; row._status='refused'; row._err=(e&&e.message)||T1('ist_read_fail'); repaintRow(); })
+        .finally(()=>{ _up--; });
+    }
+  }
+  function repaintRow(){ if(!W) return; if(W.step>=3) renderRows(); else { const r=$('#d2-roster'); if(r||W.step===2) wizPaint(); } }
+  async function ingest(file,row){
+    const hash=await sha256(file); if(!hash) throw new Error('hash'); row._hash=hash; row.scan_hash=hash;
+    const {data:{session}}=await sb.auth.getSession(); if(!session) throw new Error(T1('ik_auth'));
+    const safe=file.name.replace(/[^\w.\-]+/g,'_');
+    const path=`${Date.now().toString(36)}-d2-${safe}`;         // a plain passport name (no legal-form marker)
+    const lj={hash, file, batch:null};
+    if(!await ikLedgerRow(lj,path)) throw new Error(lj._quota ? lj._ledgerErr : (T1('ik_ledger')||lj._ledgerErr||'ledger'));
+    copyToFolder(file,hash,row).catch(()=>{});                 // Door 2's own copy — never blocks the line
+    if(lj._pre){ row._preexisting=true; row._status='processing'; row._stage=''; }   // settled already → its job is read back, no upload
+    else{
+      await new Promise((res,rej)=>{ const xhr=new XMLHttpRequest();
+        xhr.open('POST',`${SUPA_URL}/storage/v1/object/${IK_BUCKET}/${encodeURIComponent(path)}`);
+        xhr.setRequestHeader('apikey',SUPA_KEY); xhr.setRequestHeader('Authorization',`Bearer ${session.access_token}`);
+        xhr.setRequestHeader('x-upsert','true'); if(file.type) xhr.setRequestHeader('Content-Type',file.type);
+        xhr.upload.onprogress=e=>{ if(e.lengthComputable){ row._pct=Math.round(e.loaded/e.total*100); repaintRow(); } };
+        xhr.onload=()=>(xhr.status>=200&&xhr.status<300)?res():rej(new Error('HTTP '+xhr.status));
+        xhr.onerror=()=>rej(new Error('network')); xhr.send(file); });
+      row._status='processing'; row._stage='';
+    }
+    repaintRow(); ensureWatch();
+  }
+  async function copyToFolder(file,hash,row){
+    if(!W||!W.id) return;
+    const ext=(file.name.match(/\.(pdf|jpe?g|png|webp|tiff?)$/i)||[,'bin'])[1].toLowerCase();
+    const key=`${W.id}/src/${hash}.${ext}`;
+    const {error}=await sb.storage.from('dossiers').upload(key, file, {upsert:true, contentType:file.type||undefined});
+    if(!error){ row.src_path=key; W.dirty=true; }
+  }
+  // ONE reconciler for the folder (the drop box's design): one query for every pending hash, every 2.5 s
+  let _watch=null;
+  const pending=()=>W?W.rows.filter(r=>r._hash && (r.row_state==='reading'||(r.row_state==='review'&&!r._job))):[];
+  function ensureWatch(){
+    if(_watch) return; const t0=Date.now();
+    _watch=setInterval(async()=>{
+      if(!W||!pending().length){ clearInterval(_watch); _watch=null; return; }
+      if(document.hidden) return;
+      const waited=Date.now()-t0; if(waited>180000 && (waited/2500)%3>=1) return;
+      try{ await reconcile(); }catch(_){}
+    },2500);
+    reconcile().catch(()=>{});
+  }
+  async function reconcile(){
+    const pend=pending(); if(!pend.length) return;
+    const hashes=[...new Set(pend.map(r=>r._hash))]; let jobs=[];
+    try{ const {data}=await sb.from('scan_jobs').select('job_id,status,fields,doc_type,image_path,field_conf,flagged,error_msg,image_hash')
+          .in('image_hash',hashes).order('created_at',{ascending:false}); jobs=data||[]; }catch(_){ return; }
+    const byHash={}; for(const j of jobs) if(!byHash[j.image_hash]) byHash[j.image_hash]=j;
+    let dirty=false;
+    for(const row of pend){ const j=byHash[row._hash]; if(!j) continue; if(await applyJob(row,j)) dirty=true; }
+    if(dirty) repaintRow();
+  }
+  // what ONE row's job means — the same rules as Door 1's sheet (istApply), written against Door 2's row
+  async function applyJob(row,j){
+    if(row._stage!==j.status) row._stage=j.status;
+    row.scan_job_id=j.job_id;
+    if(j.status==='failed'){ row.row_state='refused'; row._status='refused'; row._err=j.error_msg||T1('ist_read_fail'); return true; }
+    if(j.status==='legal-review' || String(j.doc_type||'').startsWith('legal')){      // passports only — a legal paper is refused here, clearly
+      row.row_state='refused'; row._status='refused'; row._err=T1('ist_not_passport'); row._job=j; return true; }
+    const f=j.fields||{};
+    if(f.passport_no||f.name_latin){
+      Object.assign(row,{name:f.name_latin||'', nationality:f.nationality||'', passport_no:f.passport_no||'', passport_expiry:f.passport_expiry||''});
+      // the same passport twice in one folder → this row is refused quietly, the first keeps the place
+      const twin=W.rows.find(x=>x!==row && x.row_state!=='refused' && x.passport_no && x.passport_no===row.passport_no);
+      if(twin){ row.row_state='refused'; row._status='refused'; row._err=t2('dup'); row._job=j; return true; }
+      if(j.status==='pending-review'||j.status==='needs-linking'){ row.row_state='review'; row._status='review'; row._job=j; return true; }
+      if(row._committing) return true;
+      row._committing=true; row._status='committing'; repaintRow();
+      try{ const res=await ikCommitSerial(j,{...f});                  // the intake's own commit — the person enters the registry
+           if(res&&res.defer){ row.row_state='review'; row._status='review'; row._job=j; } else landed(row,f,res&&res.pid); }
+      catch(_){ landed(row,f,null); }
+      row._committing=false; return true;
+    }
+    return true;
+  }
+  function landed(row,f,pid){
+    row.row_state='ok'; row._status='landed'; row._job=null; if(pid) row.person_id=pid; W.dirty=true;
+    facts(row, f, row.person_id||null);
+  }
+  async function removeRow(i){
+    const row=W.rows[i]; if(!row) return;
+    // an UNCOMMITTED scan leaves with its row (no leak into the review queue) — the drop box's own rule
+    if(row._hash && row._status!=='landed' && row.row_state!=='ok'){
+      try{ await sb.from('scan_jobs').delete().eq('image_hash',row._hash).not('status','in','(done,committed)'); }catch(_){}
+    }
+    W.rows.splice(i,1); W.dirty=true; repaintRow();
+  }
+
+  /* ── REVIEW: the inbox's own pane, opened on this folder's row; ‹ › and auto-advance are Door 2's ── */
+  let _rvIdx=-1, _rvObs=null;
+  const reviewIdx=()=>W.rows.map((r,i)=>r.row_state==='review'&&r._job?i:-1).filter(i=>i>=0);
+  function openReview(i){
+    const row=W&&W.rows[i]; if(!row||!row._job){ say(T1('ist_read_fail')); return; }
+    if(!has('ikBuildReview')) return;
+    _rvIdx=i;
+    _rvJob={ id:'d2-'+i, job:row._job, file:row._file||{name:(row.name||row.passport_no||'passport')}, _scanUrl:null, _istRow:row }; _rvShowAll=false;
+    ikBuildReview(); $('#ikreview').classList.add('on'); document.body.style.overflow='hidden';
+    paintRvBar(); watchReview();
+  }
+  function paintRvBar(){
+    let bar=$('#d2-rvbar'); if(!bar){ bar=document.createElement('div'); bar.id='d2-rvbar'; document.body.appendChild(bar); }
+    const list=reviewIdx(), k=list.indexOf(_rvIdx);
+    bar.innerHTML=`<button type="button" id="d2-rv-prev" ${k<=0?'disabled':''}>${t2('rv_prev')}</button><b>${t2('rv_of',k+1,list.length)}</b><button type="button" id="d2-rv-next" ${k<0||k>=list.length-1?'disabled':''}>${t2('rv_next')}</button>`;
+    bar.classList.add('on');
+    $('#d2-rv-prev').onclick=()=>{ const l=reviewIdx(), k2=l.indexOf(_rvIdx); if(k2>0) jumpReview(l[k2-1]); };
+    $('#d2-rv-next').onclick=()=>{ const l=reviewIdx(), k2=l.indexOf(_rvIdx); if(k2<l.length-1) jumpReview(l[k2+1]); };
+  }
+  function jumpReview(i){ _rvJump=true; if(has('closeIkReview')) closeIkReview(); _rvJump=false; openReview(i); }
+  let _rvJump=false;
+  function watchReview(){
+    if(_rvObs) return; const pane=$('#ikreview'); if(!pane) return;
+    _rvObs=new MutationObserver(()=>{ if(pane.classList.contains('on')) return; if(_rvJump) return; onReviewClosed(); });
+    _rvObs.observe(pane,{attributes:true,attributeFilter:['class']});
+  }
+  function onReviewClosed(){
+    const bar=$('#d2-rvbar'); if(bar) bar.classList.remove('on');
+    if(!W){ return; }
+    document.body.style.overflow='hidden';                        // the wizard is still open underneath
+    const row=W.rows[_rvIdx];
+    if(row && row._status==='landed' && row.row_state==='review'){   // ikDoAdd wrote the corrected data back → the row lands
+      landed(row, {nationality:row.nationality, issuing_country:''}, null);
+      if(has('istPidByPassport')) istPidByPassport(row.passport_no).then(p=>{ if(p&&W){ row.person_id=p; } }).catch(()=>{});
+      repaintRow();
+      const next=reviewIdx()[0];
+      if(next!==undefined) setTimeout(()=>openReview(next),150);    // another case waits → it opens by itself
+      else say(t2('rv_done'));
+    } else repaintRow();
+    _rvIdx=-1;
   }
 
   /* ── the sheet: ONE roster, two papers (same classes as Door 1's sheet → same look) ──── */
@@ -271,23 +489,30 @@
     const tb=$('#d2-tbody'); if(!tb||!W) return;
     const P=PAPERS()[W.paper], COLS=P.cols, N=COLS.length;
     tb.innerHTML=W.rows.map((r,i)=>{
-      const bad=r.row_state==='review'||r.row_state==='refused';
-      const badge=r.row_state==='review'?` <span class="ist-review">⚑ ${E(T1('ik_review'))}</span>`:r.row_state==='refused'?` <span class="ist-review">✕</span>`:'';
+      const x=`<button class="d2-x" data-rm="${i}" type="button" title="${E(t2('rm'))}">✕</button>`;
+      // a row still travelling the line: the same stage text the drop box shows
+      if(r._status==='uploading'||r._status==='processing'||r._status==='committing')
+        return `<tr class="ist-row-busy d2-bad"><td class="d2-ser"><span>${i+1}</span>${x}</td><td colspan="${N-1}">${E(has('istRowStatusTxt')?istRowStatusTxt(r):'…')} <small class="d2-fn">${E((r._file&&r._file.name)||'')}</small></td></tr>`;
+      if(r.row_state==='refused')
+        return `<tr class="ist-row-err d2-bad"><td class="d2-ser"><span>${i+1}</span>${x}</td><td colspan="${N-1}">✕ ${E(r._err||t2('refused'))} <small class="d2-fn">${E((r._file&&r._file.name)||r.name||'')}</small></td></tr>`;
+      const bad=r.row_state==='review';
+      const badge=bad?` <button class="ist-review" data-rv="${i}" type="button" title="${E(T1('rv_ask'))}">⚑ ${E(T1('ik_review'))}</button>`:'';
       const cell=c=>{
         if(c.hand){ const own=!!(r.hand&&r.hand[c.k]), v=handVal(r,c.k), pre=(r._pre&&r._pre[c.k])||(!own&&!!W.hand[c.k]);
           return `<td class="ist-hcell"><input class="ist-hin${pre?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${E(v)}" placeholder="${E(def1(c.k,W.paper))}"><button class="ist-handle" data-pick="${c.k}" data-ri="${i}" tabindex="-1" type="button"></button></td>`; }
         // EVERY passport column is editable here (a wrong letter gets the paper refused at the counter);
         // it edits the folder's roster only — the registry is never written from this table.
-        if(c.k==='_ser') return `<td class="d2-ser"><span>${i+1}</span><button class="d2-x" data-rm="${i}" type="button" title="${E(t2('rm'))}">✕</button></td>`;
+        if(c.k==='_ser') return `<td class="d2-ser"><span>${i+1}</span>${x}</td>`;
         if(c.k==='nationality') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="nationality" value="${E(r.nationality?TV(r.nationality):'')}"></td>`;
         if(c.k==='passport_expiry') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="passport_expiry" value="${E(fmtD(r.passport_expiry)||'')}"></td>`;
         return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="${c.k}" value="${E(r[c.k]||'')}">${c.k==='name'?badge:''}</td>`; };
-      return `<tr class="${bad?'d2-bad':''}">${COLS.map(cell).join('')}</tr>`;
+      return `<tr class="${bad?'d2-bad d2-review':''}">${COLS.map(cell).join('')}</tr>`;
     }).join('')+`<tr class="ist-addrow"><td colspan="${N}" class="ist-drop slim" id="d2-drop">＋ ${E(T1('ist_add_more'))}</td></tr>`;
     tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=W.rows[+inp.dataset.ri]; if(!r) return; r.hand=r.hand||{}; r.hand[inp.dataset.rk]=inp.value; if(r._pre) delete r._pre[inp.dataset.rk]; inp.classList.remove('ist-pre'); W.dirty=true; });
     tb.querySelectorAll('.ist-ein').forEach(inp=>inp.oninput=()=>{ const r=W.rows[+inp.dataset.ri]; if(r){ r[inp.dataset.rk]=inp.value; W.dirty=true; } });
     tb.querySelectorAll('.ist-handle').forEach(b=>b.onclick=e=>{ e.stopPropagation(); cellMenu(b); });
-    tb.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ W.rows.splice(+b.dataset.rm,1); W.dirty=true; renderRows(); });
+    tb.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>removeRow(+b.dataset.rm));
+    tb.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>openReview(+b.dataset.rv));
     const dz=$('#d2-drop'); if(dz) dz.onclick=pickRegistry;          // «＋ أضِف موظفين» = the registry picker, directly
   }
   function cellMenu(btn){
@@ -329,10 +554,11 @@
     const H=W.header, ov=$('#d2-wiz'), wait=document.createElement('div'); wait.className='ist-wait';
     wait.innerHTML=`<div class="ist-wait-box"><div class="ist-spin"></div><div class="ist-wait-t">${E(t2('word_wait'))}</div></div>`; ov.appendChild(wait);
     try{
+      const rows=W.rows.filter(r=>r.row_state==='ok'||r.row_state==='review');
       const data={ paper:W.paper, format:'docx', company:H.company||'', company_nat:H.company_nat||'', addr:H.addr||'', purpose:H.purpose||'',
         stay:H.stay||'', visatype:H.visatype||'', authorized:H.authorized||'', project:H.project||'', to_line:H.to_line||'', intro:H.intro||'', body:H.body||'',
         photo:W.paper==='istimara'?(W.photo||''):'',
-        rows:W.rows.map(r=>({ name:r.name||'', nationality:r.nationality?TV(r.nationality):'', passport_no:r.passport_no||'', passport_expiry:fmtD(r.passport_expiry)||'',
+        rows:rows.map(r=>({ name:r.name||'', nationality:r.nationality?TV(r.nationality):'', passport_no:r.passport_no||'', passport_expiry:fmtD(r.passport_expiry)||'',
           addr_iraq:handVal(r,'addr_iraq'), border:handVal(r,'border'), profession:handVal(r,'profession'), res_country:handVal(r,'res_country'), visited:handVal(r,'visited') })) };
       const {data:ins,error:ie}=await sb.from('istimara_renders').insert({data}).select('id').single(); if(ie||!ins) throw new Error((ie&&ie.message)||'insert');
       if(has('istWake')) istWake(ins.id).catch(()=>{});
@@ -350,7 +576,8 @@
     if(!W) return;
     try{
       const rows=W.rows.map(r=>({person_id:r.person_id||null, passport_no:r.passport_no||'', name:r.name||'', nationality:r.nationality||'', passport_expiry:r.passport_expiry||'',
-        hand:r.hand||{}, row_state:r.row_state||'ok', scan_job_id:r.scan_job_id||null, src_path:r.src_path||null, passport_jpg:r.passport_jpg||null, portrait_jpg:r.portrait_jpg||null, portrait_tier:r.portrait_tier||null}));
+        hand:r.hand||{}, row_state:r.row_state||'ok', scan_job_id:r.scan_job_id||null, scan_hash:r.scan_hash||null, src_path:r.src_path||null,
+        passport_jpg:r.passport_jpg||null, portrait_jpg:r.portrait_jpg||null, portrait_tier:r.portrait_tier||null}));
       const {data,error}=await sb.rpc('dossier_save',{p_id:W.id, p_name:W.name, p_status:status, p_header:W.header, p_hand:W.hand, p_rows:rows});
       if(error) throw error;
       W.id=data; W.status=status; W.dirty=false;
