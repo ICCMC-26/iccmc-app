@@ -117,13 +117,10 @@
         <div class="ava d2-ava">${ICON_FOLDER}</div>
         <div class="who"><div class="nm">${E(d.name)} <span class="d2-st ${st}">${t2('st_'+st)}</span>${lock?` <span class="d2-lock" title="${E(t2('locked',d.editing_by))}">✎ ${E(d.editing_by||'')}</span>`:''}</div>
           <div class="sub">${fmtDay(d.created_at)} · ${t2('members',d.n)}</div></div>
-        ${d.status==='archived'?'':`<button class="d2-rowbtn" data-arch="${d.dossier_id}" title="${E(t2('arch'))}">⌫</button>`}
       </div>`; }).join('');
-    box.querySelectorAll('[data-open]').forEach(el=>el.onclick=e=>{ if(e.target.closest('[data-arch]')) return; wizOpen(+el.dataset.open); });
-    box.querySelectorAll('[data-arch]').forEach(b=>b.onclick=async()=>{ const d=L.rows.find(x=>x.dossier_id===+b.dataset.arch); if(!d) return;
-      if(!confirm(t2('arch_q',d.name))) return;
-      try{ const {error}=await sb.rpc('dossier_archive',{p_id:d.dossier_id}); if(error) throw error; await loadList(); }
-      catch(e){ say((e&&e.message)||String(e)); } });
+    // no archive / remove control here on purpose: the app's UI never deletes or hides a record — a folder
+    // leaves the list only by an admin at the database (dossier_archive stays an admin-side RPC)
+    box.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>wizOpen(+el.dataset.open));
   }
 
   /* ── the wizard: ① اسم المجلد → ② الموظفون → ③ الاستمارة → ④ التعهد → ⑤ حفظ ─────────── */
@@ -612,13 +609,11 @@
     nav.innerHTML=`<button class="door on" id="door-1" role="tab" type="button"></button><button class="door" id="door-2" role="tab" type="button"></button>`;
     room.innerHTML=`<div class="d2-head">
         <label class="d2-sbox"><svg class="ic"><use href="#i-search"/></svg><input id="d2-q" autocomplete="off" spellcheck="false"></label>
-        <button class="d2-chip" id="d2-arch" type="button"><span id="d2-arch-t"></span></button>
         <button class="d2-add" id="d2-add" type="button"></button></div>
       <div id="d2-list"></div>`;
     $('#door-1').onclick=()=>select('door1'); $('#door-2').onclick=()=>select('door2');
     $('#d2-add').onclick=()=>wizOpen(null);
     $('#d2-q').oninput=e=>{ L.q=e.target.value; paintList(); };
-    $('#d2-arch').onclick=()=>{ L.arch=!L.arch; $('#d2-arch').classList.toggle('on',L.arch); paintList(); };
     return true;
   }
   function init(){
