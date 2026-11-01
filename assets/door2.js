@@ -152,6 +152,7 @@
   function wizKey(e){ if(e.key==='Escape'&&!document.querySelector('#istpick.on')){ e.stopPropagation(); wizClose(); } }
   async function wizClose(){
     if(!W) return;
+    if(has('istPkClose')) istPkClose();   // a picker still open must close by its own path (drops its key handler)
     if(W.dirty && W.rows.length && W.name.trim()){ if(confirm(t2('close_q'))) await wizSave(W.status==='saved'?'saved':'draft',true); }
     if(W.id){ try{ await sb.rpc('dossier_release',{p_id:W.id}); }catch(_){} }
     W=null; const ov=$('#d2-wiz'); if(ov){ ov.classList.remove('on'); ov.innerHTML=''; } document.body.style.overflow='';
@@ -170,6 +171,7 @@
   function wizScrollBad(){ const el=document.querySelector('#d2-wiz tr.d2-bad'); if(el) el.scrollIntoView({block:'center'}); }
   function wizPaint(){
     const ov=$('#d2-wiz'); if(!ov||!W) return;
+    if(has('istPkClose') && ov.querySelector('#istpick')) istPkClose();   // never wipe an open picker without its close
     const steps=[1,2,3,4,5].map(i=>`<button class="d2-step${W.step===i?' on':''}${i<W.step?' done':''}" data-step="${i}" type="button"><i>${i}</i><span>${t2('s'+i)}</span></button>`).join('');
     const body = W.step===1 ? wizStep1() : W.step===2 ? wizStep2() : wizSheet();
     const prev = W.step>1 ? `<button class="d2-nav" id="d2-prev" type="button">${t2('back')}</button>` : '';
@@ -213,7 +215,12 @@
   function pickRegistry(){
     if(!has('openPicker')){ say('picker'); return; }
     openPicker({host:$('#d2-wiz'), title:t2('src_reg'), isIn:inRoster, addLabel:n=>t2('pick_add',n),
-                onConfirm:async rows=>{ await addFromRegistry(rows); return false; }});
+                onConfirm:async rows=>{ await addFromRegistry(rows);
+                  // repaint AFTER the picker has closed itself (returning false → istPkClose). Repainting inside
+                  // this callback destroyed #istpick before its close ran, so its keydown handler (which eats
+                  // Space to tick a row) stayed alive and no field in the sheet could take a space.
+                  setTimeout(()=>{ if(!W) return; if(W.step>=3) renderRows(); else wizPaint(); },0);
+                  return false; }});
   }
   async function addFromRegistry(sel){
     const ids=sel.map(r=>r.person_id); let people=[];
@@ -228,7 +235,7 @@
       W.rows.push(row); n++;
       if(has('istHasVisa')) istHasVisa(id).then(v=>{ if(v===null||!W) return; if(!row.hand.visited||row._pre.visited){ row.hand.visited=v?'نعم':'كلا'; row._pre.visited=1; if(W.step>=3) renderRows(); } }).catch(()=>{});   // fact: visited ← any visa
     }
-    if(n){ W.dirty=true; wizPaint(); }
+    if(n) W.dirty=true;            // the caller repaints once the picker is gone
   }
 
   /* ── the sheet: ONE roster, two papers (same classes as Door 1's sheet → same look) ──── */
