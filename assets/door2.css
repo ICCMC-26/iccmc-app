@@ -3,6 +3,8 @@
    The legal section is a hallway with two doors: Door 1 = today's legal section exactly as it is
    (only ever shown/hidden here, never restyled); Door 2 = this file's own surfaces.
    Theme: only the app's existing tokens (--panel/--line/--ink/--copper…), so light/dark follow.
+   The sheet inside the wizard reuses the app's GLOBAL .ist-* classes (same paper, same look) —
+   it only needs its own overlay (#d2-wiz) and the few Door-2-only pieces below.
    ══════════════════════════════════════════════════════════════════════════════════════════ */
 
 /* ── the hallway: two door tabs, visible only while the legal section is open ───────────────── */
@@ -14,13 +16,12 @@ body.lawmode #law-doors{display:flex}
 .door:hover{color:var(--copper)}
 .door.on{background:var(--copper);color:#160f08;border-color:var(--copper)}
 .door .ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
-.door .door-n{font-size:11px;font-weight:600;opacity:.75;padding:1px 7px;border-radius:999px;border:1px solid currentColor}
 
 /* ── behind Door 2 the roster/Door-1 surfaces are hidden — hidden, not changed ─────────────── */
 body.door2 .hero,body.door2 .filters,body.door2 .listbar,body.door2 #results,
 body.door2 .crownseal-line,body.door2 #brief-strip{display:none!important}
 
-/* ── Door 2's own room ──────────────────────────────────────────────────────────────────────── */
+/* ── Door 2's own room: search · archived toggle · new folder · the folder list ─────────────── */
 #door2{display:none}
 body.door2 #door2{display:block}
 .d2-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
@@ -28,17 +29,67 @@ body.door2 #door2{display:block}
 .d2-sbox .ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;color:var(--muted);flex:none}
 .d2-sbox input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--ink);font:inherit;font-size:15px}
 .d2-sbox input::placeholder{color:var(--faint)}
+.d2-chip{min-height:48px;padding:0 14px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.d2-chip.on{color:var(--copper);border-color:var(--copper)}
 .d2-add{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 18px;border-radius:14px;cursor:pointer;
   background:rgba(197,149,107,.08);border:1px dashed var(--copper);color:var(--ink);font:inherit;font-size:13.5px;font-weight:700;white-space:nowrap}
 .d2-add:hover{background:rgba(197,149,107,.16);border-style:solid}
 .d2-empty{padding:42px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px;font-size:14px;line-height:1.8}
 .d2-empty b{display:block;color:var(--ink2);font-size:15px}
+.d2-empty.slim{padding:18px}
+.d2-row{cursor:pointer}
+.d2-ava .ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.d2-st{display:inline-block;margin-inline-start:8px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line);color:var(--muted);vertical-align:middle}
+.d2-st.saved{color:var(--st-ok);border-color:currentColor}
+.d2-st.draft{color:var(--st-soon);border-color:currentColor}
+.d2-lock{font-size:11px;color:var(--muted);margin-inline-start:6px}
+.d2-rowbtn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:10px;width:40px;height:40px;cursor:pointer;font-size:15px}
+.d2-rowbtn:hover{color:var(--copper);border-color:var(--copper)}
+
+/* ── the wizard overlay (same shell rule as the app's builder: fixed, opaque, scrollable) ─────── */
+#d2-wiz{position:fixed;inset:0;display:none;z-index:70;background:#17150F;overflow:auto;-webkit-overflow-scrolling:touch}
+#d2-wiz.on{display:block}
+.d2-bar{gap:10px;flex-wrap:wrap}
+.d2-steps{display:flex;gap:4px;align-items:center}
+.d2-step{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 10px;border-radius:10px;border:1px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+.d2-step i{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid currentColor;font-style:normal;font-size:11px}
+.d2-step.done{color:var(--st-ok)}
+.d2-step.on{color:#160f08;background:var(--copper);border-color:var(--copper)}
+.d2-step.on i{border-color:#160f08}
+.d2-navs{display:flex;gap:8px}
+.d2-nav{min-height:40px;padding:0 16px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}
+.d2-nav.primary{background:var(--copper);color:#160f08;border-color:var(--copper)}
+.d2-body{padding:18px 18px 60px}
+.d2-q{max-width:760px;margin:24px auto;display:flex;flex-direction:column;gap:14px}
+.d2-lbl{font-size:15px;font-weight:700;color:var(--ink)}
+.d2-in{min-height:52px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:17px;outline:none}
+.d2-in:focus{border-color:var(--copper)}
+.d2-src .ist-src-opt[disabled]{opacity:.45;cursor:not-allowed}
+.d2-roster{display:flex;flex-direction:column;gap:6px}
+.d2-rrow{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.d2-rrow b{min-width:26px;color:var(--copper)}
+.d2-rrow .d2-rnm{font-weight:700;flex:1}
+.d2-rrow small{color:var(--muted)}
+.d2-papers{display:flex;align-items:center;gap:8px;margin:0 auto 12px;max-width:1123px;flex-wrap:wrap}
+.d2-ptab{min-height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink2);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}
+.d2-ptab.on{background:var(--copper);color:#160f08;border-color:var(--copper)}
+.d2-pnote{font-size:12px;color:var(--muted)}
+.d2-rowtools{white-space:nowrap;border:none!important;background:transparent!important;width:1%}
+.ist-table .d2-rowtools{padding:0 4px}
+.d2-mv{width:22px;height:22px;border-radius:6px;border:1px solid #bbb;background:#fff;color:#333;cursor:pointer;font-size:11px;line-height:1;margin:0 1px}
+.d2-mv:hover{border-color:#8a6d3b;color:#8a6d3b}
+tr.d2-bad td{background:#fff3f3}
+#d2-wiz .ist-stage{padding-bottom:40px}
 
 /* ── phone (same breakpoint as the app's phone layer; desktop untouched) ───────────────────── */
 @media (max-width:720px){
   .door{font-size:13px;padding:0 8px}
-  .door .door-n{display:none}
   .d2-head{flex-wrap:wrap}
   .d2-sbox{flex-basis:100%}
-  .d2-add{flex:1;justify-content:center;min-height:44px}
+  .d2-add,.d2-chip{flex:1;justify-content:center;min-height:44px}
+  .d2-steps{order:3;flex-basis:100%;overflow-x:auto}
+  .d2-step span{display:none}
+  .d2-body{padding:12px 10px 60px}
+  #d2-wiz .ist-stage{justify-content:flex-start;padding:6px 6px 40px;overflow-x:auto;-webkit-overflow-scrolling:touch}
 }
+@media (max-width:1180px){ #d2-wiz .ist-stage{overflow-x:auto;justify-content:flex-start} }
