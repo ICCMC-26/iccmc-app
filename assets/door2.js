@@ -39,7 +39,8 @@
         none_ok:n=>`${n} ملفًا لا يصلح (صورة أو PDF فقط)`,
         b_building:(k,n)=>`يُبنى… ${k}/${n}`, b_papers:'تُكتب الأوراق…', b_done:'جاهز', b_error:'تعذّر البناء', b_queued:'في الطابور…',
         b_zip:'⤓ تنزيل المجلد (ZIP)', b_rebuild:'إعادة البناء', b_weak:n=>`صورة شخصية ضعيفة (من صورة الجواز الصغيرة): ${n}`, b_missing:n=>`بلا صورة: ${n}`,
-        b_started:'بدأ بناء المجلد — الصور وملفات Word', b_fail:'تعذّر الاتصال بخدمة البناء'},
+        b_started:'بدأ بناء المجلد — الصور وملفات Word', b_fail:'تعذّر الاتصال بخدمة البناء',
+        ph_add:'صورة شخصية', ph_tip:'أرفق صورة شخصية لهذا الموظف (تُستعمل بدل المقطوعة من الجواز)', ph_set:'أُرفقت الصورة — أعِد البناء لتدخل في المجلد', ph_has:'صورة مرفقة ✓'},
     en:{door1:'Procedures', door1s:'Istimara · Taahud · Grant', door2:'Legal folders', door2s:'Visa-ready folders',
         q:'Search by folder name…', add:'＋ New folder', empty_h:'No folders yet',
         empty:'Each folder = Istimara + Taahud as Word, and a «Names» folder with the passport page and portrait of every employee.',
@@ -61,7 +62,8 @@
         none_ok:n=>`${n} file(s) not usable (image or PDF only)`,
         b_building:(k,n)=>`Building… ${k}/${n}`, b_papers:'Writing the papers…', b_done:'Ready', b_error:'Build failed', b_queued:'Queued…',
         b_zip:'⤓ Download folder (ZIP)', b_rebuild:'Rebuild', b_weak:n=>`Weak portrait (cut from the small passport photo): ${n}`, b_missing:n=>`No picture: ${n}`,
-        b_started:'Building the folder — pictures and Word files', b_fail:'Could not reach the build service'}
+        b_started:'Building the folder — pictures and Word files', b_fail:'Could not reach the build service',
+        ph_add:'Portrait', ph_tip:'Attach a portrait for this employee (used instead of the one cut from the passport)', ph_set:'Portrait attached — rebuild to put it in the folder', ph_has:'Portrait attached ✓'}
   };
   const $=s=>document.querySelector(s);
   const lang=()=>document.documentElement.lang==='en'?'en':'ar';
@@ -179,6 +181,7 @@
     const st=m.row_state||'ok';
     return {person_id:m.person_id, passport_no:m.passport_no||'', name:m.name||'', nationality:m.nationality||'', passport_expiry:m.passport_expiry||'',
             hand:m.hand||{}, row_state:st, scan_hash:m.scan_hash||null, scan_job_id:m.scan_job_id||null, src_path:m.src_path||null,
+            portrait_src:m.portrait_src||null, portrait_tier:m.portrait_tier||null,
             _pre:{}, _status: st==='reading'?'processing': st==='refused'?'refused': st==='review'?'review':'landed', _hash:m.scan_hash||null, _file:null};
   }
   async function wizOpen(id){
@@ -589,7 +592,11 @@
           return `<td class="ist-hcell"><input class="ist-hin${pre?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${E(v)}" placeholder="${E(def1(c.k,W.paper))}"><button class="ist-handle" data-pick="${c.k}" data-ri="${i}" tabindex="-1" type="button"></button></td>`; }
         // EVERY passport column is editable here (a wrong letter gets the paper refused at the counter);
         // it edits the folder's roster only — the registry is never written from this table.
-        if(c.k==='_ser') return `<td class="d2-ser"><span>${i+1}</span>${x}</td>`;
+        if(c.k==='_ser'){
+          // a weak/missing portrait (after a build) or an attached one → a small picture mark; click = attach a portrait for this row
+          const weakRow=W.build&&W.build.state==='done'&&((W.build.weak||[]).includes(i+1)||(W.build.missing||[]).includes(i+1));
+          const ph=r.portrait_src?`<button class="d2-ph has" data-ph="${i}" type="button" title="${E(t2('ph_has'))}">◉</button>`:weakRow?`<button class="d2-ph" data-ph="${i}" type="button" title="${E(t2('ph_tip'))}">◎</button>`:'';
+          return `<td class="d2-ser"><span>${i+1}</span>${ph}${x}</td>`; }
         if(c.k==='nationality') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="nationality" value="${E(r.nationality?TV(r.nationality):'')}"></td>`;
         if(c.k==='passport_expiry') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="passport_expiry" value="${E(fmtD(r.passport_expiry)||'')}"></td>`;
         return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="${c.k}" value="${E(r[c.k]||'')}">${c.k==='name'?badge:''}</td>`; };
@@ -600,6 +607,7 @@
     tb.querySelectorAll('.ist-handle').forEach(b=>b.onclick=e=>{ e.stopPropagation(); cellMenu(b); });
     tb.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>removeRow(+b.dataset.rm));
     tb.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>openReview(+b.dataset.rv));
+    tb.querySelectorAll('[data-ph]').forEach(b=>b.onclick=()=>attachPortrait(+b.dataset.ph));
     // «＋ أضِف موظفين»: the same question as Door 1 — from the device or from the registry; a drop = the device
     const dz=$('#d2-drop'); if(dz){
       dz.onclick=chooseSource;
@@ -623,6 +631,19 @@
       if(!e.target.closest('.ist-src-box')) close(); };
     document.addEventListener('keydown',onKey);
     o.classList.add('on'); const first=o.querySelector('[data-src="pc"]'); if(first) first.focus();
+  }
+  // a portrait the user attaches for ONE row → Door 2's bucket (<id>/src/portrait-NN-…), used by the next build
+  function attachPortrait(i){
+    const row=W&&W.rows[i]; if(!row) return;
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+    inp.onchange=async()=>{ const f=inp.files&&inp.files[0]; if(!f) return;
+      try{ if(!W.id){ await wizSave('draft',true); if(!W.id) return; }
+        const ext=(f.name.match(/\.(jpe?g|png|webp)$/i)||[,'jpg'])[1].toLowerCase();
+        const key=`${W.id}/src/portrait-${String(i+1).padStart(2,'0')}-${Date.now().toString(36)}.${ext}`;
+        const {error}=await sb.storage.from('dossiers').upload(key, f, {upsert:true, contentType:f.type||undefined}); if(error) throw error;
+        row.portrait_src=key; W.dirty=true; renderRows(); say(t2('ph_set'));
+      }catch(e){ say((e&&e.message)||String(e)); } };
+    inp.click();
   }
   function cellMenu(btn){
     document.querySelectorAll('.ist-menu').forEach(m=>m.remove());
@@ -684,7 +705,7 @@
     if(!W) return;
     try{
       const rows=W.rows.map(r=>({person_id:r.person_id||null, passport_no:r.passport_no||'', name:r.name||'', nationality:r.nationality||'', passport_expiry:r.passport_expiry||'',
-        hand:r.hand||{}, row_state:r.row_state||'ok', scan_job_id:r.scan_job_id||null, scan_hash:r.scan_hash||null, src_path:r.src_path||null,
+        hand:r.hand||{}, row_state:r.row_state||'ok', scan_job_id:r.scan_job_id||null, scan_hash:r.scan_hash||null, src_path:r.src_path||null, portrait_src:r.portrait_src||null,
         passport_jpg:r.passport_jpg||null, portrait_jpg:r.portrait_jpg||null, portrait_tier:r.portrait_tier||null}));
       const header={...W.header, photo:W.photo||''};                 // the folder's picture travels with its header
       const {data,error}=await sb.rpc('dossier_save',{p_id:W.id, p_name:W.name, p_status:status, p_header:header, p_hand:W.hand, p_rows:rows});
