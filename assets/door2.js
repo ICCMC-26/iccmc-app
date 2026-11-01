@@ -180,9 +180,9 @@
         <button class="icon" id="d2-close" title="${E(t2('closed'))}">✕</button>
         <div class="ist-t">${ICON_FOLDER}<span class="ist-tnm">${E(W.name||t2('s1'))}</span></div>
         <span class="spacer"></span>
-        <nav class="d2-steps" aria-label="steps">${steps}</nav>
         <div class="d2-navs">${prev}${next}</div>
       </div>
+      <div class="d2-stepsrow"><nav class="d2-steps" aria-label="steps">${steps}</nav></div>
       <div class="d2-body">${body}</div></div>`;
     $('#d2-close').onclick=wizClose;
     const nx=$('#d2-next'); if(nx) nx.onclick=()=>wizGo(W.step+1);
@@ -199,8 +199,8 @@
       : `<div class="d2-empty slim">${t2('roster_empty')}</div>`;
     return `<div class="d2-q"><div class="d2-lbl">${t2('src_q')}</div>
       <div class="ist-src-opts d2-src">
-        <button class="ist-src-opt" id="d2-src-reg" type="button"><span class="ist-src-ic">⌕</span><b>${t2('src_reg')}</b><small>${t2('src_reg_s')}</small></button>
         <button class="ist-src-opt" id="d2-src-pc" type="button" disabled title="${E(t2('src_pc_soon'))}"><span class="ist-src-ic">⬆</span><b>${t2('src_pc')}</b><small>${t2('src_pc_s')} · ${t2('src_pc_soon')}</small></button>
+        <button class="ist-src-opt" id="d2-src-reg" type="button"><span class="ist-src-ic">⌕</span><b>${t2('src_reg')}</b><small>${t2('src_reg_s')}</small></button>
       </div>
       <div class="d2-lbl">${t2('roster_h',W.rows.length)}</div>${roster}</div>`;
   }
@@ -239,13 +239,14 @@
       +(defs(f.k,W.paper).length?`<button class="ist-pick" data-pick="${f.k}" tabindex="-1" type="button"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>`:'')+`</span></div>`;
     const txt=i=>{ const x=(P.texts||[])[i]; if(!x) return ''; const v=(H[x.k]!=null&&H[x.k]!=='')?H[x.k]:T1(x.d);
       return `<div class="ist-tx${x.cls?' '+x.cls:''}" contenteditable="plaintext-only" data-h="${x.k}">${E(v)}</div>`; };
-    const photoBox=P.photo?`<div class="ist-photo${W.photo?' has-img':''}">${W.photo?`<img src="${W.photo}" alt="">`:''}</div>`:'';
+    // the representative's photo box: click = pick a picture from the device (same affordance as Door 1), ✕ = clear
+    const photoBox=P.photo?`<div class="ist-photo${W.photo?' has-img':''}" id="d2-photo" title="${E(T1('ist_photo'))}">${W.photo?`<img src="${W.photo}" alt=""><button class="ist-ph-x" id="d2-ph-x" type="button" title="${E(t2('rm'))}">✕</button>`:`<span class="ist-ph-hint">${E(T1('ist_photo'))}<br>＋</span>`}</div>`:'';
     const undertaking=W.paper==='taahud'?'':`<div class="ist-undertaking">${T1('ist_undertaking_pre')} <input class="ist-in ist-in-name" data-h="authorized" value="${E(H.authorized||'')}"> ${T1('ist_undertaking_post')}</div>`;
     const authSig=W.paper==='taahud'?'':`<div class="ist-sig"><div class="ist-sig-lbl">${T1('ist_sig_auth')}</div><input class="ist-in ist-in-name ist-sig-name" data-h="authorized" value="${E(H.authorized||'')}"></div>`;
     const heads=P.cols.map(c=>`<th${c.hand?' class="ist-hcol"':''}>${T1(c.lab)}</th>`).join('');
     const cgroup=P.cols.map(c=>`<col class="c-${c.k}">`).join('');
     const tabs=`<div class="d2-papers"><button class="d2-ptab${W.paper==='istimara'?' on':''}" data-paper="istimara" type="button">${t2('p_ist')}</button><button class="d2-ptab${W.paper==='taahud'?' on':''}" data-paper="taahud" type="button">${t2('p_taa')}</button>
-      <span class="d2-pnote">${t2('one_roster')}</span><span class="spacer"></span>
+      <span class="spacer"></span>
       <button class="ist-btn2 ist-exp2 d2-word" id="d2-word" type="button"><svg viewBox="0 0 24 24" class="ist-bic"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg><span>${t2('word')}</span></button></div>`;
     return `${tabs}<div class="ist-stage"><div class="ist-page${P.land?'':' portrait'}" id="d2-page"><div class="ist-body">
       ${photoBox}${P.logo?`<img class="ist-logo" src="${P.logo}" alt="">`:''}${txt(0)}
@@ -268,32 +269,29 @@
       const cell=c=>{
         if(c.hand){ const own=!!(r.hand&&r.hand[c.k]), v=handVal(r,c.k), pre=(r._pre&&r._pre[c.k])||(!own&&!!W.hand[c.k]);
           return `<td class="ist-hcell"><input class="ist-hin${pre?' ist-pre':''}" data-ri="${i}" data-rk="${c.k}" value="${E(v)}" placeholder="${E(def1(c.k,W.paper))}"><button class="ist-handle" data-pick="${c.k}" data-ri="${i}" tabindex="-1" type="button"></button></td>`; }
-        if(c.edit) return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="${c.k}" value="${E(r[c.k]||'')}">${badge}</td>`;
-        if(c.k==='_ser') return `<td>${i+1}</td>`;
-        if(c.k==='name') return `<td>${E(r.name||'—')}${badge}</td>`;
-        if(c.k==='nationality') return `<td>${E(r.nationality?TV(r.nationality):'—')}</td>`;
-        if(c.k==='passport_expiry') return `<td>${E(fmtD(r.passport_expiry)||'—')}</td>`;
-        return `<td>${E(r[c.k]||'—')}</td>`; };
-      return `<tr class="${bad?'d2-bad':''}">${COLS.map(cell).join('')}<td class="d2-rowtools"><button class="d2-mv" data-up="${i}" type="button" title="↑">↑</button><button class="d2-mv" data-dn="${i}" type="button" title="↓">↓</button><button class="ist-rowx sm" data-rm="${i}" type="button" title="${E(t2('rm'))}">✕</button></td></tr>`;
-    }).join('')+`<tr class="ist-addrow"><td colspan="${N+1}" class="ist-drop slim" id="d2-drop">＋ ${E(T1('ist_add_more'))}</td></tr>`;
+        // EVERY passport column is editable here (a wrong letter gets the paper refused at the counter);
+        // it edits the folder's roster only — the registry is never written from this table.
+        if(c.k==='_ser') return `<td class="d2-ser"><span>${i+1}</span><button class="d2-x" data-rm="${i}" type="button" title="${E(t2('rm'))}">✕</button></td>`;
+        if(c.k==='nationality') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="nationality" value="${E(r.nationality?TV(r.nationality):'')}"></td>`;
+        if(c.k==='passport_expiry') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="passport_expiry" value="${E(fmtD(r.passport_expiry)||'')}"></td>`;
+        return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="${c.k}" value="${E(r[c.k]||'')}">${c.k==='name'?badge:''}</td>`; };
+      return `<tr class="${bad?'d2-bad':''}">${COLS.map(cell).join('')}</tr>`;
+    }).join('')+`<tr class="ist-addrow"><td colspan="${N}" class="ist-drop slim" id="d2-drop">＋ ${E(T1('ist_add_more'))}</td></tr>`;
     tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=W.rows[+inp.dataset.ri]; if(!r) return; r.hand=r.hand||{}; r.hand[inp.dataset.rk]=inp.value; if(r._pre) delete r._pre[inp.dataset.rk]; inp.classList.remove('ist-pre'); W.dirty=true; });
     tb.querySelectorAll('.ist-ein').forEach(inp=>inp.oninput=()=>{ const r=W.rows[+inp.dataset.ri]; if(r){ r[inp.dataset.rk]=inp.value; W.dirty=true; } });
     tb.querySelectorAll('.ist-handle').forEach(b=>b.onclick=e=>{ e.stopPropagation(); cellMenu(b); });
     tb.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ W.rows.splice(+b.dataset.rm,1); W.dirty=true; renderRows(); });
-    tb.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.up; if(i>0){ [W.rows[i-1],W.rows[i]]=[W.rows[i],W.rows[i-1]]; W.dirty=true; renderRows(); } });
-    tb.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dn; if(i<W.rows.length-1){ [W.rows[i+1],W.rows[i]]=[W.rows[i],W.rows[i+1]]; W.dirty=true; renderRows(); } });
-    const dz=$('#d2-drop'); if(dz) dz.onclick=pickRegistry;
+    const dz=$('#d2-drop'); if(dz) dz.onclick=pickRegistry;          // «＋ أضِف موظفين» = the registry picker, directly
   }
   function cellMenu(btn){
     document.querySelectorAll('.ist-menu').forEach(m=>m.remove());
     const k=btn.dataset.pick, ri=btn.dataset.ri, isRow=ri!==undefined&&ri!=='', list=defs(k,W.paper);
     const m=document.createElement('div'); m.className='ist-menu';
     m.innerHTML=list.map(d=>`<button data-v="${E(d.value)}" type="button"><span>${E(d.value)}</span><em>${d.seen?('×'+d.seen):''}</em></button>`).join('')
-      +(isRow?`${list.length?'<div class="ist-mdiv"></div>':''}<button class="ist-mfill" data-all="1" type="button"><span>⇊ ${E(t2('apply_all'))}</span><em></em></button><button class="ist-mfill" data-fill="1" type="button"><span>⤓ ${E(t2('fill_down'))}</span><em></em></button>`:'');
+      +(isRow?`${list.length?'<div class="ist-mdiv"></div>':''}<button class="ist-mfill" data-fill="1" type="button"><span>⤓ ${E(t2('fill_down'))}</span><em></em></button>`:'');   // same menu as Door 1: the ranked defaults + ⤓ fill-down
     (btn.closest('.ist-hcell')||btn.parentNode).appendChild(m);
     m.querySelectorAll('button').forEach(b=>b.onclick=e=>{ e.stopPropagation(); m.remove();
       if(isRow){ const r=W.rows[+ri]; const cur=r?handVal(r,k):'';
-        if(b.dataset.all){ W.hand[k]=cur; W.rows.forEach(x=>{ if(x.hand) delete x.hand[k]; }); W.dirty=true; renderRows(); return; }   // folder-level: one value for every row
         if(b.dataset.fill){ for(let j=+ri+1;j<W.rows.length;j++){ W.rows[j].hand=W.rows[j].hand||{}; W.rows[j].hand[k]=cur; } W.dirty=true; renderRows(); return; }
         if(r){ r.hand=r.hand||{}; r.hand[k]=b.dataset.v; if(r._pre) delete r._pre[k]; } W.dirty=true; renderRows(); }
       else { W.header[k]=b.dataset.v; delete W._pre[k]; document.querySelectorAll('#d2-wiz .ist-in[data-h="'+k+'"]').forEach(o=>{ o.value=b.dataset.v; o.classList.remove('ist-pre'); }); W.dirty=true; } });
@@ -308,6 +306,13 @@
     ov.querySelectorAll('.ist-tx[data-h]').forEach(el=>el.addEventListener('input',()=>{ W.header[el.dataset.h]=el.textContent; W.dirty=true; }));
     ov.querySelectorAll('[data-paper]').forEach(b=>b.onclick=()=>{ W.paper=b.dataset.paper; W.step=W.paper==='taahud'?4:3; wizPaint(); });
     const wd=$('#d2-word'); if(wd) wd.onclick=exportWord;
+    // the photo box: click → pick an image from the device → data URL (the export carries it); ✕ → clear
+    const ph=$('#d2-photo'); if(ph){
+      ph.onclick=e=>{ if(e.target.closest('#d2-ph-x')){ W.photo=null; W.dirty=true; wizPaint(); return; }
+        const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+        inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return; const fr=new FileReader();
+          fr.onload=()=>{ W.photo=fr.result; W.dirty=true; wizPaint(); }; fr.readAsDataURL(f); };
+        inp.click(); }; }
     ov.scrollTop=0;
   }
 

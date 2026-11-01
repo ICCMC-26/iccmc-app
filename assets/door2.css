@@ -74,10 +74,12 @@ body.door2 #door2{display:block}
 .d2-ptab{min-height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink2);font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}
 .d2-ptab.on{background:var(--copper);color:#160f08;border-color:var(--copper)}
 .d2-pnote{font-size:12px;color:var(--muted)}
-.d2-rowtools{white-space:nowrap;border:none!important;background:transparent!important;width:1%}
-.ist-table .d2-rowtools{padding:0 4px}
-.d2-mv{width:22px;height:22px;border-radius:6px;border:1px solid #bbb;background:#fff;color:#333;cursor:pointer;font-size:11px;line-height:1;margin:0 1px}
-.d2-mv:hover{border-color:#8a6d3b;color:#8a6d3b}
+.d2-stepsrow{display:flex;justify-content:center;padding:10px 12px 0}
+/* the serial cell carries a gentle remove ✕ — faint until the row is hovered, never outside the paper */
+.ist-table td.d2-ser{position:relative;white-space:nowrap}
+.d2-x{position:absolute;inset-inline-end:2px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;border:1px solid #c9c2b2;background:#fff;color:#9a8f7a;font-size:10px;line-height:1;cursor:pointer;opacity:.35;padding:0}
+tr:hover .d2-x{opacity:1}
+.d2-x:hover{border-color:#c0392b;color:#c0392b}
 tr.d2-bad td{background:#fff3f3}
 #d2-wiz .ist-stage{padding-bottom:40px}
 
@@ -87,7 +89,8 @@ tr.d2-bad td{background:#fff3f3}
   .d2-head{flex-wrap:wrap}
   .d2-sbox{flex-basis:100%}
   .d2-add,.d2-chip{flex:1;justify-content:center;min-height:44px}
-  .d2-steps{order:3;flex-basis:100%;overflow-x:auto}
+  .d2-stepsrow{padding:6px 6px 0}
+  .d2-steps{max-width:100%;overflow-x:auto}
   .d2-step span{display:none}
   .d2-body{padding:12px 10px 60px}
   #d2-wiz .ist-stage{justify-content:flex-start;padding:6px 6px 40px;overflow-x:auto;-webkit-overflow-scrolling:touch}
