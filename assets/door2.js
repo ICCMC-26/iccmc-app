@@ -193,7 +193,9 @@
     }
     const fh=freshHeader();
     W={ id:d?d.dossier_id:null, name:d?d.name:'', status:d?d.status:'draft',
-        header:Object.assign(fh.H, (d&&d.header)||{}), _pre:d?{}:fh.pre, hand:(d&&d.hand)||{},
+        // a NEW folder opens with the two hand columns the owner fills the same way every time, as REAL
+        // values (editable, menu still offers the alternatives) — Door 2's own defaults, Door 1's untouched
+        header:Object.assign(fh.H, (d&&d.header)||{}), _pre:d?{}:fh.pre, hand:(d&&d.hand)||{profession:'مهندس', border:'مطار بغداد'},
         rows:members.map(rowFromMember), step:d?3:1, paper:'istimara', photo:null, dirty:false,
         files:(d&&d.files)||null, build:(d&&d.build)||null };
     if(d&&d.header&&d.header.photo) W.photo=d.header.photo;                      // the folder's own picture, as saved
