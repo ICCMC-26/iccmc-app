@@ -135,6 +135,12 @@
   }
   async function startBuild(id){
     try{ const {data:{session}}=await sb.auth.getSession(); if(!session) throw new Error(T1('ik_auth'));
+      // the spinner must be there the instant Save is pressed — the folder row is marked «queued» by the
+      // client itself (the service overwrites it with «building» a moment later), and the list row in hand
+      // is marked too, so the card never shows an empty slot while the service wakes up
+      try{ await sb.from('legal_dossiers').update({build:{state:'queued',at:new Date().toISOString()}}).eq('dossier_id',id); }catch(_){}
+      { const r=L.rows.find(x=>x.dossier_id===id); if(r){ r.build={state:'queued'}; paintList(); } }
+      clearTimeout(L.tm); L.tm=setTimeout(loadList,2500);          // and the list starts following the row from here
       fetch(D2_SVC+'/build',{method:'POST',headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({dossier_id:id})}).catch(()=>{});
       say(t2('b_started'));
     }catch(e){ say(t2('b_fail')); }
@@ -149,7 +155,8 @@
     box.innerHTML=rows.map(d=>{
       const st=d.status==='saved'?'saved':d.status==='archived'?'arch':'draft';
       const lock=d.editing_by && d.editing_at && (Date.now()-new Date(d.editing_at).getTime()<15*60e3);
-      return `<div class="row d2-row" data-open="${d.dossier_id}">
+      const busy=!!(d.build&&(d.build.state==='building'||d.build.state==='queued'));   // spinning → not clickable
+      return `<div class="row d2-row${busy?' busy':''}" ${busy?'':`data-open="${d.dossier_id}"`}>
         <div class="ava d2-ava">${ICON_FOLDER}</div>
         <div class="who"><div class="nm">${E(d.name)} ${st==='draft'?`<span class="d2-st draft">${t2('st_draft')}</span>`:''}${lock?` <span class="d2-lock" title="${E(t2('locked',d.editing_by))}">✎ ${E(d.editing_by||'')}</span>`:''}</div>
           <div class="sub">${fmtDay(d.created_at)} · ${t2('members',d.n)}</div></div>
@@ -222,7 +229,7 @@
     if(_watch){ clearInterval(_watch); _watch=null; }
     W=null; const ov=$('#d2-wiz'); if(ov){ ov.classList.remove('on'); ov.innerHTML=''; } document.body.style.overflow='';
     document.removeEventListener('keydown',wizKey);
-    loadList();
+    await loadList();
   }
   const badRows=()=>W.rows.filter(r=>r.row_state==='review'||r.row_state==='refused');
   const readingRows=()=>W.rows.filter(r=>r.row_state==='reading');
@@ -682,7 +689,7 @@
       if(error) throw error;
       W.id=data; W.status=status; W.dirty=false;
       if(!quiet){ say(status==='saved'?t2('saved'):t2('draft_saved'));
-        if(status==='saved'){ startBuild(W.id); wizCloseNow(); } }   // saved → Door 2's service builds the pictures + Word + ZIP
+        if(status==='saved'){ const id=W.id; await wizCloseNow(); startBuild(id); } }   // saved → the list shows the spinner at once, then Door 2's service builds
     }catch(e){ console.warn('door2 save',e); say((e&&e.message)||String(e)); }
   }
 

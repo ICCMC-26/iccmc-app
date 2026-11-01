@@ -38,6 +38,7 @@ body.door2 #door2{display:block}
 .d2-empty b{display:block;color:var(--ink2);font-size:15px}
 .d2-empty.slim{padding:18px}
 .d2-row{cursor:pointer}
+.d2-row.busy{cursor:default;opacity:.85}
 .d2-ava{background:var(--card);color:var(--copper)}
 .d2-ava .ic{width:24px;height:24px;display:block}
 /* the build spinner: the app's own spinner, small, inline, no words (no spinner = ready) */
