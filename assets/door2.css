@@ -103,6 +103,12 @@ tr.d2-review td{background:#fff8e6}
 #d2-drop.over{background:rgba(197,149,107,.16)}
 @media (max-width:720px){ #d2-src{padding:0;align-items:flex-end} #d2-src .ist-src-box{border-radius:18px 18px 0 0;border-bottom:0;width:100%} }
 
+/* ── the build strip (after Save: the service's pictures + Word + ZIP) ─────────────────── */
+.d2-bstrip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 18px 0;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.d2-bflag{font-size:12.5px;color:var(--st-soon)}
+.d2-zipbtn{background:transparent;border:1px solid var(--copper);color:var(--copper);border-radius:10px;min-height:40px;padding:0 12px;cursor:pointer;font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap}
+.d2-zipbtn:hover{background:rgba(197,149,107,.14)}
+
 /* ── the review walk bar (Door 2's own ‹ › over the inbox's pane) ───────────────────────── */
 #d2-rvbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:90;display:none;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;
   background:var(--panel);border:1px solid var(--copper);box-shadow:0 10px 30px rgba(0,0,0,.35)}

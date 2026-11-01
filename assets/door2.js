@@ -36,7 +36,10 @@
         fill_down:'نسخ إلى الصفوف تحتها', close_q:'تغييرات غير محفوظة — حفظ كمسودة؟',
         closed:'إغلاق', p_ist:'الاستمارة', p_taa:'التعهد',
         pick_add:n=>`إضافة ${n} إلى المجلد`, rv_of:(k,n)=>`⚑ ${k} / ${n}`, rv_prev:'‹ السابق', rv_next:'التالي ›', rv_done:'اكتملت مراجعة المجلد ✓',
-        none_ok:n=>`${n} ملفًا لا يصلح (صورة أو PDF فقط)`},
+        none_ok:n=>`${n} ملفًا لا يصلح (صورة أو PDF فقط)`,
+        b_building:(k,n)=>`يُبنى… ${k}/${n}`, b_papers:'تُكتب الأوراق…', b_done:'جاهز', b_error:'تعذّر البناء', b_queued:'في الطابور…',
+        b_zip:'⤓ تنزيل المجلد (ZIP)', b_rebuild:'إعادة البناء', b_weak:n=>`صورة شخصية ضعيفة (من صورة الجواز الصغيرة): ${n}`, b_missing:n=>`بلا صورة: ${n}`,
+        b_started:'بدأ بناء المجلد — الصور وملفات Word', b_fail:'تعذّر الاتصال بخدمة البناء'},
     en:{door1:'Procedures', door1s:'Istimara · Taahud · Grant', door2:'Legal folders', door2s:'Visa-ready folders',
         q:'Search by folder name…', add:'＋ New folder', empty_h:'No folders yet',
         empty:'Each folder = Istimara + Taahud as Word, and a «Names» folder with the passport page and portrait of every employee.',
@@ -55,7 +58,10 @@
         fill_down:'Copy to the rows below', close_q:'Unsaved changes — save as draft?',
         closed:'Close', p_ist:'Istimara', p_taa:'Taahud',
         pick_add:n=>`Add ${n} to the folder`, rv_of:(k,n)=>`⚑ ${k} / ${n}`, rv_prev:'‹ Previous', rv_next:'Next ›', rv_done:'Folder review complete ✓',
-        none_ok:n=>`${n} file(s) not usable (image or PDF only)`}
+        none_ok:n=>`${n} file(s) not usable (image or PDF only)`,
+        b_building:(k,n)=>`Building… ${k}/${n}`, b_papers:'Writing the papers…', b_done:'Ready', b_error:'Build failed', b_queued:'Queued…',
+        b_zip:'⤓ Download folder (ZIP)', b_rebuild:'Rebuild', b_weak:n=>`Weak portrait (cut from the small passport photo): ${n}`, b_missing:n=>`No picture: ${n}`,
+        b_started:'Building the folder — pictures and Word files', b_fail:'Could not reach the build service'}
   };
   const $=s=>document.querySelector(s);
   const lang=()=>document.documentElement.lang==='en'?'en':'ar';
@@ -68,6 +74,8 @@
   const T1=(k,...a)=>has('t')?t(k,...a):k;                 // the app's own labels (ist_c_name …) — same words as Door 1
   const fmtD=s=>has('istFmtDate')?istFmtDate(s):String(s||'');
   const TV=v=>has('tv')?tv(v):v;
+  // Door 2's OWN service (Cloud Run `iccmc-dossier`): builds the pictures + Word + ZIP after Save
+  const D2_SVC='https://iccmc-dossier-597451901566.europe-west1.run.app';
 
   /* ── the hallway ──────────────────────────────────────────────────────────────────────── */
   let door='door1';
@@ -95,13 +103,31 @@
     if(!has('sb')) return;
     try{
       const {data,error}=await sb.from('legal_dossiers')
-        .select('dossier_id,name,status,created_at,saved_at,updated_at,editing_by,editing_at,legal_dossier_members(count)')
+        .select('dossier_id,name,status,created_at,saved_at,updated_at,editing_by,editing_at,build,files,legal_dossier_members(count)')
         .order('created_at',{ascending:false}).limit(500);
       if(error) throw error;
       L.rows=(data||[]).map(d=>({...d, n:(d.legal_dossier_members&&d.legal_dossier_members[0]&&d.legal_dossier_members[0].count)||0}));
       L.loaded=true;
     }catch(e){ console.warn('door2 list',e); say((e&&e.message)||String(e)); }
     paintList();
+    // a folder still building → the list refreshes itself until it is done (one timer, never two)
+    clearTimeout(L.tm); if(L.rows.some(d=>d.build&&(d.build.state==='building'||d.build.state==='queued'))) L.tm=setTimeout(loadList,4000);
+  }
+  const buildChip=b=>{ if(!b||!b.state) return '';
+    const s=b.state, cls=s==='done'?'ok':s==='error'?'refused':'reading';
+    const txt=s==='building'?(b.step==='papers'?t2('b_papers'):t2('b_building',b.done||0,b.n||0)):s==='done'?t2('b_done'):s==='error'?t2('b_error'):t2('b_queued');
+    return `<span class="d2-chipst ${cls}" title="${E(b.error||'')}">${E(txt)}</span>`; };
+  async function downloadZip(id, files){
+    if(!files||!files.zip) return;
+    try{ const {data,error}=await sb.storage.from('dossiers').createSignedUrl(files.zip,120); if(error||!data) throw error||new Error('sign');
+      const a=document.createElement('a'); a.href=data.signedUrl; a.download='folder.zip'; document.body.appendChild(a); a.click(); a.remove(); }
+    catch(e){ say((e&&e.message)||String(e)); }
+  }
+  async function startBuild(id){
+    try{ const {data:{session}}=await sb.auth.getSession(); if(!session) throw new Error(T1('ik_auth'));
+      fetch(D2_SVC+'/build',{method:'POST',headers:{'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({dossier_id:id})}).catch(()=>{});
+      say(t2('b_started'));
+    }catch(e){ say(t2('b_fail')); }
   }
   const fmtDay=s=>{ try{ return new Date(s).toLocaleDateString(lang()==='ar'?'ar-IQ-u-nu-latn':'en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(_){ return String(s||'').slice(0,10); } };
   function paintList(){
@@ -115,12 +141,14 @@
       const lock=d.editing_by && d.editing_at && (Date.now()-new Date(d.editing_at).getTime()<15*60e3);
       return `<div class="row d2-row" data-open="${d.dossier_id}">
         <div class="ava d2-ava">${ICON_FOLDER}</div>
-        <div class="who"><div class="nm">${E(d.name)} <span class="d2-st ${st}">${t2('st_'+st)}</span>${lock?` <span class="d2-lock" title="${E(t2('locked',d.editing_by))}">✎ ${E(d.editing_by||'')}</span>`:''}</div>
+        <div class="who"><div class="nm">${E(d.name)} <span class="d2-st ${st}">${t2('st_'+st)}</span>${buildChip(d.build)}${lock?` <span class="d2-lock" title="${E(t2('locked',d.editing_by))}">✎ ${E(d.editing_by||'')}</span>`:''}</div>
           <div class="sub">${fmtDay(d.created_at)} · ${t2('members',d.n)}</div></div>
+        ${(d.files&&d.files.zip&&d.build&&d.build.state==='done')?`<button class="d2-zipbtn" data-zip="${d.dossier_id}" title="${E(t2('b_zip'))}">⤓ ZIP</button>`:''}
       </div>`; }).join('');
     // no archive / remove control here on purpose: the app's UI never deletes or hides a record — a folder
     // leaves the list only by an admin at the database (dossier_archive stays an admin-side RPC)
-    box.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>wizOpen(+el.dataset.open));
+    box.querySelectorAll('[data-open]').forEach(el=>el.onclick=e=>{ if(e.target.closest('[data-zip]')) return; wizOpen(+el.dataset.open); });
+    box.querySelectorAll('[data-zip]').forEach(b=>b.onclick=()=>{ const d=L.rows.find(x=>x.dossier_id===+b.dataset.zip); if(d) downloadZip(d.dossier_id,d.files); });
   }
 
   /* ── the wizard: ① اسم المجلد → ② الموظفون → ③ الاستمارة → ④ التعهد → ⑤ حفظ ─────────── */
@@ -149,8 +177,10 @@
     const fh=freshHeader();
     W={ id:d?d.dossier_id:null, name:d?d.name:'', status:d?d.status:'draft',
         header:Object.assign(fh.H, (d&&d.header)||{}), _pre:d?{}:fh.pre, hand:(d&&d.hand)||{},
-        rows:members.map(rowFromMember), step:d?3:1, paper:'istimara', photo:null, dirty:false };
-    if(has('istRepPhoto')){ try{ W.photo=await istRepPhoto()||null; }catch(_){} }
+        rows:members.map(rowFromMember), step:d?3:1, paper:'istimara', photo:null, dirty:false,
+        files:(d&&d.files)||null, build:(d&&d.build)||null };
+    if(d&&d.header&&d.header.photo) W.photo=d.header.photo;                      // the folder's own picture, as saved
+    else if(has('istRepPhoto')){ try{ W.photo=await istRepPhoto()||null; }catch(_){} }
     let ov=$('#d2-wiz'); if(!ov){ ov=document.createElement('div'); ov.id='d2-wiz'; document.body.appendChild(ov); }
     ov.classList.add('on'); document.body.style.overflow='hidden';
     document.addEventListener('keydown',wizKey);
@@ -214,14 +244,39 @@
         <div class="d2-navs">${prev}${next}</div>
       </div>
       <div class="d2-stepsrow"><nav class="d2-steps" aria-label="steps">${steps}</nav></div>
+      ${buildStrip()}
       <div class="d2-body">${body}</div></div>`;
     $('#d2-close').onclick=wizClose;
+    const zb=$('#d2-zip'); if(zb) zb.onclick=()=>downloadZip(W.id,W.files);
+    const rb=$('#d2-rebuild'); if(rb) rb.onclick=async()=>{ if(W.dirty) await wizSave(W.status==='saved'?'saved':'draft',true); if(W.id){ W.build={state:'queued'}; wizPaint(); startBuild(W.id); } };
+    pollBuild();
     const nx=$('#d2-next'); if(nx) nx.onclick=()=>wizGo(W.step+1);
     const pv=$('#d2-prev'); if(pv) pv.onclick=()=>wizGo(W.step-1);
     ov.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>wizGo(+b.dataset.step));
     if(W.step===1){ const inp=$('#d2-name'); inp.oninput=()=>{ W.name=inp.value; W.dirty=true; }; inp.onkeydown=e=>{ if(e.key==='Enter') wizGo(2); }; inp.focus(); }
     if(W.step===2) wireStep2();
     if(W.step>=3) wireSheet();
+  }
+  // the build strip: what the service made of this folder (ZIP · rebuild · which portraits are weak/missing)
+  function buildStrip(){
+    if(!W||!W.id||!(W.build&&W.build.state)) return '';
+    const b=W.build, done=b.state==='done';
+    const flags=[]; if(done&&b.weak&&b.weak.length) flags.push(t2('b_weak',b.weak.map(n=>String(n).padStart(2,'0')).join('، ')));
+    if(done&&b.missing&&b.missing.length) flags.push(t2('b_missing',b.missing.map(n=>String(n).padStart(2,'0')).join('، ')));
+    return `<div class="d2-bstrip">${buildChip(b)}${flags.map(f=>`<span class="d2-bflag">⚑ ${E(f)}</span>`).join('')}<span class="spacer"></span>
+      ${done&&W.files&&W.files.zip?`<button class="d2-nav primary" id="d2-zip" type="button">${t2('b_zip')}</button>`:''}
+      ${(done||b.state==='error')?`<button class="d2-nav" id="d2-rebuild" type="button">${t2('b_rebuild')}</button>`:''}</div>`;
+  }
+  let _bpoll=null;
+  function pollBuild(){                      // while the service builds, the strip follows the DB row
+    clearTimeout(_bpoll); if(!W||!W.id||!W.build||!(W.build.state==='building'||W.build.state==='queued')) return;
+    _bpoll=setTimeout(async()=>{ if(!W) return;
+      try{ const {data}=await sb.from('legal_dossiers').select('build,files').eq('dossier_id',W.id).single();
+        if(data&&W){ const was=JSON.stringify(W.build); W.build=data.build; W.files=data.files;
+          if(JSON.stringify(W.build)!==was){ const s=$('#d2-wiz .d2-bstrip'); if(s) s.outerHTML=buildStrip(); else { const r=$('#d2-wiz .d2-stepsrow'); if(r) r.insertAdjacentHTML('afterend',buildStrip()); }
+            const zb=$('#d2-zip'); if(zb) zb.onclick=()=>downloadZip(W.id,W.files); const rb=$('#d2-rebuild'); if(rb) rb.onclick=()=>{ W.build={state:'queued'}; wizPaint(); startBuild(W.id); }; } }
+      }catch(_){}
+      pollBuild(); },3000);
   }
   function wizStep1(){ return `<div class="d2-q"><label class="d2-lbl" for="d2-name">${t2('s1')}</label>
     <input class="d2-in" id="d2-name" value="${E(W.name)}" placeholder="${E(t2('name_ph'))}" autocomplete="off"></div>`; }
@@ -611,10 +666,12 @@
       const rows=W.rows.map(r=>({person_id:r.person_id||null, passport_no:r.passport_no||'', name:r.name||'', nationality:r.nationality||'', passport_expiry:r.passport_expiry||'',
         hand:r.hand||{}, row_state:r.row_state||'ok', scan_job_id:r.scan_job_id||null, scan_hash:r.scan_hash||null, src_path:r.src_path||null,
         passport_jpg:r.passport_jpg||null, portrait_jpg:r.portrait_jpg||null, portrait_tier:r.portrait_tier||null}));
-      const {data,error}=await sb.rpc('dossier_save',{p_id:W.id, p_name:W.name, p_status:status, p_header:W.header, p_hand:W.hand, p_rows:rows});
+      const header={...W.header, photo:W.photo||''};                 // the folder's picture travels with its header
+      const {data,error}=await sb.rpc('dossier_save',{p_id:W.id, p_name:W.name, p_status:status, p_header:header, p_hand:W.hand, p_rows:rows});
       if(error) throw error;
       W.id=data; W.status=status; W.dirty=false;
-      if(!quiet){ say(status==='saved'?t2('saved'):t2('draft_saved')); if(status==='saved') wizCloseNow(); }
+      if(!quiet){ say(status==='saved'?t2('saved'):t2('draft_saved'));
+        if(status==='saved'){ startBuild(W.id); wizCloseNow(); } }   // saved → Door 2's service builds the pictures + Word + ZIP
     }catch(e){ console.warn('door2 save',e); say((e&&e.message)||String(e)); }
   }
 
