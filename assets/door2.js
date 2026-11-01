@@ -151,9 +151,9 @@
       const lock=d.editing_by && d.editing_at && (Date.now()-new Date(d.editing_at).getTime()<15*60e3);
       return `<div class="row d2-row" data-open="${d.dossier_id}">
         <div class="ava d2-ava">${ICON_FOLDER}</div>
-        <div class="who"><div class="nm">${E(d.name)} ${st==='draft'?`<span class="d2-st draft">${t2('st_draft')}</span>`:''}${buildMark(d.build,d.dossier_id)}${lock?` <span class="d2-lock" title="${E(t2('locked',d.editing_by))}">✎ ${E(d.editing_by||'')}</span>`:''}</div>
+        <div class="who"><div class="nm">${E(d.name)} ${st==='draft'?`<span class="d2-st draft">${t2('st_draft')}</span>`:''}${lock?` <span class="d2-lock" title="${E(t2('locked',d.editing_by))}">✎ ${E(d.editing_by||'')}</span>`:''}</div>
           <div class="sub">${fmtDay(d.created_at)} · ${t2('members',d.n)}</div></div>
-        ${(d.files&&d.files.zip&&d.build&&d.build.state==='done')?`<button class="d2-zipbtn" data-zip="${d.dossier_id}" title="${E(t2('b_zip'))}">⤓ ZIP</button>`:''}
+        <div class="d2-slot">${buildMark(d.build,d.dossier_id)}${(d.files&&d.files.zip&&d.build&&d.build.state==='done')?`<button class="d2-zipbtn" data-zip="${d.dossier_id}" title="${E(t2('b_zip'))}">⤓ ZIP</button>`:''}</div>
       </div>`; }).join('');
     // no archive / remove control here on purpose: the app's UI never deletes or hides a record — a folder
     // leaves the list only by an admin at the database (dossier_archive stays an admin-side RPC)

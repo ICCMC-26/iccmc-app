@@ -41,7 +41,9 @@ body.door2 #door2{display:block}
 .d2-ava{background:var(--card);color:var(--copper)}
 .d2-ava .ic{width:24px;height:24px;display:block}
 /* the build spinner: the app's own spinner, small, inline, no words (no spinner = ready) */
-.d2-spin{display:inline-block;width:16px;height:16px;border-width:2px;margin:0 8px;vertical-align:middle}
+.d2-spin{display:inline-block;width:18px;height:18px;border-width:2px;margin:0;vertical-align:middle}
+/* the card's action slot (the card's end = the left side in Arabic): spinner while building → «✓ جاهز» for a moment → the ZIP button stays */
+.d2-slot{display:flex;align-items:center;gap:8px;flex:none;min-width:40px;justify-content:center}
 .d2-fade{animation:d2fade 4s forwards}
 @keyframes d2fade{0%,70%{opacity:1}100%{opacity:0}}
 .d2-st{display:inline-block;margin-inline-start:8px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line);color:var(--muted);vertical-align:middle}
