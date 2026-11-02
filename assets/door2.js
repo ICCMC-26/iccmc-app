@@ -107,7 +107,7 @@
     try{
       const {data,error}=await sb.from('legal_dossiers')
         .select('dossier_id,name,status,created_at,saved_at,updated_at,editing_by,editing_at,build,files,legal_dossier_members(count)')
-        .order('created_at',{ascending:false}).limit(500);
+        .order('updated_at',{ascending:false}).limit(500);     // last edited/saved on top — the universal order
       if(error) throw error;
       // a build that just finished while the list was watching says «جاهز ✓» once, then the mark disappears:
       // no spinner = ready. (Only the transition is announced — a folder opened later shows nothing.)
@@ -303,12 +303,13 @@
   }
   function wizStep1(){ return `<div class="d2-q"><label class="d2-lbl" for="d2-name">${t2('s1')}</label>
     <input class="d2-in" id="d2-name" value="${E(W.name)}" placeholder="${E(t2('name_ph'))}" autocomplete="off"></div>`; }
-  const stateChip=r=>r.row_state==='reading'?`<span class="d2-chipst reading">${E(has('istRowStatusTxt')?(istRowStatusTxt(r)||t2('reading')):t2('reading'))}</span>`
-    : r.row_state==='review'?`<span class="d2-chipst review">⚑ ${t2('review')}</span>`
+  // the step-② chip for a parked row is PRESSABLE: review here (same pane) or later in the sheet — either way
+  const stateChip=(r,i)=>r.row_state==='reading'?`<span class="d2-chipst reading">${E(has('istRowStatusTxt')?(istRowStatusTxt(r)||t2('reading')):t2('reading'))}</span>`
+    : r.row_state==='review'?`<button class="d2-chipst review d2-rvchip" data-rv="${i}" type="button" title="${E(T1('rv_ask'))}">⚑ ${t2('review')}</button>`
     : r.row_state==='refused'?`<span class="d2-chipst refused" title="${E(r._err||'')}">✕ ${t2('refused')}${r._err?' · '+E(r._err):''}</span>`
     : r._preexisting?`<span class="d2-chipst ok">✓ ${t2('pre')}</span>`:'';
   function wizStep2(){
-    const roster=W.rows.length? `<div class="d2-roster" id="d2-roster">${W.rows.map((r,i)=>`<div class="d2-rrow${r.row_state!=='ok'?' '+r.row_state:''}"><b>${i+1}</b><span class="d2-rnm">${E(r.name||(r._file&&r._file.name)||'…')}</span><small>${E(r.passport_no||'')}${r.passport_no?' · ':''}${E(TV(r.nationality||''))}</small>${stateChip(r)}<button class="ist-rowx sm" data-rm="${i}" title="${E(t2('rm'))}">✕</button></div>`).join('')}</div>`
+    const roster=W.rows.length? `<div class="d2-roster" id="d2-roster">${W.rows.map((r,i)=>`<div class="d2-rrow${r.row_state!=='ok'?' '+r.row_state:''}"><b>${i+1}</b><span class="d2-rnm">${E(r.name||(r._file&&r._file.name)||'…')}</span><small>${E(r.passport_no||'')}${r.passport_no?' · ':''}${E(TV(r.nationality||''))}</small>${stateChip(r,i)}<button class="ist-rowx sm" data-rm="${i}" title="${E(t2('rm'))}">✕</button></div>`).join('')}</div>`
       : `<div class="d2-empty slim">${t2('roster_empty')}</div>`;
     return `<div class="d2-q" id="d2-step2"><div class="d2-lbl">${t2('src_q')}</div>
       <div class="ist-src-opts d2-src">
@@ -326,6 +327,7 @@
     z.ondragover=e=>{ e.preventDefault(); z.classList.add('over'); }; z.ondragleave=()=>z.classList.remove('over');
     z.ondrop=async e=>{ e.preventDefault(); z.classList.remove('over'); const fs=await filesFromDrop(e.dataTransfer); if(fs.length) addFromDevice(fs); };
     document.querySelectorAll('#d2-wiz [data-rm]').forEach(b=>b.onclick=()=>removeRow(+b.dataset.rm));
+    document.querySelectorAll('#d2-wiz [data-rv]').forEach(b=>b.onclick=()=>openReview(+b.dataset.rv));
   }
   const inRoster=r=>{ const no=String((r&&r.passport_no)||'').trim(), pid=r&&r.person_id;
     return W.rows.some(x=>(pid&&x.person_id===pid)||(no&&String(x.passport_no||'').trim()===no)); };
@@ -599,7 +601,9 @@
           return `<td class="d2-ser"><span>${i+1}</span>${ph}${x}</td>`; }
         if(c.k==='nationality') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="nationality" value="${E(r.nationality?TV(r.nationality):'')}"></td>`;
         if(c.k==='passport_expiry') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="passport_expiry" value="${E(fmtD(r.passport_expiry)||'')}"></td>`;
-        return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="${c.k}" value="${E(r[c.k]||'')}">${c.k==='name'?badge:''}</td>`; };
+        // the name cell is a flex row: the input takes the width, the ⚑ sits at the cell's END — the same spot on every row
+        if(c.k==='name') return `<td class="ist-ecell d2-namecell"><input class="ist-ein" data-ri="${i}" data-rk="name" value="${E(r.name||'')}">${badge}</td>`;
+        return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="${c.k}" value="${E(r[c.k]||'')}"></td>`; };
       return `<tr class="${bad?'d2-bad d2-review':''}">${COLS.map(cell).join('')}</tr>`;
     }).join('')+`<tr class="ist-addrow"><td colspan="${N}" class="ist-drop slim" id="d2-drop">＋ ${E(T1('ist_add_more'))}</td></tr>`;
     tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=W.rows[+inp.dataset.ri]; if(!r) return; r.hand=r.hand||{}; r.hand[inp.dataset.rk]=inp.value; if(r._pre) delete r._pre[inp.dataset.rk]; inp.classList.remove('ist-pre'); W.dirty=true; });

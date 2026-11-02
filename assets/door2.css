@@ -92,6 +92,12 @@ tr:hover .d2-x{opacity:1}
 .d2-ph.has{color:#2e9e5b;border-color:#2e9e5b}
 .d2-x:hover{border-color:#c0392b;color:#c0392b}
 tr.d2-bad td{background:#fff3f3}
+/* the name cell: input + a ⚑ pinned at the cell's end (a consistent place on every parked row) */
+.ist-table td.d2-namecell{display:flex;align-items:center;gap:6px}
+.ist-table td.d2-namecell .ist-ein{flex:1;min-width:0}
+.ist-table td.d2-namecell .ist-review{flex:none;margin:0}
+.d2-rvchip{cursor:pointer;font:inherit;background:transparent}
+.d2-rvchip:hover{filter:brightness(1.15)}
 tr.d2-review td{background:#fff8e6}
 .d2-fn{color:#8a8270;font-weight:400;font-size:11px;margin-inline-start:6px}
 
