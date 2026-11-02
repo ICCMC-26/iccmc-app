@@ -40,7 +40,7 @@
         b_building:(k,n)=>`يُبنى… ${k}/${n}`, b_papers:'تُكتب الأوراق…', b_done:'جاهز', b_error:'تعذّر البناء', b_queued:'في الطابور…',
         b_zip:'⤓ تنزيل المجلد (ZIP)', b_rebuild:'إعادة البناء', b_weak:n=>`صورة شخصية ضعيفة (من صورة الجواز الصغيرة): ${n}`, b_missing:n=>`بلا صورة: ${n}`,
         b_started:'بدأ بناء المجلد — الصور وملفات Word', b_fail:'تعذّر الاتصال بخدمة البناء',
-        ph_add:'صورة شخصية', ph_tip:'أرفق صورة شخصية لهذا الموظف (تُستعمل بدل المقطوعة من الجواز)', ph_set:'أُرفقت الصورة — أعِد البناء لتدخل في المجلد', ph_has:'صورة مرفقة ✓'},
+        flag_ph:'يُكتب عند المراجعة', ph_add:'صورة شخصية', ph_tip:'أرفق صورة شخصية لهذا الموظف (تُستعمل بدل المقطوعة من الجواز)', ph_set:'أُرفقت الصورة — أعِد البناء لتدخل في المجلد', ph_has:'صورة مرفقة ✓'},
     en:{door1:'Procedures', door1s:'Istimara · Taahud · Grant', door2:'Legal folders', door2s:'Visa-ready folders',
         q:'Search by folder name…', add:'＋ New folder', empty_h:'No folders yet',
         empty:'Each folder = Istimara + Taahud as Word, and a «Names» folder with the passport page and portrait of every employee.',
@@ -63,7 +63,7 @@
         b_building:(k,n)=>`Building… ${k}/${n}`, b_papers:'Writing the papers…', b_done:'Ready', b_error:'Build failed', b_queued:'Queued…',
         b_zip:'⤓ Download folder (ZIP)', b_rebuild:'Rebuild', b_weak:n=>`Weak portrait (cut from the small passport photo): ${n}`, b_missing:n=>`No picture: ${n}`,
         b_started:'Building the folder — pictures and Word files', b_fail:'Could not reach the build service',
-        ph_add:'Portrait', ph_tip:'Attach a portrait for this employee (used instead of the one cut from the passport)', ph_set:'Portrait attached — rebuild to put it in the folder', ph_has:'Portrait attached ✓'}
+        flag_ph:'typed at review', ph_add:'Portrait', ph_tip:'Attach a portrait for this employee (used instead of the one cut from the passport)', ph_set:'Portrait attached — rebuild to put it in the folder', ph_has:'Portrait attached ✓'}
   };
   const $=s=>document.querySelector(s);
   const lang=()=>document.documentElement.lang==='en'?'en':'ar';
@@ -484,7 +484,14 @@
       // the same passport twice in one folder → this row is refused quietly, the first keeps the place
       const twin=W.rows.find(x=>x!==row && x.row_state!=='refused' && x.passport_no && x.passport_no===row.passport_no);
       if(twin){ row.row_state='refused'; row._status='refused'; row._err=t2('dup'); row._job=j; return true; }
-      if(j.status==='pending-review'||j.status==='needs-linking'){ row.row_state='review'; row._status='review'; row._job=j; return true; }
+      if(j.status==='pending-review'||j.status==='needs-linking'){
+        // THE PANE'S RULE, here too: a FLAGGED field is a GUESS about what is printed (the worker read the
+        // page's vertical personal number as a passport number at 0.60) — it is never shown as if true. The
+        // cell stays EMPTY until the reviewer types it; ikDoAdd then writes the typed value back into the row.
+        const fl=new Set(j.flagged||[]); row._flag={};
+        [['name_latin','name'],['nationality','nationality'],['passport_no','passport_no'],['passport_expiry','passport_expiry']]
+          .forEach(([src,k])=>{ if(fl.has(src)||fl.has(k)){ row[k]=''; row._flag[k]=1; } });
+        row.row_state='review'; row._status='review'; row._job=j; return true; }
       if(row._committing) return true;
       row._committing=true; row._status='committing'; repaintRow();
       try{ const res=await ikCommitSerial(j,{...f});                  // the intake's own commit — the person enters the registry
@@ -495,7 +502,7 @@
     return true;
   }
   function landed(row,f,pid){
-    row.row_state='ok'; row._status='landed'; row._job=null; if(pid) row.person_id=pid; W.dirty=true;
+    row.row_state='ok'; row._status='landed'; row._job=null; row._flag=null; if(pid) row.person_id=pid; W.dirty=true;
     facts(row, f, row.person_id||null);
   }
   async function removeRow(i){
@@ -599,11 +606,12 @@
           const weakRow=W.build&&W.build.state==='done'&&((W.build.weak||[]).includes(i+1)||(W.build.missing||[]).includes(i+1));
           const ph=r.portrait_src?`<button class="d2-ph has" data-ph="${i}" type="button" title="${E(t2('ph_has'))}">◉</button>`:weakRow?`<button class="d2-ph" data-ph="${i}" type="button" title="${E(t2('ph_tip'))}">◎</button>`:'';
           return `<td class="d2-ser"><span>${i+1}</span>${ph}${x}</td>`; }
-        if(c.k==='nationality') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="nationality" value="${E(r.nationality?TV(r.nationality):'')}"></td>`;
-        if(c.k==='passport_expiry') return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="passport_expiry" value="${E(fmtD(r.passport_expiry)||'')}"></td>`;
+        const ph=k=>(r._flag&&r._flag[k])?` placeholder="${E(t2('flag_ph'))}" class="ist-ein d2-flagged"`:` class="ist-ein"`;   // a flagged cell says it waits for the review
+        if(c.k==='nationality') return `<td class="ist-ecell"><input${ph('nationality')} data-ri="${i}" data-rk="nationality" value="${E(r.nationality?TV(r.nationality):'')}"></td>`;
+        if(c.k==='passport_expiry') return `<td class="ist-ecell"><input${ph('passport_expiry')} data-ri="${i}" data-rk="passport_expiry" value="${E(fmtD(r.passport_expiry)||'')}"></td>`;
         // the name cell is a flex row: the input takes the width, the ⚑ sits at the cell's END — the same spot on every row
-        if(c.k==='name') return `<td class="ist-ecell d2-namecell"><input class="ist-ein" data-ri="${i}" data-rk="name" value="${E(r.name||'')}">${badge}</td>`;
-        return `<td class="ist-ecell"><input class="ist-ein" data-ri="${i}" data-rk="${c.k}" value="${E(r[c.k]||'')}"></td>`; };
+        if(c.k==='name') return `<td class="ist-ecell d2-namecell"><input${ph('name')} data-ri="${i}" data-rk="name" value="${E(r.name||'')}">${badge}</td>`;
+        return `<td class="ist-ecell"><input${ph(c.k)} data-ri="${i}" data-rk="${c.k}" value="${E(r[c.k]||'')}"></td>`; };
       return `<tr class="${bad?'d2-bad d2-review':''}">${COLS.map(cell).join('')}</tr>`;
     }).join('')+`<tr class="ist-addrow"><td colspan="${N}" class="ist-drop slim" id="d2-drop">＋ ${E(T1('ist_add_more'))}</td></tr>`;
     tb.querySelectorAll('.ist-hin').forEach(inp=>inp.oninput=()=>{ const r=W.rows[+inp.dataset.ri]; if(!r) return; r.hand=r.hand||{}; r.hand[inp.dataset.rk]=inp.value; if(r._pre) delete r._pre[inp.dataset.rk]; inp.classList.remove('ist-pre'); W.dirty=true; });
