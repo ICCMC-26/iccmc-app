@@ -606,7 +606,7 @@
           const weakRow=W.build&&W.build.state==='done'&&((W.build.weak||[]).includes(i+1)||(W.build.missing||[]).includes(i+1));
           const ph=r.portrait_src?`<button class="d2-ph has" data-ph="${i}" type="button" title="${E(t2('ph_has'))}">◉</button>`:weakRow?`<button class="d2-ph" data-ph="${i}" type="button" title="${E(t2('ph_tip'))}">◎</button>`:'';
           return `<td class="d2-ser"><span>${i+1}</span>${ph}${x}</td>`; }
-        const ph=k=>(r._flag&&r._flag[k])?` placeholder="${E(t2('flag_ph'))}" class="ist-ein d2-flagged"`:` class="ist-ein"`;   // a flagged cell says it waits for the review
+        const ph=k=>` class="ist-ein"`;   // a flagged cell is simply BLANK (owner: no note in the cell) until the reviewer types it
         if(c.k==='nationality') return `<td class="ist-ecell"><input${ph('nationality')} data-ri="${i}" data-rk="nationality" value="${E(r.nationality?TV(r.nationality):'')}"></td>`;
         if(c.k==='passport_expiry') return `<td class="ist-ecell"><input${ph('passport_expiry')} data-ri="${i}" data-rk="passport_expiry" value="${E(fmtD(r.passport_expiry)||'')}"></td>`;
         // the name cell is a flex row: the input takes the width, the ⚑ sits at the cell's END — the same spot on every row
