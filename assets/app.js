@@ -3684,7 +3684,9 @@ function istFresh(paper){
   const H={company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:'',project:''};
   const pre={};
   Object.keys(H).forEach(k=>{ const v=istDef1(k,pk); if(v){ H[k]=v; pre[k]=1; } });
+  if(pk==='istimara'){ H.authorized=IST_AUTHORIZED; pre.authorized=1; }   // «اني المخول (…)» — the consistent form (owner, 2026-11-03)
   return {paper:pk, fmt:'pdf', header:H, photo:null, rows:[], _dirty:false, _pre:pre}; }
+const IST_AUTHORIZED='منتظر ليث خليل';   // the company's authorized representative — Door 1, Door 2 and the WhatsApp kiosks all prefill it
 /* ── the PAPER REGISTRY — one workspace, one entry per legal paper we BUILD ──────────────
    Each paper names its own header fields + table columns; everything else (the OCR feeder,
    the ⤓ fill-down, the review/reject, the draft, the PDF export) is shared. Adding a paper =
@@ -3772,7 +3774,7 @@ let _REP_PHOTO=null;
 async function istRepPhoto(){
   if(_REP_PHOTO!==null) return _REP_PHOTO;
   try{
-    const r=await fetch('assets/rep-photo.jpg'); if(!r.ok) throw 0;
+    const r=await fetch('assets/rep-photo.jpg?v=2'); if(!r.ok) throw 0;
     const b=await r.blob();
     _REP_PHOTO=await new Promise(res=>{ const fr=new FileReader();
       fr.onload=()=>res(fr.result); fr.onerror=()=>res(''); fr.readAsDataURL(b); });

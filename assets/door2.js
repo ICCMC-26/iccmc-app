@@ -176,7 +176,9 @@
   const def1=(k,p)=>has('istDef1')?(istDef1(k,p)||''):'';
   const defs=(k,p)=>has('istDefs')?(istDefs(k,p)||[]):[];
   function freshHeader(){ const H={company:'',company_nat:'',addr:'',purpose:'',stay:'',visatype:'',authorized:'',project:'',to_line:'',intro:'',body:''}, pre={};
-    Object.keys(H).forEach(k=>{ const v=def1(k,'istimara'); if(v){ H[k]=v; pre[k]=1; } }); return {H,pre}; }
+    Object.keys(H).forEach(k=>{ const v=def1(k,'istimara'); if(v){ H[k]=v; pre[k]=1; } });
+    if(has('IST_AUTHORIZED')){ H.authorized=(0,eval)('IST_AUTHORIZED'); pre.authorized=1; }   // the consistent «المخول» name (owner, 2026-11-03)
+    return {H,pre}; }
   function rowFromMember(m){
     const st=m.row_state||'ok';
     return {person_id:m.person_id, passport_no:m.passport_no||'', name:m.name||'', nationality:m.nationality||'', passport_expiry:m.passport_expiry||'',
